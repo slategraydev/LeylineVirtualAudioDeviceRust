@@ -8,9 +8,8 @@ authors = ["Randall Rosas (Slategray)"]
 crate-type = ["cdylib"]
 
 [dependencies]
-windows-drivers = "0.1"
-wdk = "0.1"
-wdk-sys = "0.1"
+wdk = "0.2"
+wdk-sys = "0.2"
 leyline-shared = { path = "../leyline-shared" }
 
 [profile.release]
