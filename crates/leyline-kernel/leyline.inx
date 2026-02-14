@@ -1,0 +1,49 @@
+;
+; leyline.inx - Driver installation template
+;
+
+[Version]
+Signature   = "$Windows NT$"
+Class       = MEDIA
+ClassGuid   = {4d36e96c-e325-11ce-bfc1-08002be10318}
+Provider    = %ManufacturerName%
+CatalogFile = leyline.cat
+DriverVer   = 02/14/2026,1.0.0.0
+PnpLockdown = 1
+
+[SourceDisksNames]
+1 = %DiskName%,,,
+
+[SourceDisksFiles]
+leyline.sys = 1,,
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[Manufacturer]
+%ManufacturerName% = Standard,NT$ARCH$
+
+[Standard.NT$ARCH$]
+%DeviceName% = Leyline_Device, Root\LeylineAudio
+
+[Leyline_Device.NT]
+CopyFiles = Leyline_Device.CopyFiles
+
+[Leyline_Device.CopyFiles]
+leyline.sys
+
+[Leyline_Device.NT.Services]
+AddService = Leyline, 0x00000002, Leyline_Service_Inst
+
+[Leyline_Service_Inst]
+DisplayName   = %ServiceDesc%
+ServiceType   = 1
+StartType     = 3
+ErrorControl  = 1
+ServiceBinary = %13%\leyline.sys
+
+[Strings]
+ManufacturerName = "Randall Rosas (Slategray)"
+DiskName         = "Leyline Audio Installation Disk"
+DeviceName       = "Leyline Audio Virtual Adapter"
+ServiceDesc      = "Leyline Audio Driver Service"

@@ -1,0 +1,8 @@
+[package]
+name = "leyline-shared"
+version = "0.1.0"
+edition = "2021"
+authors = ["Randall Rosas (Slategray)"]
+
+[dependencies]
+# Shared types or GUID support can be added here

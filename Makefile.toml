@@ -1,0 +1,42 @@
+[config]
+skip_core_tasks = true
+
+[tasks.build]
+description = "Build the driver in release mode"
+command = "cargo"
+args = ["wdk", "build", "--profile", "release"]
+
+[tasks.test]
+description = "Run unit tests"
+command = "cargo"
+args = ["test"]
+
+[tasks.package]
+description = "Package the driver"
+command = "cargo"
+args = ["wdk", "package"]
+
+[tasks.install]
+description = "Install the driver using pnputil"
+script = [
+    "pnputil /add-driver crates/leyline-kernel/leyline.inf /install"
+]
+
+[tasks.uninstall]
+description = "Uninstall the driver"
+script = [
+    "pnputil /delete-driver leyline.inf /uninstall"
+]
+
+[tasks.setup-test-signing]
+description = "Enable test signing and reboot (requires admin)"
+script = [
+    "bcdedit /set testsigning on"
+]
+
+[tasks.cert-deploy]
+description = "Deploy test certificate"
+script = [
+    "certutil -addstore root WDRLocalTestCert.cer",
+    "certutil -addstore TrustedPublisher WDRLocalTestCert.cer"
+]

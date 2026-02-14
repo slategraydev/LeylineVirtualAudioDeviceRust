@@ -1,0 +1,22 @@
+[package]
+name = "leyline-kernel"
+version = "0.1.0"
+edition = "2021"
+authors = ["Randall Rosas (Slategray)"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+windows-drivers = "0.1"
+wdk = "0.1"
+wdk-sys = "0.1"
+leyline-shared = { path = "../leyline-shared" }
+
+[profile.release]
+panic = "abort"
+lto = true
+opt-level = "z"
+
+[profile.dev]
+panic = "abort"
