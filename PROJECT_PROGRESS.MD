@@ -21,19 +21,37 @@ This file serves as the definitive log for project status, architectural history
 
 ---
 
-## PROJECT TODO (Session #02 Preparation)
+## SESSION #02
+**Date**: February 14, 2026
+**Status**: APO INFRASTRUCTURE & COM FOUNDATIONS COMPLETE
 
-- [ ] **APO Infrastructure**
-    - [ ] Initialize `leyline-apo` as a C++ project.
-    - [ ] Implement foundational `IAudioProcessingObject` interfaces.
+### Work Completed
+- **APO Initialization**: Established the C++ build environment for `src/APO`.
+- **COM Interface Definition**: Authored `LeylineAPO.idl` defining the `ILeylineAPO` interface and the `CLeylineAPO` coclass.
+- **APO Implementation**: Developed the `CLeylineAPO` class with `IAudioProcessingObject` and `IAudioProcessingObjectRT` boilerplate.
+- **DLL Infrastructure**: Implemented `dllmain.cpp` with `DllGetClassObject` and a custom `CAPOClassFactory`.
+- **Build System**: Created a local `Makefile` for compiling the APO DLL using the WDK toolchain.
+- **GUID Synchronization**: Registered the new APO CLSID in `leyline-shared` for cross-component access.
+- **Meta-Doc Expansion**: Established `TEST_REVIEW.md` and `BUILD_REVIEW.MD` audit files.
+- **Workflow Optimization**: Hardened the `@status.md` workflow to follow a strict hierarchical sync order.
+
+### Architectural Suggestions
+- **APO-HSA Communication**: Consider implementing a private COM interface or a shared memory region for real-time parameter updates from the HSA to the APO.
+- **DSP Modularity**: Prepare `APOProcess` for a modular effect chain to allow the user-mode app to toggle specific processing modules.
+
+---
+
+## PROJECT TODO (Session #03 Preparation)
+
 - [ ] **HSA Foundations**
     - [ ] Initialize `leyline-hsa` as a WinUI 3 application.
     - [ ] Establish basic IOCTL communication with the kernel driver.
 - [ ] **WaveRT Advanced Logic**
-    - [ ] Implement `MmAllocatePagesForMdl` for the audio buffer in `stream.rs`.
+    - [ ] Implement `MmAllocatePagesForMdlEx` for the audio buffer in `stream.rs`.
     - [ ] Map buffer to user-space for zero-copy access.
-- [ ] **Environment Setup**
-    - [ ] Resolve WDK environment variable issues for local `cargo wdk build`.
+- [ ] **APO Refinement**
+    - [ ] Implement actual DSP logic (e.g., gain, simple EQ) in `APOProcess`.
+    - [ ] Add `IAudioSystemEffectsCustomDotNet` or other registration helpers for easy integration.
 
 ---
 *Last Updated: February 14, 2026*

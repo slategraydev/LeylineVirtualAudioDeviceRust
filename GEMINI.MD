@@ -139,6 +139,9 @@ Clock Synchronization: Uses the system's high-precision timestamp to maintain a 
 
 │   └── /Latency             # Automated RTL Utility scripts
 
+├── CODE_REVIEW.md           # Architectural audit
+├── TEST_REVIEW.md           # Testing audit
+├── BUILD_REVIEW.MD          # Build/Environment audit
 ├──.gitignore               # Windows/Rust ignore rules
 
 ├── LICENSE                  # Polyform or Apache 2.0 text
@@ -181,40 +184,39 @@ Variable Management:
 
 Safety: Every `unsafe` block must be preceded by a `// SAFETY:` comment justifying the logic.
 
-4.4 Project Health \& Continuity
+4.4 Environment & Build Workflow
 
-Continuity of project standards, architectural integrity, and the development roadmap is preserved via `CODE_REVIEW.md` and `PROJECT_PROGRESS.MD` in the project root.
+The Leyline development environment is standardized to ensure parity across sessions.
 
-Agent Instruction: Every agent participating in this project must adhere to the following hand-off procedure:
+### Environment Setup
+- **Compiler**: Mount the Enterprise WDK (eWDK) ISO for a self-contained build environment.
+- **LLVM**: `winget install LLVM.LLVM --version 17.0.6` (LLVM 18+ has known ARM64 stability issues).
+- **Rust Tooling**: `cargo-wdk` for packaging and `cargo-make` for task automation.
+- **Command**: `.\LaunchBuildEnv.cmd` must be run before any build task.
 
-1.  **Session Start**: Read `CODE_REVIEW.md` and `PROJECT_PROGRESS.MD` immediately to understand current status, architectural pitfalls, and next steps.
-2.  **PROJECT_PROGRESS.MD Updates**:
-    *   **Keep History**: Never delete previous session entries.
-    *   **Enumerate Sessions**: Add a new entry for the current session (e.g., "SESSION #02").
-    *   **Log Work**: Detail all work completed during the session.
-    *   **Architectural Suggestions**: Add a section highlighting any flawed implementations or architectural improvements discovered.
-    *   **TODO**: Update the project-wide TODO section with the agent's recommended next steps.
-3.  **CODE_REVIEW.md Updates**:
-    *   **Overwrite Review**: Replace the previous code review with a fresh audit of the current state.
-    *   **Standards & Suggestions**: Include specific suggestions for better architectural patterns or professional coding standards to be addressed by the next agent.
+4.5 Project Health & Continuity
 
-This ensures the codebase remains aligned with the technical goals and professional standards defined in `GEMINI.MD` across all sessions.
+Continuity of project standards, architectural integrity, and the development roadmap is preserved via a strict hand-off procedure.
 
-4.5 Technical Evolution \& Reference Research
-
-`GEMINI.MD` is the "Living Constitution" of the project. It must be evolved delicately to maintain soundness.
+### Hand-off & Maintenance Mandate
+Every agent participating in this project MUST adhere to the following maintenance routine:
+1. **Session Start**: Execute the `/status` workflow (`.agent/workflows/status.md`) immediately.
+2. **PROJECT_PROGRESS.MD**: Append a new Session Log with work completed and architectural suggestions.
+3. **CODE_REVIEW.md**: Overwrite with a fresh technical audit of the current state.
+4. **TEST_REVIEW.md / BUILD_REVIEW.MD**: Update with verification and build status.
+5. **GEMINI.MD Sync**: Update Section 3 (Project Structure) if physical files have changed.
 
 ### Reference Audit Mandate
-When starting a task that involves a specific Windows API, DDI, or WaveRT concept, the agent MUST:
-- **Audit References**: Explicitly visit external documentation links mentioned in this spec or the `PROJECT_PROGRESS.MD`.
-- **Verify Assumptions**: Cross-reference current implementation logic with official Microsoft WDK documentation to ensure compliance with WaveRT invariants (e.g., IRQL levels, pool management).
+When starting a task involving a Windows API, DDI, or WaveRT concept, the agent MUST:
+- **Audit References**: Visit external documentation links mentioned in Section 7.
+- **Verify Assumptions**: Cross-reference current logic with official Microsoft WDK documentation.
 
-### Spec Evolution Protocol
-Agents should never aggressively rewrite `GEMINI.MD`. Instead:
-1.  **Identify Gaps**: If the spec is found to be non-comprehensive or incorrect, document the deficiency in `CODE_REVIEW.md` first.
-2.  **Propose Changes**: Propose a "Delicate Update" to the spec within the implementation plan.
-3.  **Soundness Check**: Before committing an update to `GEMINI.MD`, the agent must verify that the new technical details are explicitly backed by WDK references or verified kernel-mode patterns.
-4.  **Project Structure Sync**: Agents MUST update Section 3 (Project Structure) of this document whenever new files, crates, or directories are added or reorganized.
+4.6 Spec Evolution Protocol (The "Constitution")
+
+`GEMINI.MD` is the "Living Constitution" of the project. It MUST be evolved with extreme care.
+- **Delicate Updates**: The spec is updated ONLY for deliberate architectural decisions, protocol shifts, or structure changes.
+- **No Mass Refactors**: Agents are strictly prohibited from performing massive specification or codebase refactors without explicit user approval.
+- **Proposals First**: Identify gaps or deficiencies in `CODE_REVIEW.md` before proposing a delicate update to the spec.
 
 
 

@@ -1,38 +1,44 @@
-# Gemini Project Setup Guide: Leyline Audio Driver
+# Agent Framework Meta-Manual: Continuity & Workflow Automation
 
-This document serves as the "Master Manual" for setting up the specialized development environment and continuity systems that allow Gemini agents to succeed on the Leyline project. It outlines all the living documents, workflows, and protocols established to preserve architectural soundness and session continuity.
+This document outlines the project-agnostic framework designed to "reign in" AI agents and ensure 100% architectural continuity across development sessions. This system uses a combination of "Living Documents," structured hand-offs, and automated status workflows to preserve context and standard compliance.
 
-## 1. Core Living Documents
-These files are the "Memory" and "Constitution" of the project. Every session MUST begin with an audit of these.
+## 1. The Strategy: Automated Alignment
+The core of this framework is the **Sync-on-Entry** pattern. Every agent session begins with a mandatory execution of a status workflow that forces the agent to read and acknowledge the project's current state, technical constraints, and previous architectural decisions.
 
-- **`GEMINI.MD`**: The Technical Specification. Contains the high-level architecture, DCH requirements, and the definitive bibliography of WDK references.
-- **`PROJECT_PROGRESS.MD`**: The session history. Every agent logs their work here, including a session number (e.g., SESSION #01), architectural suggestions, and updated TODO lists.
-- **`CODE_REVIEW.md`**: The current health audit. This is overwritten every session with a fresh review of the code's soundness and professional standards.
+### 1.1 Core Artifacts (The "Memory Bank")
+The framework relies on a hierarchical stack of markdown artifacts in the project root:
+- **`GEMINI.MD`**: The Technical Specification and "Constitution." Defines the product, architecture, and developer protocols.
+- **`PROJECT_PROGRESS.MD`**: session history and chronological work log.
+- **`CODE_REVIEW.md`**: Architectural audit (Overwritten every session to prevent bloat).
+- **`TEST_REVIEW.md`**: verification and test status.
+- **`BUILD_REVIEW.MD`**: Build health and toolchain constraints.
 
-## 2. Automation & Workflows
-To maintain 100% alignment across sessions, the following automation has been configured:
+## 2. Implementation: The Status Workflow
+The primary automation tool is the `/status` workflow, located at `.agent/workflows/status.md`. This file serves as the agent's "Standard Operating Procedure" (SOP) for session alignment.
 
-- **`/status` Workflow**: Located at `.agent/workflows/status.md`.
-    - **Purpose**: Automates the reading of all continuity files.
-    - **Usage**: Agents should be instructed to run this command at the start of any new chat thread.
+### 2.1 Workflow File Structure
+```markdown
+---
+description: Synchronize with the latest project status, standards, and TODOs.
+---
+1. Read [Core Docs in Hierarchical Order]
+2. Perform Reference Audit (Verify Assumptions)
+3. Synthesize Summary (Current Session #, Top TODOs)
+4. Acknowledge Hand-off Mandates
+```
 
-## 3. Critical Protocols
-These mandates are codified in `GEMINI.MD` but are summarized here for setup purposes:
+## 3. The Hand-off Mandate
+To maintain the integrity of this framework, agents are bound by a strict maintenance protocol at the end of every session:
+1. **Log Progress**: Append work to the session log.
+2. **Audit Architecture**: Overwrite the code review with a fresh perspective.
+3. **Verify Health**: Update test and build reviews.
+4. **Delicate Spec Evolution**: Update the "Constitution" (`GEMINI.MD`) only for deliberate architectural decisions or structure changes.
 
-- **Reference Audit Mandate**: Agents must visit and audit external documentation for any technical decision.
-- **Spec Evolution Protocol**: `GEMINI.MD` is never aggressively rewritten; changes are proposed in code reviews and implementation plans before being delicately applied.
-- **Project Structure Sync**: Section 3 of `GEMINI.MD` (Project Structure) MUST be updated whenever the physical file or directory layout changes.
-
-## 4. Setup Steps (For Future Infrastructure Recreation)
-If this project were to be moved or recreated, the following steps were taken by the initial agent (Session #01):
-1. Created the 4-crate Rust workspace (`leyline-kernel`, `leyline-shared`, `leyline-apo`, `leyline-hsa`).
-2. Established `GEMINI.MD` with specialized "Agent Context" notes in the bibliography.
-3. Created the `/status` workflow to force-sync agent state.
-4. Formalized the `PROJECT_PROGRESS.MD` and `CODE_REVIEW.md` trackers in the project root.
-5. Implemented professional ASCII/Block headers to ensure code readability for kernel-mode inspection.
-
-## 5. Post-Completion Log (Future)
-*This section will be populated upon final project delivery to outline the chronological evolution of the setup from boilerplate to production.*
+## 4. Why This Works
+- **Context Preservation**: Prevents agents from "hallucinating" the project state or ignoring established patterns.
+- **Project Agnostic**: This structure can be applied to any codebase (Rust, C++, Python, etc.) by simply adjusting the technical specification.
+- **Developer Reference**: Provides a clear, chronological history for human developers to audit agent performance and project evolution.
 
 ---
-*Last Updated: February 14, 2026*
+*Framework Version: 1.0.0*
+*Last Refined: February 14, 2026*

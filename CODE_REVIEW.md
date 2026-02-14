@@ -1,29 +1,28 @@
 # Professional Code Review: Leyline Audio Driver
 
 **Date**: February 14, 2026  
-**Status**: INITIAL BOILERPLATE COMPLETE  
+**Status**: APO INFRASTRUCTURE AUDIT COMPLETE  
 **Reviewer**: Antigravity (Advanced Agentic Coding)
 
 ## Project Audit Summary
-The codebase has been successfully transitioned to professional, enterprise-grade standards. The kernel modules now feature robust documentation, hoisted variables, and lock-free concurrency patterns.
+The project has successfully reached the end of Session #02. The core addition is the C++ Audio Processing Object (APO) infrastructure, which provides the user-mode signal processing path.
 
 | Component | Status | Verification |
 | :--- | :---: | :--- |
-| **`leyline-kernel`** | ✅ | Standardized block headers and constant-driven logic complete. |
-| **`leyline-shared`** | ✅ | Registry IDs and IOCTL mapping initialized. |
-| **Concurrency** | ✅ | `RingBuffer` logic is lock-free and ISR-safe. |
-| **Memory** | ✅ | RAII implemented via `Drop`; pointer stability ensured via `Box`. |
+| **`src/APO`** | ✅ | Boilerplate for `IAudioProcessingObject` and `IAudioProcessingObjectRT` is solid and standard-compliant. |
+| **`leyline-shared`** | ✅ | GUID synchronization between Rust and C++ components is verified. |
+| **Build System** | ✅ | Local Makefile correctly targets the WDK/SDK toolchain for APO compilation. |
+| **Continuity** | ✅ | `GEMINI.MD` and `PROJECT_PROGRESS.MD` have been updated to reflect Session #02 work. |
 
-## Suggestions for Architectural & Professional Standards
-To improve the codebase in future sessions, the following patterns should be considered:
+## Audit of APO Implementation
+1.  **COM Identity**: The APO is now correctly identified by its own CLSID `{C8D3E4F5-B6A7-4A2D-A1A3-1A2B3C4D5E6F}`, separating it from the adapter hardware.
+2.  **Safety & Real-Time**: The `APOProcess` implementation is currently a pass-through. Future work must ensure that any DSP logic added remains non-blocking and uses only non-pageable memory.
+3.  **Variable Management**: Variable hoisting has been applied in `CLeylineAPO::APOProcess` and the class factory to maintain the "enterprise-grade" C-style standards requested in `GEMINI.MD`.
 
-1.  **Idiomatic Error Mapping**: Transition from raw `NTSTATUS` returns to a kernel-friendly `Result<T, DriverError>` type to improve code readability and error propagation.
-2.  **Modular Configuration**: As the number of constants grows, consider moving them from `lib.rs` into a dedicated `config` module within the kernel crate.
-3.  **Kernel Unit Testing**: Integrate a mockable environment or a kernel-mode test runner (like `ktest`) to verify low-level arithmetic in `buffer.rs` without requiring a full deployment.
-4.  **MMCSS Awareness**: Prepare the stream logic for Multimedia Class Scheduler Service (MMCSS) registration to ensure high-priority processing in the audio engine.
-
-## Note for Next Session
-The foundation is solid. The primary focus of the next code review should be on the **APO integration** and the safety of **user-mode buffer mapping**.
+## Suggestions for Next Session (Session #03)
+1.  **HSA Communication**: Implement the IOCTL bridge in the HSA to allow the user to control APO parameters.
+2.  **Zero-Copy Mapping**: Prioritize the `MmAllocatePagesForMdlEx` implementation in the kernel to allow the APO to see the same buffer as the driver.
+3.  **Exception Handling**: Ensure the C++ APO uses `/EHa` (which is in the Makefile) but avoid actual C++ exceptions in the real-time path to prevent jitter.
 
 ---
-*End of Fresh Audit*
+*End of Fresh Audit for Session #02*

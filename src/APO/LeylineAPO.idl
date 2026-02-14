@@ -1,0 +1,35 @@
+import "oaidl.idl";
+import "ocidl.idl";
+import "audioenginebaseapo.idl";
+
+[
+    object,
+    uuid(D9A2A1A3-C7B1-4A2D-1A2B-3C4D5E6F77B8),
+    helpstring("ILeylineAPO Interface"),
+    pointer_default(unique)
+]
+interface ILeylineAPO : IUnknown
+{
+};
+
+[
+    uuid(B877B8A1-A1A3-4A2D-A2A1-3C4D5E6F77B8),
+    version(1.0),
+    helpstring("Leyline Audio Processing Object Library")
+]
+library LeylineAPOLib
+{
+    importlib("stdole2.tlb");
+
+    [
+        uuid(C8D3E4F5-B6A7-4A2D-A1A3-1A2B3C4D5E6F),
+        helpstring("LeylineAPO Class")
+    ]
+    coclass LeylineAPO
+    {
+        [default] interface ILeylineAPO;
+        interface IAudioProcessingObject;
+        interface IAudioProcessingObjectRT;
+        interface IAudioSystemEffects;
+    };
+};

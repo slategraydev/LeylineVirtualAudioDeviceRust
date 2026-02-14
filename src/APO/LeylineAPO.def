@@ -1,0 +1,5 @@
+LIBRARY "LeylineAPO"
+
+EXPORTS
+    DllCanUnloadNow     PRIVATE
+    DllGetClassObject   PRIVATE
