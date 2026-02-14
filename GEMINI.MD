@@ -12,7 +12,26 @@ Framework: Rust-native WaveRT (Wave Real-Time)
 
 
 
-1\. Professional Licensing \& README Standards
+## Current Status: Building Phase 1 (Core Foundations)
+
+### Completed ✅
+- **[x] Project Archetype**: All directory "slots" established (APO, HSA, Test, Kernel).
+- **[x] IP Protection**: Mandatory professional headers applied to all source files.
+- **[x] Kernel Core**: `DriverEntry` and `DispatchDeviceControl` (IOCTL) foundations implemented.
+- **[x] WaveRT Scaffolding**: `MiniportWaveRT` and `MiniportWaveRTStream` structures with interface placeholders.
+- **[x] Shared Logic**: Ring Buffer implementation and cross-crate GUID/IOCTL definitions.
+- **[x] Build Tooling**: Comprehensive `Makefile.toml` for `cargo-make` workflow.
+
+### In Progress 🏗️
+- **[/] Trait Implementation**: Mapping foundational structures to `wdk` traits.
+- **[/] Shared Constants**: Expanding `leyline-shared` with driver-specific GUIDs.
+
+### Upcoming 📅
+- **[ ] APO Component**: Implementation of C++ Audio Processing Objects for effects.
+- **[ ] HSA Integration**: Development of the WinUI 3 Hardware Support App.
+- **[ ] Advanced WaveRT**: MMCSS coordination and low-latency periodicity tuning.
+
+1. Professional Licensing & README Standards
 
 As a solo developer project published on GitHub, the licensing must balance public transparency with your ownership rights.
 
@@ -148,6 +167,55 @@ SAL 2.0: Use \_In\_, \_Out\_, and \_IRQL\_requires\_max\_ annotations for all DD
 
 A specialized .gitignore to prevent leaking private certificates or polluting the repo with build artifacts.
 
+4.3 Coding and Commenting Standards
+
+To maintain professional, enterprise-grade quality, the following standards apply:
+
+Block Headers: Every major section of functionality (traits, implementation blocks, dispatch routines) must be preceded by a distinct block header with a summary of its purpose.
+
+Inline Comments: Focus on explaining the "why" and handling of complex logic or safety invariants. Do not state the obvious "what."
+
+Variable Management:
+- No hardcoded values; use named constants defined at the top of the file or in `leyline-shared`.
+- Define all local variables at the top of their respective functions (C-style) for maximum clarity in kernel-mode inspection.
+
+Safety: Every `unsafe` block must be preceded by a `// SAFETY:` comment justifying the logic.
+
+4.4 Project Health \& Continuity
+
+Continuity of project standards, architectural integrity, and the development roadmap is preserved via `CODE_REVIEW.md` and `PROJECT_PROGRESS.MD` in the project root.
+
+Agent Instruction: Every agent participating in this project must adhere to the following hand-off procedure:
+
+1.  **Session Start**: Read `CODE_REVIEW.md` and `PROJECT_PROGRESS.MD` immediately to understand current status, architectural pitfalls, and next steps.
+2.  **PROJECT_PROGRESS.MD Updates**:
+    *   **Keep History**: Never delete previous session entries.
+    *   **Enumerate Sessions**: Add a new entry for the current session (e.g., "SESSION #02").
+    *   **Log Work**: Detail all work completed during the session.
+    *   **Architectural Suggestions**: Add a section highlighting any flawed implementations or architectural improvements discovered.
+    *   **TODO**: Update the project-wide TODO section with the agent's recommended next steps.
+3.  **CODE_REVIEW.md Updates**:
+    *   **Overwrite Review**: Replace the previous code review with a fresh audit of the current state.
+    *   **Standards & Suggestions**: Include specific suggestions for better architectural patterns or professional coding standards to be addressed by the next agent.
+
+This ensures the codebase remains aligned with the technical goals and professional standards defined in `GEMINI.MD` across all sessions.
+
+4.5 Technical Evolution \& Reference Research
+
+`GEMINI.MD` is the "Living Constitution" of the project. It must be evolved delicately to maintain soundness.
+
+### Reference Audit Mandate
+When starting a task that involves a specific Windows API, DDI, or WaveRT concept, the agent MUST:
+- **Audit References**: Explicitly visit external documentation links mentioned in this spec or the `PROJECT_PROGRESS.MD`.
+- **Verify Assumptions**: Cross-reference current implementation logic with official Microsoft WDK documentation to ensure compliance with WaveRT invariants (e.g., IRQL levels, pool management).
+
+### Spec Evolution Protocol
+Agents should never aggressively rewrite `GEMINI.MD`. Instead:
+1.  **Identify Gaps**: If the spec is found to be non-comprehensive or incorrect, document the deficiency in `CODE_REVIEW.md` first.
+2.  **Propose Changes**: Propose a "Delicate Update" to the spec within the implementation plan.
+3.  **Soundness Check**: Before committing an update to `GEMINI.MD`, the agent must verify that the new technical details are explicitly backed by WDK references or verified kernel-mode patterns.
+4.  **Project Structure Sync**: Agents MUST update Section 3 (Project Structure) of this document whenever new files, crates, or directories are added or reorganized.
+
 
 
 Code snippet
@@ -254,131 +322,49 @@ Unreported Latency: Validates that GetPosition and GetHWLatency accurately refle
 
 
 
-7\. Sources and Technical References
+7. Sources and Technical References
 
-1 Microsoft Learn - DCH Design Principles \& Best Practices
+This section provides the exhaustive foundational knowledge required for this project. Agents must prioritize these resources for all technical decisions.
 
-2 Microsoft Learn - APIValidator for Universal Drivers
+### 7.1 Core WaveRT Architecture (Microsoft Learn)
+- [Introduction to Port Class](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/introduction-to-port-class) - **Agent Context**: Understanding the relationship between PortCls and the Miniport.
+- [Introducing the WaveRT Port Driver](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/introducing-the-wavert-port-driver) - **Agent Context**: Core logic for real-time audio streaming.
+- [Understanding the WaveRT Port Driver](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/understanding-the-wavert-port-driver) - **Agent Context**: Deep dive into shared buffer management.
+- [Developing a WaveRT Miniport Driver](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/developing-a-wavert-miniport-driver) - **Agent Context**: Tactical implementation guide for `IMiniportWaveRT`.
+- [WaveRT Miniport Driver Interfaces](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/wavert-miniport-driver) - **Agent Context**: Reference for mandatory COM-like interfaces.
+- [IMiniportWaveRTStream Interface](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/portcls/nn-portcls-iminiportwavertstream) - **Agent Context**: Direct DDI reference for stream control.
 
-3 Microsoft Learn - Introduction to Port Class Drivers
+### 7.2 Windows Audio Engineering (Low Latency & Universal)
+- [DCH Design Principles](https://learn.microsoft.com/en-us/windows-hardware/drivers/develop/dch-compliant-driver-package-example) - **Agent Context**: Ensuring the driver is Declarative, Componentized, and HSA-ready.
+- [Universal Windows Drivers for Audio](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/audio-universal-drivers) - **Agent Context**: Requirements for DCH and modern driver packaging.
+- [ApiValidator Tool](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/apivalidator) - **Agent Context**: Verifying that all DDI calls are valid for Universal Drivers.
+- [Low Latency Audio Guidelines](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/low-latency-audio) - **Agent Context**: Implementing `IAudioClient3` small-buffer paths (1ms-2ms).
+- [Audio Processing Object (APO) Architecture](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/audio-processing-object-architecture) - **Agent Context**: Foundation for the `leyline-apo` component.
+- [Glitch Reporting for Audio Streams](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/glitch-reporting-for-offloaded-audio-streams) - **Agent Context**: Using ETW events to report FIFA/buffer glitches back to the OS.
 
-4 Microsoft Learn - Introduction to WaveRT Port Driver
+### 7.3 Rust Driver Framework & Standards
+- [Windows Drivers in Rust (Official Platform)](https://github.com/microsoft/windows-drivers-rs) - **Agent Context**: Primary repo for `wdk` and `wdk-sys` crates.
+- [Rust Driver Samples](https://github.com/microsoft/Windows-rust-driver-samples) - **Agent Context**: Reference implementations for `no_std` kernel logic.
+- [Ferrocene Licensing & Headers](https://public-docs.ferrocene.dev/main/licensing.html) - **Agent Context**: Standards for professional copyright headers in safety-critical Rust.
+- [Linux Kernel Rust Safety Standards](https://docs.kernel.org/rust/general-information.html) - **Agent Context**: Best practices for `// SAFETY:` comments and `unsafe` documentation.
 
-5 Microsoft Learn - WaveRT Buffer Management \& Direct Access
+### 7.4 Certification & Hardware Quality (WHQL/HLK)
+- [WHQL Certification Requirements (NicSRS)](https://www.nicsrs.com/blog/what-is-whql-certification-and-how-to-obtain-it) - **Agent Context**: High-level overview of the certification process.
+- [Optimizing WHQL Workflow (DevelopEx)](https://developex.com/blog/whql-certification-workflow-optimization/) - **Agent Context**: Specific strategies for virtual/software-only drivers.
+- [Fixing Unreported Latency in HLK](https://learn.microsoft.com/en-us/windows-hardware/test/hlk/testref/audio-reliability-test-for-wavert-drivers) - **Agent Context**: Accurate `GetPosition` reporting to prevent HLK failure.
+- [HVCI Compatibility Requirements](https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-hvci-enablement) - **Agent Context**: Memory integrity and Virtualization-Based Security (VBS) compliance.
 
-6 Microsoft Learn - Driver Store Isolation (InfVerif /h)
+### 7.5 Advanced Pro-Audio & Comparison
+- [WASAPI Exclusive Mode (HydrogenAudio)](https://wiki.hydrogenaudio.org/index.php?title=WASAPI) - **Agent Context**: Technical breakdown of bit-transparent playback paths.
+- [Virtual ASIO to ASIO Architecture (Sonarworks)](https://support.sonarworks.com/hc/en-us/articles/4404011605906--WIN-Virtual-ASIO-to-ASIO-driver-ASIO-to-ASIO) - **Agent Context**: Competitive analysis for bridging WASAPI and ASIO.
+- [Building a Virtual Audio Cable (LevelUp)](https://levelup.gitconnected.com/building-a-virtual-audio-cable-with-a-custom-wdm-driver-a-guide-to-kernel-mode-audio-device-25931fac999d) - **Agent Context**: Practical implementation logic for ring buffers and WaveRT pins.
 
-7 LevelUp - Implementing Ring Buffers in WDM Drivers
+### 7.6 Environment & Build Tools
+- [eWDK and WDK Downloads](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk) - **Agent Context**: Required toolchains for building the `.sys` and `.inf` packages.
+- [Test-Signing Boot Configuration](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/the-test-signing-boot-configuration) - **Agent Context**: Setting up targets for unverified driver execution.
 
-8 Microsoft Learn - IMiniportWaveRTStream Interface
-
-9 Microsoft Learn - WaveRT Miniport Best Practices
-
-10 Microsoft Q\&A - Fixing Unreported Latency Failures in HLK
-
-11 Sonarworks - WASAPI Exclusive Mode vs ASIO Architecture
-
-12 Microsoft Learn - Low Latency Audio DDI Standards (Windows 10/11)
-
-13 Microsoft Learn - FSLogix Profile Persistence for Multi-session
-
-14 Microsoft Learn - Windows Enterprise Multi-session FAQ
-
-15 Microsoft Learn - Managing Drivers via Intune \& SCCM
-
-16 Microsoft Learn - HVCI Driver Compatibility Requirements
-
-17 Microsoft Tech Community - InfVerif /h Rule Enforcement (25H2)
-
-18 Microsoft Learn - Driver Package Isolation Validation
-
-19 Steinberg SDK - Legacy Licensing Constraints
-
-20 Microsoft Learn - Glitch Detection via FIFO Interrupts
-
-21 Wikipedia - Audio Fidelity Testing for Windows Logo
-
-22 NicSRS - WHQL Certification Requirements 2025
-
-23 DevelopEx - Optimizing WHQL Workflow for Virtual Drivers
-
-24 Microsoft Learn - eWDK and VS Build Tool Requirements
-
-25 LevelUp - Cross-Pin Synchronization in WaveRT Drivers
-
-26 Microsoft GitHub - windows-drivers-rs (Official Platform)
-
-27 Microsoft Learn - The Test-Signing Boot Configuration
-
-12 Microsoft Learn - WASAPI Exclusive Mode Low Latency API
-
-HydrogenAudio - Bit Transparency in WASAPI Exclusive
-
-Ferrocene Developers - Professional Rust Copyright Header Standards
-
-Linux Kernel Docs - Rust Safety Documentation Standards
-
-Works cited
-
-Universal Windows Drivers for Audio - Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/audio-universal-drivers
-
-Universal Windows Drivers for Audio - GitHub, accessed February 14, 2026, https://github.com/MicrosoftDocs/windows-driver-docs/blob/staging/windows-driver-docs-pr/audio/audio-universal-drivers.md
-
-Introduction to Port Class - Windows drivers | Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/introduction-to-port-class
-
-Introducing the WaveRT Port Driver - Windows - Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/introducing-the-wavert-port-driver
-
-Understanding the WaveRT Port Driver - Windows - Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/understanding-the-wavert-port-driver
-
-Sample Audio Drivers - Windows drivers | Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/sample-audio-drivers
-
-A Guide to Kernel Mode Audio Device Driver Development in ..., accessed February 14, 2026, https://levelup.gitconnected.com/building-a-virtual-audio-cable-with-a-custom-wdm-driver-a-guide-to-kernel-mode-audio-device-25931fac999d
-
-WaveRT Miniport Driver - Windows - Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/wavert-miniport-driver
-
-Developing a WaveRT Miniport Driver - Windows drivers | Microsoft ..., accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/developing-a-wavert-miniport-driver
-
-window development - Microsoft Q\&A, accessed February 14, 2026, https://learn.microsoft.com/en-us/answers/questions/5665323/window-development
-
-\[WIN] Virtual ASIO to ASIO driver (ASIO to ASIO) - Sonarworks Support, accessed February 14, 2026, https://support.sonarworks.com/hc/en-us/articles/4404011605906--WIN-Virtual-ASIO-to-ASIO-driver-ASIO-to-ASIO
-
-Low Latency Audio - Windows drivers | Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/low-latency-audio
-
-Merging Audio Device - MAD, accessed February 14, 2026, https://www.merging.com/products/merging\_audio\_device
-
-Windows Enterprise multi-session FAQ - Azure | Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/azure/virtual-desktop/windows-multisession-faq
-
-Allowing more than 2 users to connect to Windows Enterprise Multi Session through AVD, accessed February 14, 2026, https://learn.microsoft.com/en-au/answers/questions/5642423/allowing-more-than-2-users-to-connect-to-windows-e
-
-Memory integrity and VBS enablement - Microsoft, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-hvci-enablement
-
-Driver Isolation Ruleset Changes for WHCP and Attestation Submissions, accessed February 14, 2026, https://techcommunity.microsoft.com/blog/hardware-dev-center/driver-isolation-ruleset-changes-for-whcp-and-attestation-submissions/4461580
-
-Microsoft commits to making Windows drivers better through strict WHCP policies - Neowin, accessed February 14, 2026, https://www.neowin.net/news/microsoft-commits-to-making-windows-drivers-better-through-strict-whcp-policies/
-
-Microsoft Ignite: Windows driver development news - NTDEV, accessed February 14, 2026, https://community.osr.com/t/microsoft-ignite-windows-driver-development-news/59923
-
-ACX Streaming - Windows drivers | Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/acx-streaming
-
-WHQL Testing - Wikipedia, accessed February 14, 2026, https://en.wikipedia.org/wiki/WHQL\_Testing
-
-What Is WHQL Certification and How to Obtain It?, accessed February 14, 2026, https://www.nicsrs.com/blog/what-is-whql-certification-and-how-to-obtain-it
-
-WHQL Certification: Workflow \& Optimization (Part 2) - Developex, accessed February 14, 2026, https://developex.com/blog/whql-certification-workflow-optimization/
-
-Download the Windows Driver Kit (WDK) - Microsoft Learn, accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk
-
-A list of open-source C++ libraries - cppreference.com, accessed February 14, 2026, https://en.cppreference.com/w/cpp/links/libs.html
-
-microsoft/windows-drivers-rs: Platform that enables ... - GitHub, accessed February 14, 2026, https://github.com/microsoft/windows-drivers-rs
-
-microsoft/Windows-rust-driver-samples: Rust port of the ... - GitHub, accessed February 14, 2026, https://github.com/microsoft/Windows-rust-driver-samples
-
-Virtual Audio Driver SDK for Windows 10 and 11 - Virtual Audio Cable, accessed February 14, 2026, https://www.thesycon.de/eng/virtual\_audiodriver.shtml
-
-Audio Processing Object Architecture - Windows drivers | Microsoft ..., accessed February 14, 2026, https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/audio-processing-object-architecture
-
-WHQL Certification: Benefits \& Test Lab Setup (Part 1) - Developex, accessed February 14, 2026, https://developex.com/blog/whql-certification-setup/
+---
+*Comprehensive Audit & Reference Mapping Complete: February 14, 2026*
 
 
 

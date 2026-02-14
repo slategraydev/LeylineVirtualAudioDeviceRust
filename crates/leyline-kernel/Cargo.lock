@@ -289,6 +289,7 @@ version = "0.1.0"
 dependencies = [
  "leyline-shared",
  "wdk",
+ "wdk-alloc",
  "wdk-sys",
 ]
 
@@ -664,6 +665,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e255fa09cb7395c5f9b8c72831347c9b77aa51fc66c3f44eb5d097a44122e9f"
 dependencies = [
  "wdk-build",
+ "wdk-sys",
+]
+
+[[package]]
+name = "wdk-alloc"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00c3180aa54fa2e30ecfd52a9e40210e634c09f760658cf8793ef0bf2ee7d917"
+dependencies = [
  "wdk-sys",
 ]
 

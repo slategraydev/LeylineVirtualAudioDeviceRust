@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 wdk = "0.2"
 wdk-sys = "0.2"
+wdk-alloc = "0.2"
 leyline-shared = { path = "../leyline-shared" }
 
 [profile.release]
