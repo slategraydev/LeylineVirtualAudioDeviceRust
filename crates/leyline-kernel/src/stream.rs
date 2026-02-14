@@ -5,9 +5,8 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
-#![no_std]
-
 use crate::buffer::RingBuffer;
+use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
 // ============================================================================
@@ -32,23 +31,29 @@ const KSSTATE_RUN: i32 = 3;
 pub struct MiniportWaveRTStream {
     buffer: RingBuffer,
     state: i32,
-    format: *mut KSDATAFORMAT,
+    _format: PVOID,
+    mdl: PMDL,
+    mapping: PVOID,
 }
 
 // ============================================================================
 // WaveRT Stream Implementation
 // ============================================================================
 // Domain logic for stream state control, position reporting, and
-// resource management.
+// Resource management for audio streams.
+
+// Resource management for audio streams.
 
 impl MiniportWaveRTStream {
     /// # Safety
-    /// The caller must ensure the buffer pointer is valid for the given size.
-    pub unsafe fn new(buffer_ptr: *mut u8, size: usize, format: *mut KSDATAFORMAT) -> Self {
+    /// The caller must ensure the format pointer is valid.
+    pub unsafe fn new(format: PVOID) -> Self {
         Self {
-            buffer: RingBuffer::new(buffer_ptr, size),
+            buffer: RingBuffer::new(core::ptr::null_mut(), 0),
             state: KSSTATE_STOP,
-            format,
+            _format: format,
+            mdl: core::ptr::null_mut(),
+            mapping: core::ptr::null_mut(),
         }
     }
 
@@ -89,14 +94,95 @@ impl MiniportWaveRTStream {
         STATUS_SUCCESS
     }
 
-    /// Allocates kernel memory for the audio buffer.
+    /// Allocates kernel memory for the audio buffer using MDLs.
     pub fn allocate_audio_buffer(
         &mut self,
-        _requested_size: usize,
-        _audio_buffer_mdl: *mut PMDL,
+        requested_size: usize,
+        audio_buffer_mdl: *mut PMDL,
     ) -> NTSTATUS {
-        // Future: Direct Memory Access (DMA) buffer allocation.
+        // Hoist local variables
+        let low_address: PHYSICAL_ADDRESS;
+        let mut high_address: PHYSICAL_ADDRESS;
+        let skip_bytes: PHYSICAL_ADDRESS;
+        let total_bytes: u64;
+
+        if audio_buffer_mdl.is_null() {
+            return STATUS_INVALID_PARAMETER;
+        }
+
+        total_bytes = requested_size as u64;
+
+        // SAFETY: Initialize physical address range for allocation.
+        unsafe {
+            low_address = core::mem::zeroed();
+            high_address = core::mem::zeroed();
+            high_address.QuadPart = 0xFFFFFFFF; // 4GB range
+            skip_bytes = core::mem::zeroed();
+        }
+
+        // SAFETY: MmAllocatePagesForMdlEx allocates physical pages for the buffer.
+        unsafe {
+            self.mdl = MmAllocatePagesForMdlEx(
+                low_address,
+                high_address,
+                skip_bytes,
+                total_bytes,
+                _MEMORY_CACHING_TYPE::MmCached,
+                MM_ALLOCATE_FULLY_REQUIRED,
+            );
+        }
+
+        if self.mdl.is_null() {
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
+        // SAFETY: Map the MDL to a system virtual address for driver access.
+        unsafe {
+            self.mapping = MmMapLockedPagesSpecifyCache(
+                self.mdl,
+                0, // KernelMode
+                _MEMORY_CACHING_TYPE::MmCached,
+                core::ptr::null_mut(),
+                0,
+                _MM_PAGE_PRIORITY::NormalPagePriority as u32,
+            );
+        }
+
+        if self.mapping.is_null() {
+            unsafe {
+                MmFreePagesFromMdl(self.mdl);
+                IoFreeMdl(self.mdl);
+                self.mdl = core::ptr::null_mut();
+            }
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
+        // Rebase the ring buffer to the new mapping
+        unsafe {
+            self.buffer.rebase(self.mapping as *mut u8, requested_size);
+            *audio_buffer_mdl = self.mdl;
+        }
+
         STATUS_SUCCESS
+    }
+
+    /// Maps the audio buffer to the specified process's user address space.
+    pub fn map_user_buffer(&mut self, _process: PEPROCESS) -> *mut u8 {
+        if self.mdl.is_null() {
+            return core::ptr::null_mut();
+        }
+
+        // SAFETY: Map the MDL to user-space for zero-copy access from the APO.
+        unsafe {
+            MmMapLockedPagesSpecifyCache(
+                self.mdl,
+                1, // UserMode
+                _MEMORY_CACHING_TYPE::MmCached,
+                core::ptr::null_mut(),
+                0,
+                _MM_PAGE_PRIORITY::NormalPagePriority as u32,
+            ) as *mut u8
+        }
     }
 
     /// Returns the hardware latency estimate for the stream.
@@ -115,10 +201,15 @@ impl MiniportWaveRTStream {
 // ============================================================================
 impl Drop for MiniportWaveRTStream {
     fn drop(&mut self) {
-        // SAFETY: The buffer was allocated with ExAllocatePool2 in
-        // MiniportWaveRT::new_stream using the "LLAD" tag.
-        unsafe {
-            ExFreePoolWithTag(self.buffer.get_ptr() as PVOID, u32::from_be_bytes(*b"LLAD"));
+        if !self.mdl.is_null() {
+            // SAFETY: Clean up MDL and mapping.
+            unsafe {
+                if !self.mapping.is_null() {
+                    MmUnmapLockedPages(self.mapping, self.mdl);
+                }
+                MmFreePagesFromMdl(self.mdl);
+                IoFreeMdl(self.mdl);
+            }
         }
     }
 }

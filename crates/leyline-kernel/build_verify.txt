@@ -1,0 +1,26 @@
+[32m INFO[0m Building package leyline-kernel
+warning: constant `POOL_TAG` is never used
+  --> src\lib.rs:29:7
+   |
+29 | const POOL_TAG: u32 = u32::fr...
+   |       ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: constant `DEFAULT_BUFFER_SIZE` is never used
+  --> src\lib.rs:35:7
+   |
+35 | const DEFAULT_BUFFER_SIZE: us...
+   |       ^^^^^^^^^^^^^^^^^^^
+
+warning: field `format` is never read
+  --> src\stream.rs:34:5
+   |
+31 | pub struct MiniportWaveRTStream {
+   |            -------------------- field in this struct
+...
+34 |     format: PVOID,
+   |     ^^^^^^
+
+warning: `leyline-kernel` (lib) generated 3 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.34s

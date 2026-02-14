@@ -41,17 +41,35 @@ This file serves as the definitive log for project status, architectural history
 
 ---
 
-## PROJECT TODO (Session #03 Preparation)
+## SESSION #03
+**Date**: February 14, 2026
+**Status**: WAVERT ADVANCED LOGIC & HSA FOUNDATIONS COMPLETE
+**Toolchain Hardening**: Established `TOOLCHAIN_REVIEW.md` for environment management.
 
-- [ ] **HSA Foundations**
-    - [ ] Initialize `leyline-hsa` as a WinUI 3 application.
-    - [ ] Establish basic IOCTL communication with the kernel driver.
-- [ ] **WaveRT Advanced Logic**
-    - [ ] Implement `MmAllocatePagesForMdlEx` for the audio buffer in `stream.rs`.
-    - [ ] Map buffer to user-space for zero-copy access.
-- [ ] **APO Refinement**
+### Work Completed
+- **WaveRT Advanced Logic**: Implemented MDL-based buffer allocation using `MmAllocatePagesForMdlEx` in `stream.rs`.
+- **Zero-Copy Architecture**: Developed user-space mapping logic (`map_user_buffer`) to share driver buffers with the APO.
+- **HSA Foundations**: Initialized the `leyline-hsa` WinUI 3 project and implemented a C# `DriverBridge` using P/Invoke for IOCTL communication.
+- **Kernel Verification**: Full binary build (`.sys`) succeeded using `cargo-wdk`. Resolved all 19+ compilation errors in `stream.rs` and `lib.rs`.
+- **HSA Build**: Successfully compiled the WinUI 3 project using .NET 8.0 SDK.
+- **Toolchain Resolution**: Installed `cargo-wdk`, `cargo-make`, and .NET 8.0 SDK via winget.
+
+### Architectural Suggestions
+- **User-Space Memory Cleanup**: Ensure the APO correctly unmaps the user-space view before the driver frees the MDL to avoid stale mappings.
+- **HSA Polling vs Events**: Transition the HSA status check from basic polling to a kernel-event-based notification system for better efficiency.
+
+---
+
+## PROJECT TODO (Session #04 Preparation)
+
+- [ ] **APO Core Implementation**
     - [ ] Implement actual DSP logic (e.g., gain, simple EQ) in `APOProcess`.
-    - [ ] Add `IAudioSystemEffectsCustomDotNet` or other registration helpers for easy integration.
+    - [ ] Integrate the zero-copy buffer mapped from the kernel driver.
+- [ ] **HSA Expansion**
+    - [ ] Add real-time level meters to the UI using the shared audio buffer data.
+    - [ ] Implement configuration persistence (saving settings to the registry).
+- [ ] **Toolchain Automation**
+    - [ ] Develop a PowerShell script to automate the setting of `LIBCLANG_PATH` and PATH updates based on `TOOLCHAIN_REVIEW.md`.
 
 ---
 *Last Updated: February 14, 2026*

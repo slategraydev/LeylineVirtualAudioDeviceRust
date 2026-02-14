@@ -75,6 +75,20 @@ Alternative (Permissive): If you prefer standard Open Source, use Apache License
 
 
 
+# Leyline Audio Driver: High-Performance Virtual Audio System
+
+## 0. Product North Star (The End Goal) [CRITICAL]
+The ultimate objective of this project is to deliver a **Production-Grade, High-Performance Virtual Audio Driver** for Windows 10/11. 
+- **Core Product**: A WDM-based WaveRT driver supporting zero-copy audio buffering.
+- **Physical Endpoints**: MUST expose exactly **Two Discrete Audio Endpoints** (e.g., "Leyline Input" and "Leyline Output") capable of professional-grade latency (<10ms).
+- **Control Interface**: A modern WinUI 3 Hardware Support App (HSA) for real-time routing and monitoring.
+- **Convergence**: All development sessions MUST progress directly toward this integrated system. Agents are forbidden from "wandering" into unrelated features or abstractions that do not serve this specific endgoal.
+
+## 1. Technical Specification Overview
+This specification is the "Sacrosanct Truth" of the project. Every line of code and every test must align 1:1 with these requirements.
+
+
+
 2\. Core Architecture: Rust-Powered WaveRT
 
 The Leyline Audio Driver is a software-only virtual adapter utilizing the WaveRT (Wave Real-Time) port-miniport architecture. This is the gold standard for modern, glitch-resilient Windows audio.
@@ -142,7 +156,15 @@ Clock Synchronization: Uses the system's high-precision timestamp to maintain a 
 ├── CODE_REVIEW.md           # Architectural audit
 ├── TEST_REVIEW.md           # Testing audit
 ├── BUILD_REVIEW.MD          # Build/Environment audit
+├── TOOLCHAIN_REVIEW.md      # Toolchain & PATH management [NEW]
 ├──.gitignore               # Windows/Rust ignore rules
+
+### Core Developer Protocols: Zero-Warning Policy [MANDATORY]
+All agents MUST ensure that both **errors and warnings** are addressed before a session ends. 
+- **Warnings are technical debt**: They must be resolved. The "0 Warnings" message in the final build output is the only acceptable state.
+- **Verification Proof Mandate**: Agents MUST NOT simply state "build succeeded." They MUST explicitly run a verification command (e.g., `Select-String -Pattern "warning"`) on the build log and confirm the result is empty.
+- **Artifact Update Mandate**: Session artifacts (PROJECT_PROGRESS, REVIEW files) MUST ONLY be updated once the project builds with zero errors and zero warnings.
+- **Exception**: Truly unavoidable warnings (e.g., third-party SDK bugs) MUST be documented in `BUILD_REVIEW.MD` with a technical justification.
 
 ├── LICENSE                  # Polyform or Apache 2.0 text
 
@@ -211,12 +233,19 @@ When starting a task involving a Windows API, DDI, or WaveRT concept, the agent 
 - **Audit References**: Visit external documentation links mentioned in Section 7.
 - **Verify Assumptions**: Cross-reference current logic with official Microsoft WDK documentation.
 
-4.6 Spec Evolution Protocol (The "Constitution")
+### 4.6 Spec Evolution Protocol (The "Constitution")
 
 `GEMINI.MD` is the "Living Constitution" of the project. It MUST be evolved with extreme care.
 - **Delicate Updates**: The spec is updated ONLY for deliberate architectural decisions, protocol shifts, or structure changes.
 - **No Mass Refactors**: Agents are strictly prohibited from performing massive specification or codebase refactors without explicit user approval.
 - **Proposals First**: Identify gaps or deficiencies in `CODE_REVIEW.md` before proposing a delicate update to the spec.
+
+### 4.7 Sacrosanct Testing Protocol [CRITICAL]
+Tests are the "Operational Specification" of the project and must never be diluted.
+- **No Test Dilution**: Agents are strictly forbidden from modifying test assertions or logic to allow a "failed" implementation to pass.
+- **Parity Mandate**: Tests (WDUTF units, Latency scripts) MUST strictly align 1:1 with the technical requirements in `GEMINI.MD`. If the spec says "<10ms latency," the test must fail at 10.1ms.
+- **Goal-Oriented Verification**: Every test must serve the final goal (Product North Star). If a test does not help verify the high-performance dual-endpoint virtual driver, it should be re-evaluated for strategic relevance.
+- **Failure Protocol**: If a test fails, the **Implementation** must change to meet the goal, NOT the test.
 
 
 
@@ -364,6 +393,13 @@ This section provides the exhaustive foundational knowledge required for this pr
 ### 7.6 Environment & Build Tools
 - [eWDK and WDK Downloads](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk) - **Agent Context**: Required toolchains for building the `.sys` and `.inf` packages.
 - [Test-Signing Boot Configuration](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/the-test-signing-boot-configuration) - **Agent Context**: Setting up targets for unverified driver execution.
+
+### 7.7 Toolchain Hardening [MANDATORY]
+All agents MUST proactively manage the build environment. If required tools (e.g., `cargo-wdk`, `dotnet SDK`) or PATHs (e.g., LLVM `bin`) are missing, agents SHOULD:
+1.  **Check `TOOLCHAIN_REVIEW.md`** for current requirements and status.
+2.  **Attempt to set environment variables** (e.g., `$env:LIBCLANG_PATH`) within the session.
+3.  **Propose installation commands** (e.g., `cargo install cargo-wdk`) if tools are missing from the system.
+4.  **Update `TOOLCHAIN_REVIEW.md`** with any changes or newly identified requirements.
 
 ---
 *Comprehensive Audit & Reference Mapping Complete: February 14, 2026*

@@ -1,0 +1,26 @@
+<Window
+    x:Class="LeylineHSA.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:LeylineHSA"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Leyline Audio Driver Control">
+
+    <Grid>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20">
+            <TextBlock Text="Leyline Audio Driver" Style="{StaticResource HeaderTextBlockStyle}" HorizontalAlignment="Center" />
+            <TextBlock Text="Hardware Support App (HSA)" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalAlignment="Center" />
+            
+            <Border Background="{ThemeResource SystemControlBackgroundAccentBrush}" Padding="20" CornerRadius="8">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Driver Status" FontWeight="Bold" Foreground="White" />
+                    <TextBlock x:Name="StatusText" Text="Searching for driver..." Foreground="White" />
+                </StackPanel>
+            </Border>
+
+            <Button x:Name="RefreshButton" Content="Refresh Status" Click="RefreshButton_Click" HorizontalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</Window>

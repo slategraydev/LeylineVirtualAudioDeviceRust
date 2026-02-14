@@ -5,8 +5,6 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
-#![no_std]
-
 // ============================================================================
 // Constants
 // ============================================================================
@@ -52,6 +50,16 @@ impl RingBuffer {
             write_pos: 0,
             read_pos: 0,
         }
+    }
+
+    /// Updates the buffer location and size.
+    /// # Safety
+    /// The caller must ensure the new buffer is valid.
+    pub unsafe fn rebase(&mut self, buffer: *mut u8, size: usize) {
+        self.buffer = buffer;
+        self.size = size;
+        self.write_pos = 0;
+        self.read_pos = 0;
     }
 
     /// Writes data to the ring buffer.

@@ -9,10 +9,16 @@
 
 extern crate alloc;
 
+pub mod buffer;
+pub mod stream;
+
 use crate::stream::MiniportWaveRTStream;
 use alloc::boxed::Box;
 use wdk_alloc::WDKAllocator;
+use wdk_sys::ntddk::*;
 use wdk_sys::*;
+
+// Standard WDK types mapped for convenience.
 
 // ============================================================================
 // Constants & Configuration
@@ -20,13 +26,13 @@ use wdk_sys::*;
 // Driver-wide constants and default configuration values for the wave adapter.
 
 /// Tag used for kernel memory allocations by this driver.
-const POOL_TAG: u32 = u32::from_be_bytes(*b"LLAD");
+const _POOL_TAG: u32 = u32::from_be_bytes(*b"LLAD");
 
 /// Maximum number of concurrent audio streams supported by the miniport.
 const MAX_STREAMS: usize = 4;
 
 /// Default size for the initial wave buffer (64 KB).
-const DEFAULT_BUFFER_SIZE: usize = 64 * 1024;
+const _DEFAULT_BUFFER_SIZE: usize = 64 * 1024;
 
 // ============================================================================
 // Global Allocator
@@ -66,9 +72,9 @@ impl MiniportWaveRT {
     /// Initialize the miniport with hardware resources.
     pub fn init(
         &mut self,
-        _unknown_adapter: PUNKNOWN,
-        _resource_list: PRESOURCELIST,
-        _port: PPORTWAVERT,
+        _unknown_adapter: PVOID,
+        _resource_list: PVOID,
+        _port: PVOID,
     ) -> NTSTATUS {
         // Future: Register interrupt handlers and map BAR resources.
         self.is_initialized = true;
@@ -81,36 +87,18 @@ impl MiniportWaveRT {
         &mut self,
         _pin: u32,
         _capture: bool,
-        _data_format: PDATAFORMAT,
+        _data_format: PVOID,
     ) -> *mut MiniportWaveRTStream {
-        let mut buffer_ptr: *mut u8;
-
         if !self.is_initialized {
             return core::ptr::null_mut();
         }
 
         for stream_slot in self.streams.iter_mut() {
             if stream_slot.is_none() {
-                // SAFETY: Audio buffers are allocated from the Non-Paged
-                // pool to ensure availability during ISRs.
-                unsafe {
-                    buffer_ptr =
-                        ExAllocatePool2(POOL_FLAG_NON_PAGED, DEFAULT_BUFFER_SIZE as u64, POOL_TAG)
-                            as *mut u8;
-                }
-
-                if buffer_ptr.is_null() {
-                    return core::ptr::null_mut();
-                }
-
                 // SAFETY: The stream corresponds to a kernel object whose lifecycle
                 // is controlled by the port driver. Box ensures pointer stability.
                 unsafe {
-                    *stream_slot = Some(Box::new(MiniportWaveRTStream::new(
-                        buffer_ptr,
-                        DEFAULT_BUFFER_SIZE,
-                        _data_format as *mut KSDATAFORMAT,
-                    )));
+                    *stream_slot = Some(Box::new(MiniportWaveRTStream::new(_data_format as PVOID)));
                 }
 
                 return stream_slot.as_mut().unwrap().as_mut() as *mut MiniportWaveRTStream;
@@ -136,23 +124,17 @@ pub unsafe extern "system" fn DriverEntry(
     _registry_path: PUNICODE_STRING,
 ) -> NTSTATUS {
     // Hoist local variables
-    let mut status: NTSTATUS;
+    let status: NTSTATUS;
 
     // Set up dispatch routines
     (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize] = Some(DispatchDeviceControl);
 
-    // Future: Call PcInitializeAdapter.
     status = STATUS_SUCCESS;
     status
 }
 
-// ============================================================================
-// I/O Control Dispatch
-// ============================================================================
-// Handles IOCTL requests (primarily from the WinUI 3 HSA).
-
 #[no_mangle]
-pub unsafe extern "system" fn DispatchDeviceControl(
+pub unsafe extern "C" fn DispatchDeviceControl(
     _device_object: PDEVICE_OBJECT,
     irp: PIRP,
 ) -> NTSTATUS {
@@ -160,8 +142,13 @@ pub unsafe extern "system" fn DispatchDeviceControl(
     let irp_sp: PIO_STACK_LOCATION;
     let ioctl_code: u32;
 
-    irp_sp = (*irp).Tail.Overlay.u.DeviceIoControl();
-    ioctl_code = irp_sp.IoControlCode;
+    irp_sp = (*irp)
+        .Tail
+        .Overlay
+        .__bindgen_anon_2
+        .__bindgen_anon_1
+        .CurrentStackLocation;
+    ioctl_code = unsafe { (*irp_sp).Parameters.DeviceIoControl.IoControlCode };
 
     match ioctl_code {
         leyline_shared::IOCTL_LEYLINE_SET_CONFIG => {
@@ -170,12 +157,12 @@ pub unsafe extern "system" fn DispatchDeviceControl(
         leyline_shared::IOCTL_LEYLINE_GET_STATUS => {
             // Future: Report stream health and errors.
         }
-        _ => {
-            (*irp).IoStatus.u.Status = STATUS_INVALID_DEVICE_REQUEST;
-        }
+        _ => unsafe {
+            (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_INVALID_DEVICE_REQUEST;
+        },
     }
 
-    IoCompleteRequest(irp, IO_NO_INCREMENT as i8);
+    IofCompleteRequest(irp, IO_NO_INCREMENT as i8);
     STATUS_SUCCESS
 }
 

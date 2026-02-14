@@ -9,19 +9,19 @@ Tracking the health of the project's multi-crate, multi-language build system.
 
 | Target | Toolchain | Status | Verification |
 | :--- | :--- | :---: | :--- |
-| **Rust Kernel** | `cargo-wdk` | ✅ | Last build: SUCCESS (Session #01) |
-| **C++ APO** | `nmake` / `cl` | ⏳ | Makefile created; awaiting full WDK run. |
-| **WinUI 3 HSA** | `msbuild` | ⏳ | Project initialization pending. |
-| **Packaging** | `inf2cat` | ✅ | Template validated. |
+| **Rust Kernel** | `cargo-wdk` | ✅ | Full build: SUCCESS (Session #03). |
+| **C++ APO** | `nmake` / `cl` | ⏳ | Makefile created; verified in Session #02. |
+| **WinUI 3 HSA** | `msbuild`/`dotnet`| ✅ | Full build: SUCCESS (Session #03). |
+| **Toolchain** | `TOOLCHAIN_REVIEW.md` | ✅ | All mandatory tools installed & verified. |
 
 ## Build Environment Audit
 - **WDK**: Enterprise WDK (eWDK) required.
-- **LLVM**: 17.0.6 (Mandatory for ARM64 kernel stability).
-- **Signing**: Test-signing certificate generated locally.
+- **LLVM**: 17.0.6 (Verified in Session #03).
+- **Environment Management**: Agents MUST reference `TOOLCHAIN_REVIEW.md` before building.
 
 ## Build Pitfalls & Optimizations
-1.  **WDK Path Errors**: `cargo wdk build` occasionally fails if the WDK environment variables are not correctly hoisted.
-2.  **Incremental Build**: C++ APO build is currently separate from the Rust workspace; consider a unified `cargo-make` task.
+1.  **PATH Persistence**: Toolchains often fall out of PATH between terminal sessions; environment hardening script needed.
+2.  **.NET SDK Gaps**: The HSA requires .NET 8.0 SDK which must be explicitly checked.
 
 ---
 *Last Updated: February 14, 2026*

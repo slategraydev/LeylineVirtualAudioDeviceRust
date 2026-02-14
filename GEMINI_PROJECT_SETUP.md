@@ -11,7 +11,8 @@ The framework relies on a hierarchical stack of markdown artifacts in the projec
 - **`PROJECT_PROGRESS.MD`**: session history and chronological work log.
 - **`CODE_REVIEW.md`**: Architectural audit (Overwritten every session to prevent bloat).
 - **`TEST_REVIEW.md`**: verification and test status.
-- **`BUILD_REVIEW.MD`**: Build health and toolchain constraints.
+- **`BUILD_REVIEW.MD`**: Build health and high-level toolchain constraints.
+- **`TOOLCHAIN_REVIEW.md`**: [NEW] Granular environment management (PATHs, EnvVars, Binaries). Agents MUST use this to verify and CONFIGURE their build environment.
 
 ## 2. Implementation: The Status Workflow
 The primary automation tool is the `/status` workflow, located at `.agent/workflows/status.md`. This file serves as the agent's "Standard Operating Procedure" (SOP) for session alignment.
@@ -32,7 +33,12 @@ To maintain the integrity of this framework, agents are bound by a strict mainte
 1. **Log Progress**: Append work to the session log.
 2. **Audit Architecture**: Overwrite the code review with a fresh perspective.
 3. **Verify Health**: Update test and build reviews.
-4. **Delicate Spec Evolution**: Update the "Constitution" (`GEMINI.MD`) only for deliberate architectural decisions or structure changes.
+4. **Harden Environment**: Update `TOOLCHAIN_REVIEW.md` with current path status and any newly required binaries. [CRITICAL]
+5. **Zero-Warning Enforcement**: Resolve ALL errors and warnings before updating logs or artifacts. No "temporary" warnings allowed.
+6. **Warning Literacy**: Agents MUST NOT trust the summary output of build tools. They MUST proactively search build logs using `grep` or `Select-String` for "warning" to ensure 100% cleanliness. [NEW]
+7. **Goal-Oriented Development**: Every action MUST progress the project toward the "Product North Star" defined in `GEMINI.MD` Section 0. Aimless development or feature-creep is a protocol violation. [NEW]
+8. **Sacrosanct Testing**: Tests represent the 1:1 physical manifestation of the technical spec. Diluting tests to make code pass is strictly prohibited. If code fails a test, refactor the code, not the test. [NEW]
+9. **Delicate Spec Evolution**: Update the "Constitution" (`GEMINI.MD`) only for deliberate architectural decisions or structure changes.
 
 ## 4. Why This Works
 - **Context Preservation**: Prevents agents from "hallucinating" the project state or ignoring established patterns.
@@ -40,5 +46,5 @@ To maintain the integrity of this framework, agents are bound by a strict mainte
 - **Developer Reference**: Provides a clear, chronological history for human developers to audit agent performance and project evolution.
 
 ---
-*Framework Version: 1.0.0*
+*Framework Version: 1.1.0 (Toolchain-Hardened)*
 *Last Refined: February 14, 2026*

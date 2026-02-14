@@ -1,0 +1,97 @@
+[32m INFO[0m Building package leyline-kernel
+   Compiling windows-link v0.2.1
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.44
+   Compiling unicode-ident v1.0.23
+   Compiling windows_x86_64_msvc v0.52.6
+   Compiling serde_core v1.0.228
+   Compiling once_cell v1.21.3
+   Compiling once_cell_polyfill v1.70.2
+   Compiling regex-syntax v0.8.9
+   Compiling utf8parse v0.2.2
+   Compiling memchr v2.8.0
+   Compiling anstyle v1.0.13
+   Compiling glob v0.3.3
+   Compiling rustix v0.38.44
+   Compiling prettyplease v0.2.37
+   Compiling rustversion v1.0.22
+   Compiling windows-sys v0.61.2
+   Compiling anstyle-parse v0.2.7
+   Compiling serde v1.0.228
+   Compiling libc v0.2.182
+   Compiling zmij v1.0.21
+   Compiling colorchoice v1.0.4
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling thiserror v1.0.69
+   Compiling lazy_static v1.5.0
+   Compiling windows-targets v0.52.6
+   Compiling strsim v0.11.1
+   Compiling serde_json v1.0.149
+   Compiling clang-sys v1.8.1
+   Compiling windows-sys v0.59.0
+   Compiling bitflags v2.11.0
+   Compiling minimal-lexical v0.2.1
+   Compiling camino v1.2.2
+   Compiling heck v0.5.0
+   Compiling clap_lex v1.0.0
+   Compiling either v1.15.0
+   Compiling log v0.4.29
+   Compiling nom v7.1.3
+   Compiling libloading v0.8.9
+   Compiling bindgen v0.69.5
+   Compiling itoa v1.0.17
+   Compiling itertools v0.12.1
+   Compiling windows-core v0.52.0
+   Compiling tracing-core v0.1.36
+   Compiling regex-automata v0.4.14
+   Compiling rustc-hash v1.1.0
+   Compiling cfg-if v1.0.4
+   Compiling lazycell v1.3.0
+   Compiling shlex v1.3.0
+   Compiling syn v2.0.115
+   Compiling anyhow v1.0.101
+   Compiling pin-project-lite v0.2.16
+   Compiling tracing-log v0.2.0
+   Compiling tracing v0.1.44
+   Compiling thread_local v1.1.9
+   Compiling wdk-build v0.2.0
+   Compiling sharded-slab v0.1.7
+   Compiling smallvec v1.15.1
+   Compiling spin v0.9.8
+   Compiling leyline-shared v0.1.0 (C:\LeylineAudioDriver\crates\leyline-shared)
+   Compiling windows v0.52.0
+   Compiling cexpr v0.6.0
+   Compiling anstyle-wincon v3.0.11
+   Compiling anstyle-query v1.1.5
+   Compiling errno v0.3.14
+   Compiling home v0.5.12
+   Compiling nu-ansi-term v0.50.3
+   Compiling anstream v0.6.21
+   Compiling semver v1.0.27
+   Compiling clap_builder v4.5.58
+   Compiling which v4.4.2
+   Compiling regex v1.12.3
+   Compiling matchers v0.2.0
+   Compiling tracing-subscriber v0.3.22
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v1.0.69
+   Compiling clap_derive v4.5.55
+   Compiling wdk-macros v0.2.0
+   Compiling clap v4.5.58
+   Compiling clap-cargo v0.14.1
+   Compiling cargo-platform v0.1.9
+   Compiling cargo_metadata v0.18.1
+   Compiling wdk-sys v0.2.0
+   Compiling wdk v0.2.0
+   Compiling wdk-alloc v0.2.0
+   Compiling leyline-kernel v0.1.0 (C:\LeylineAudioDriver\crates\leyline-kernel)
+warning: constant `DEFAULT_BUFFER_SIZE` is never used
+  --> src\lib.rs:35:7
+   |
+35 | const DEFAULT_BUFFER_SIZE: usize = 64 * 1024;
+   |       ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `leyline-kernel` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 55s

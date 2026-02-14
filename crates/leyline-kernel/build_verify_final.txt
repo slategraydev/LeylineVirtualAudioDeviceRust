@@ -1,0 +1,12 @@
+[32m INFO[0m Building package leyline-kernel
+   Compiling leyline-kernel v0.1.0 (C:\LeylineAudioDriver\crates\leyline-kernel)
+warning: constant `DEFAULT_BUFFER_SIZE` is never used
+  --> src\lib.rs:35:7
+   |
+35 | const DEFAULT_BUFFER_SIZE: usize = 64 * 1024;
+   |       ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `leyline-kernel` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.56s
