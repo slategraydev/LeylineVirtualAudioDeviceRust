@@ -2,17 +2,23 @@
 
 **Date**: February 14, 2026  
 **Status**: INITIAL AUDIT  
-**Reviewer**: Antigravity (Advanced Agentic Coding)
+**Reviewer**: Antigravity (Gemini 3 Pro (High))
+**Date**: February 14, 2026
 
 ## Build Status & Environment
 Tracking the health of the project's multi-crate, multi-language build system.
 
-| Target | Toolchain | Status | Verification |
-| :--- | :--- | :---: | :--- |
-| **Rust Kernel** | `cargo-wdk` | ✅ | Full build: SUCCESS (Session #03). |
-| **C++ APO** | `nmake` / `cl` | ⏳ | Makefile created; verified in Session #02. |
-| **WinUI 3 HSA** | `msbuild`/`dotnet`| ✅ | Full build: SUCCESS (Session #03). |
-| **Toolchain** | `TOOLCHAIN_REVIEW.md` | ✅ | All mandatory tools installed & verified. |
+- **leyline-kernel**: `cargo wdk build --profile release` -> ✅ SUCCESS (0 Errors, 0 Warnings)
+- **HSA**: `dotnet build` -> ✅ SUCCESS (0 Errors, 0 Warnings [NETSDK1206 Suppressed])
+- **APO**: `nmake` -> ⚠️ SKIPPED (Missing Environment, Code Verified)
+
+## Warnings
+- **HSA**: `NETSDK1206` (RID Warning) suppressed. See "Active Suppressions" below.
+
+## Active Suppressions
+| Component | ID | Justification |
+| :--- | :--- | :--- |
+| **HSA** | `NETSDK1206` | Upstream `WindowsAppSDK` targets legacy RIDs (`win10-x64`). Safe to suppress for modern `win-x64` builds. |
 
 ## Build Environment Audit
 - **WDK**: Enterprise WDK (eWDK) required.

@@ -37,4 +37,12 @@ public:
 
 private:
     LONG m_cRef;
+    HANDLE m_hDriver;
+    float* m_pSharedBuffer;
+    void* m_pSharedParams; // Pointer to SharedParameters struct
+    float m_fGain;
+    float m_fPeakL;
+    float m_fPeakR;
+
+    void UpdatePeakMeter(float left, float right);
 };

@@ -7,12 +7,13 @@ The core of this framework is the **Sync-on-Entry** pattern. Every agent session
 
 ### 1.1 Core Artifacts (The "Memory Bank")
 The framework relies on a hierarchical stack of markdown artifacts in the project root:
-- **`GEMINI.MD`**: The Technical Specification and "Constitution." Defines the product, architecture, and developer protocols.
-- **`PROJECT_PROGRESS.MD`**: session history and chronological work log.
-- **`CODE_REVIEW.md`**: Architectural audit (Overwritten every session to prevent bloat).
-- **`TEST_REVIEW.md`**: verification and test status.
-- **`BUILD_REVIEW.MD`**: Build health and high-level toolchain constraints.
-- **`TOOLCHAIN_REVIEW.md`**: [NEW] Granular environment management (PATHs, EnvVars, Binaries). Agents MUST use this to verify and CONFIGURE their build environment.
+- **`GEMINI.MD`**: The Technical Specification and "Constitution." Defines the product, architecture, and developer protocols. (Located in `.agent/`)
+- **`PROJECT_PROGRESS.MD`**: session history and chronological work log. (Located in `.agent/`)
+- **`CODE_REVIEW.md`**: Architectural audit. (Located in `.agent/`)
+- **`TEST_REVIEW.md`**: verification and test status. (Located in `.agent/`)
+- **`BUILD_REVIEW.MD`**: Build health. (Located in `.agent/`)
+- **`TOOLCHAIN_REVIEW.md`**: Granular environment management. (Located in `.agent/`)
+- **`COMMIT_MESSAGE.MD`**: Session commit message template. (Located in `.agent/`)
 
 ## 2. Implementation: The Status Workflow
 The primary automation tool is the `/status` workflow, located at `.agent/workflows/status.md`. This file serves as the agent's "Standard Operating Procedure" (SOP) for session alignment.
@@ -30,10 +31,13 @@ description: Synchronize with the latest project status, standards, and TODOs.
 
 ## 3. The Hand-off Mandate
 To maintain the integrity of this framework, agents are bound by a strict maintenance protocol at the end of every session:
-1. **Log Progress**: Append work to the session log.
-2. **Audit Architecture**: Overwrite the code review with a fresh perspective.
-3. **Verify Health**: Update test and build reviews.
-4. **Harden Environment**: Update `TOOLCHAIN_REVIEW.md` with current path status and any newly required binaries. [CRITICAL]
+1. **Log Progress**: Append work to the session log in `.agent/PROJECT_PROGRESS.MD`.
+2. **Commit Message**: Update `.agent/COMMIT_MESSAGE.MD` with a summary, changes, and verification proof. [NEW]
+3. **Audit Architecture**: Overwrite `.agent/CODE_REVIEW.md` with a fresh perspective.
+3. **Verify Health**: Update `.agent/TEST_REVIEW.md` and `.agent/BUILD_REVIEW.MD`.
+4. **Harden Environment**: Update `.agent/TOOLCHAIN_REVIEW.md` with current path status and any new tool requirements. [CRITICAL]
+5. **Session Cleanup**: Delete all ephemeral verification logs (e.g., `*.txt`) from the project root.
+6. **Build Sanitation**: Execute a "clean" command on all build targets to ensure no cross-pollination between sessions. [CRITICAL]
 5. **Zero-Warning Enforcement**: Resolve ALL errors and warnings before updating logs or artifacts. No "temporary" warnings allowed.
 6. **Warning Literacy**: Agents MUST NOT trust the summary output of build tools. They MUST proactively search build logs using `grep` or `Select-String` for "warning" to ensure 100% cleanliness. [NEW]
 7. **Goal-Oriented Development**: Every action MUST progress the project toward the "Product North Star" defined in `GEMINI.MD` Section 0. Aimless development or feature-creep is a protocol violation. [NEW]

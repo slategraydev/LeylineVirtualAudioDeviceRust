@@ -58,8 +58,22 @@ pub const KSCATEGORY_CAPTURE: [u8; 16] = [
 // IOCTL codes for communication between the Hardware Support App (HSA)
 // and the kernel-mode driver.
 
+/// Shared parameters between HSA, APO, and Driver.
+#[repr(C)]
+pub struct SharedParameters {
+    pub master_gain: f32,
+    pub peak_l: f32,
+    pub peak_r: f32,
+}
+
 /// IOCTL code for setting buffer configuration from HSA.
 pub const IOCTL_LEYLINE_SET_CONFIG: u32 = 0x80002000;
 
 /// IOCTL code for getting driver status.
 pub const IOCTL_LEYLINE_GET_STATUS: u32 = 0x80002004;
+
+/// IOCTL code for mapping the shared audio buffer to user-space.
+pub const IOCTL_LEYLINE_MAP_BUFFER: u32 = 0x80002008;
+
+/// IOCTL code for mapping the shared parameter block to user-space.
+pub const IOCTL_LEYLINE_MAP_PARAMS: u32 = 0x8000200C;

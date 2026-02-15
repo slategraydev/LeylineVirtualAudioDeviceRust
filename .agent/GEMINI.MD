@@ -121,6 +121,17 @@ IAudioClient3 Integration: The driver implements small-buffer DDIs to support 1m
 
 MMCSS Coordination: All streaming threads are registered with the Multimedia Class Scheduler Service to prevent CPU preemption during high-load sessions.
 
+5.3. Build Sanitation
+- **Requirement**: Execute `cargo clean` (kernel) and `dotnet clean` (HSA) at the end of every session.
+- **Goal**: Prevent stale artifacts from confusing future build verification steps.
+
+# 6. Permanent Decisions & Exceptions
+## 6.1. Build System
+- **NETSDK1206 Suppression** (Session #04):
+    - **Context**: `Microsoft.WindowsAppSDK` targets legacy RIDs (`win10-x64`) which .NET 8 flags as obsolete.
+    - **Decision**: Suppress `NETSDK1206` in `LeylineHSA.csproj`.
+    - **Justification**: We explicitly target `win-x64` (portable), which is safe and correct. The warning is an upstream artifact.
+
 Clock Synchronization: Uses the system's high-precision timestamp to maintain a consistent master clock across the Leyline Output and Leyline Input endpoints. 28
 
 
@@ -153,10 +164,17 @@ Clock Synchronization: Uses the system's high-precision timestamp to maintain a 
 
 │   └── /Latency             # Automated RTL Utility scripts
 
-├── CODE_REVIEW.md           # Architectural audit
-├── TEST_REVIEW.md           # Testing audit
-├── BUILD_REVIEW.MD          # Build/Environment audit
-├── TOOLCHAIN_REVIEW.md      # Toolchain & PATH management [NEW]
+├── /.agent                  # Agent documentation & state [NEW]
+│   ├── BUILD_REVIEW.MD      # Build/Environment audit
+│   ├── CODE_REVIEW.md       # Architectural audit
+│   ├── COMMIT_MESSAGE.MD    # Session commit message
+│   ├── GEMINI.MD            # Technical Specification
+│   ├── GEMINI_PROJECT_SETUP.md # Agent Meta-Manual
+│   ├── PROJECT_PROGRESS.MD  # session history
+│   ├── TEST_REVIEW.md       # Testing audit
+│   ├── TOOLCHAIN_REVIEW.md  # Toolchain management
+│   └── /workflows           # Agent automation scripts
+│       └── status.md        # Session sync workflow
 ├──.gitignore               # Windows/Rust ignore rules
 
 ### Core Developer Protocols: Zero-Warning Policy [MANDATORY]
@@ -220,13 +238,20 @@ The Leyline development environment is standardized to ensure parity across sess
 
 Continuity of project standards, architectural integrity, and the development roadmap is preserved via a strict hand-off procedure.
 
+###3.3. Git Configuration
+- **.gitignore**: The `.agent/` directory is explicitly tracked (not ignored) to persist project history.
+- **.gitattributes**: All content in `.agent/` is marked `linguist-documentation` to exclude it from language statistics.
+
 ### Hand-off & Maintenance Mandate
 Every agent participating in this project MUST adhere to the following maintenance routine:
 1. **Session Start**: Execute the `/status` workflow (`.agent/workflows/status.md`) immediately.
 2. **PROJECT_PROGRESS.MD**: Append a new Session Log with work completed and architectural suggestions.
-3. **CODE_REVIEW.md**: Overwrite with a fresh technical audit of the current state.
+3. **COMMIT_MESSAGE.MD**: Update with session summary, changes, zero-warning verification proof, and a compressed "Git Commit Payload" section (Header MUST use Conventional Commits: `feat:`, `fix:`, etc.). [NEW]
+4. **CODE_REVIEW.md**: Overwrite with a fresh technical audit of the current state.
 4. **TEST_REVIEW.md / BUILD_REVIEW.MD**: Update with verification and build status.
-5. **GEMINI.MD Sync**: Update Section 3 (Project Structure) if physical files have changed.
+5. **Reviewer Metadata**: ALL updated artifacts must use the header format: `**Reviewer**: Antigravity (<Current Model Name>)` and `**Date**: Month Day, Year`.
+6. **Session Cleanup**: MANDATORY deletion of all `*.txt` verification logs and a full build clean (e.g., `cargo clean`) to prevent cross-pollination. [NEW]
+6. **GEMINI.MD Sync**: Update Section 3 (Project Structure) if physical files have changed.
 
 ### Reference Audit Mandate
 When starting a task involving a Windows API, DDI, or WaveRT concept, the agent MUST:

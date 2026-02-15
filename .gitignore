@@ -14,3 +14,7 @@ obj/
 *.cat
 *.sys
 *.inf
+
+# Agent Artifacts
+# We track the .agent directory, but ignore specific ephemeral files if they appear.
+# For now, we want to track everything in .agent/

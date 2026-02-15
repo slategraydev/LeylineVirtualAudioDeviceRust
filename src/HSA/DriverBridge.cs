@@ -15,6 +15,8 @@ namespace LeylineHSA
 
         public const uint IOCTL_LEYLINE_SET_CONFIG = 0x80002000;
         public const uint IOCTL_LEYLINE_GET_STATUS = 0x80002004;
+        public const uint IOCTL_LEYLINE_MAP_BUFFER = 0x80002008;
+        public const uint IOCTL_LEYLINE_MAP_PARAMS = 0x8000200C;
 
         private SafeFileHandle _handle;
 
@@ -46,7 +48,7 @@ namespace LeylineHSA
             uint status = 0;
             uint bytesReturned = 0;
             
-            bool success = DeviceIoControl(
+            bool success = DeviceIoControlInt(
                 _handle,
                 IOCTL_LEYLINE_GET_STATUS,
                 IntPtr.Zero, 0,
@@ -55,6 +57,42 @@ namespace LeylineHSA
                 IntPtr.Zero);
 
             return success ? status : 0xFFFFFFFF;
+        }
+
+        public IntPtr MapBuffer()
+        {
+            if (!IsConnected) return IntPtr.Zero;
+
+            IntPtr userPtr = IntPtr.Zero;
+            uint bytesReturned = 0;
+
+            bool success = DeviceIoControlPtr(
+                _handle,
+                IOCTL_LEYLINE_MAP_BUFFER,
+                IntPtr.Zero, 0,
+                out userPtr, (uint)IntPtr.Size,
+                out bytesReturned,
+                IntPtr.Zero);
+
+            return success ? userPtr : IntPtr.Zero;
+        }
+
+        public IntPtr MapParams()
+        {
+            if (!IsConnected) return IntPtr.Zero;
+
+            IntPtr userPtr = IntPtr.Zero;
+            uint bytesReturned = 0;
+
+            bool success = DeviceIoControlPtr(
+                _handle,
+                IOCTL_LEYLINE_MAP_PARAMS,
+                IntPtr.Zero, 0,
+                out userPtr, (uint)IntPtr.Size,
+                out bytesReturned,
+                IntPtr.Zero);
+
+            return success ? userPtr : IntPtr.Zero;
         }
 
         public void Dispose()
@@ -100,13 +138,24 @@ namespace LeylineHSA
             FileAttributes dwFlagsAndAttributes,
             IntPtr hTemplateFile);
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool DeviceIoControl(
+        [DllImport("kernel32.dll", EntryPoint = "DeviceIoControl", SetLastError = true)]
+        private static extern bool DeviceIoControlInt(
             SafeFileHandle hDevice,
             uint dwIoControlCode,
             IntPtr lpInBuffer,
             uint nInBufferSize,
             out uint lpOutBuffer,
+            uint nOutBufferSize,
+            out uint lpBytesReturned,
+            IntPtr lpOverlapped);
+
+        [DllImport("kernel32.dll", EntryPoint = "DeviceIoControl", SetLastError = true)]
+        private static extern bool DeviceIoControlPtr(
+            SafeFileHandle hDevice,
+            uint dwIoControlCode,
+            IntPtr lpInBuffer,
+            uint nInBufferSize,
+            out IntPtr lpOutBuffer,
             uint nOutBufferSize,
             out uint lpBytesReturned,
             IntPtr lpOverlapped);

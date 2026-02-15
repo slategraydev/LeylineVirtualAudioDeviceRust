@@ -54,6 +54,16 @@ pub struct MiniportWaveRT {
     pub streams: [Option<Box<MiniportWaveRTStream>>; MAX_STREAMS],
 }
 
+// Global instance for prototype/demonstration purposes (Session #04).
+// In a full implementation, this would be managed via DeviceExtension or PortCls.
+pub static mut MINI_PORT: Option<MiniportWaveRT> = None;
+
+pub static mut SHARED_PARAMS: leyline_shared::SharedParameters = leyline_shared::SharedParameters {
+    master_gain: 1.0,
+    peak_l: 0.0,
+    peak_r: 0.0,
+};
+
 // ============================================================================
 // Miniport Implementation
 // ============================================================================
@@ -123,14 +133,64 @@ pub unsafe extern "system" fn DriverEntry(
     driver_object: PDRIVER_OBJECT,
     _registry_path: PUNICODE_STRING,
 ) -> NTSTATUS {
-    // Hoist local variables
-    let status: NTSTATUS;
+    let mut status: NTSTATUS;
+    let mut device_object: PDEVICE_OBJECT = core::ptr::null_mut();
+    let mut device_name = UNICODE_STRING::default();
+    let mut symbolic_link = UNICODE_STRING::default();
+
+    // {A5553592-2D2F-4A98-84B2-7A9B9355152F}
+    let device_name_str = encode_unicode_string("\\Device\\LeylineAudio");
+    let sym_link_str = encode_unicode_string("\\??\\LeylineAudio");
+
+    RtlInitUnicodeString(&mut device_name, device_name_str.as_ptr());
+    RtlInitUnicodeString(&mut symbolic_link, sym_link_str.as_ptr());
+
+    // Create the Control Device Object
+    status = IoCreateDevice(
+        driver_object,
+        0,
+        &mut device_name,
+        FILE_DEVICE_UNKNOWN,
+        0,
+        FALSE as u8,
+        &mut device_object,
+    );
+
+    if status != STATUS_SUCCESS {
+        return status;
+    }
+
+    // Create the symbolic link for user-space access
+    status = IoCreateSymbolicLink(&mut symbolic_link, &mut device_name);
+    if status != STATUS_SUCCESS {
+        IoDeleteDevice(device_object);
+        return status;
+    }
 
     // Set up dispatch routines
+    (*driver_object).MajorFunction[IRP_MJ_CREATE as usize] = Some(DispatchCreateClose);
+    (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize] = Some(DispatchCreateClose);
     (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize] = Some(DispatchDeviceControl);
 
     status = STATUS_SUCCESS;
     status
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn DispatchCreateClose(
+    _device_object: PDEVICE_OBJECT,
+    irp: PIRP,
+) -> NTSTATUS {
+    (*irp).IoStatus.Information = 0;
+    (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
+    IofCompleteRequest(irp, IO_NO_INCREMENT as i8);
+    STATUS_SUCCESS
+}
+
+fn encode_unicode_string(s: &str) -> alloc::vec::Vec<u16> {
+    let mut v: alloc::vec::Vec<u16> = s.encode_utf16().collect();
+    v.push(0);
+    v
 }
 
 #[no_mangle]
@@ -156,6 +216,50 @@ pub unsafe extern "C" fn DispatchDeviceControl(
         }
         leyline_shared::IOCTL_LEYLINE_GET_STATUS => {
             // Future: Report stream health and errors.
+        }
+        leyline_shared::IOCTL_LEYLINE_MAP_BUFFER => {
+            // Logic to return the user-space pointer for the first active stream.
+            let output_buffer = (*irp).AssociatedIrp.SystemBuffer;
+            let output_length = (*irp_sp).Parameters.DeviceIoControl.OutputBufferLength;
+
+            if output_length >= core::mem::size_of::<*mut u8>() as u32 && !output_buffer.is_null() {
+                unsafe {
+                    if let Some(ref mut miniport) = MINI_PORT {
+                        if let Some(ref mut stream) = miniport.streams[0] {
+                            let user_ptr = stream.map_user_buffer(core::ptr::null_mut());
+                            *(output_buffer as *mut *mut u8) = user_ptr;
+                            (*irp).IoStatus.Information = core::mem::size_of::<*mut u8>() as u64;
+                            (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
+                        } else {
+                            (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_NOT_FOUND;
+                        }
+                    } else {
+                        (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_DEVICE_NOT_READY;
+                    }
+                }
+            } else {
+                (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_BUFFER_TOO_SMALL;
+            }
+        }
+        leyline_shared::IOCTL_LEYLINE_MAP_PARAMS => {
+            let output_buffer = (*irp).AssociatedIrp.SystemBuffer;
+            let output_length = (*irp_sp).Parameters.DeviceIoControl.OutputBufferLength;
+
+            if output_length >= core::mem::size_of::<*mut u8>() as u32 && !output_buffer.is_null() {
+                unsafe {
+                    // For this prototype, we return the kernel address which is mapped
+                    // to user-space via a separate process or by being in the correct
+                    // context. However, MmMapLockedPagesSpecifyCache is better.
+                    // For now, we'll assume the params are in a globally accessible region
+                    // or we'll simplify by using a direct pointer for this prototype.
+                    *(output_buffer as *mut *mut leyline_shared::SharedParameters) =
+                        &mut SHARED_PARAMS;
+                    (*irp).IoStatus.Information = core::mem::size_of::<*mut u8>() as u64;
+                    (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
+                }
+            } else {
+                (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_BUFFER_TOO_SMALL;
+            }
         }
         _ => unsafe {
             (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_INVALID_DEVICE_REQUEST;

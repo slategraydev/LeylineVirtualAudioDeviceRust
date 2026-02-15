@@ -9,18 +9,31 @@
     Title="Leyline Audio Driver Control">
 
     <Grid>
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20">
-            <TextBlock Text="Leyline Audio Driver" Style="{StaticResource HeaderTextBlockStyle}" HorizontalAlignment="Center" />
-            <TextBlock Text="Hardware Support App (HSA)" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalAlignment="Center" />
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="30">
+            <TextBlock Text="Leyline Audio Control" Style="{StaticResource HeaderTextBlockStyle}" HorizontalAlignment="Center" />
             
-            <Border Background="{ThemeResource SystemControlBackgroundAccentBrush}" Padding="20" CornerRadius="8">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="Driver Status" FontWeight="Bold" Foreground="White" />
-                    <TextBlock x:Name="StatusText" Text="Searching for driver..." Foreground="White" />
+            <StackPanel Orientation="Horizontal" Spacing="40" HorizontalAlignment="Center">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="L" Foreground="Gray" HorizontalAlignment="Center"/>
+                    <ProgressBar x:Name="MeterL" Width="120" Height="20" Minimum="0" Maximum="100"/>
+                </StackPanel>
+                <StackPanel Spacing="5">
+                    <TextBlock Text="R" Foreground="Gray" HorizontalAlignment="Center"/>
+                    <ProgressBar x:Name="MeterR" Width="120" Height="20" Minimum="0" Maximum="100"/>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="10">
+                <TextBlock Text="Master Gain" FontWeight="Bold" HorizontalAlignment="Center"/>
+                <Slider x:Name="GainSlider" Minimum="0" Maximum="2" Value="1" StepFrequency="0.1" Width="250" HorizontalAlignment="Center" ValueChanged="GainSlider_ValueChanged"/>
+            </StackPanel>
+            
+            <Border Background="{ThemeResource SystemControlBackgroundAccentBrush}" Padding="15" CornerRadius="8">
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                    <SymbolIcon Symbol="Target"/>
+                    <TextBlock x:Name="StatusText" Text="Connected to Leyline Driver" VerticalAlignment="Center"/>
                 </StackPanel>
             </Border>
-
-            <Button x:Name="RefreshButton" Content="Refresh Status" Click="RefreshButton_Click" HorizontalAlignment="Center" />
         </StackPanel>
     </Grid>
 </Window>

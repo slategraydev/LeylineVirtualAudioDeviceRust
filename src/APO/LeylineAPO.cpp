@@ -8,12 +8,22 @@ DEFINE_GUID(CLSID_LeylineAPO, 0xc8d3e4f5, 0xb6a7, 0x4a2d, 0xa1, 0xa3, 0x1a, 0x2b
 DEFINE_GUID(IID_ILeylineAPO, 0xd9a2a1a3, 0xc7b1, 0x4a2d, 0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x77, 0xb8);
 
 CLeylineAPO::CLeylineAPO() :
-    m_cRef(1)
+    m_cRef(1),
+    m_hDriver(INVALID_HANDLE_VALUE),
+    m_pSharedBuffer(NULL),
+    m_pSharedParams(NULL),
+    m_fGain(1.0f),
+    m_fPeakL(0.0f),
+    m_fPeakR(0.0f)
 {
 }
 
 CLeylineAPO::~CLeylineAPO()
 {
+    if (m_hDriver != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(m_hDriver);
+    }
 }
 
 // ============================================================================
@@ -74,29 +84,97 @@ STDMETHODIMP_(void) CLeylineAPO::APOProcess(
     UINT32 u32NumOutputConnections,
     APO_CONNECTION_PROPERTY** ppOutputConnections)
 {
-    // For now, implement a simple bit-perfect pass-through.
-    // In a real APO, this is where the Digital Signal Processing happens.
     if (u32NumInputConnections == 1 && u32NumOutputConnections == 1)
     {
-        CopyMemory(
-            ppOutputConnections[0]->pBuffer,
-            ppInputConnections[0]->pBuffer,
-            ppInputConnections[0]->u32ValidFrameCount * sizeof(float) * 2 // Assuming stereo float for now
-        );
-        ppOutputConnections[0]->u32ValidFrameCount = ppInputConnections[0]->u32ValidFrameCount;
+        float* pfIn = (float*)ppInputConnections[0]->pBuffer;
+        float* pfOut = (float*)ppOutputConnections[0]->pBuffer;
+        UINT32 u32Frames = ppInputConnections[0]->u32ValidFrameCount;
+
+        m_fPeakL = 0.0f;
+        m_fPeakR = 0.0f;
+
+        for (UINT32 i = 0; i < u32Frames; i++)
+        {
+            // Apply gain
+            float sampleL = pfIn[i * 2] * m_fGain;
+            float sampleR = pfIn[i * 2 + 1] * m_fGain;
+
+            pfOut[i * 2] = sampleL;
+            pfOut[i * 2 + 1] = sampleR;
+
+            // Simple peak detection
+            UpdatePeakMeter(sampleL, sampleR);
+        }
+
+        // Copy to shared buffer for HSA monitoring
+        if (m_pSharedBuffer)
+        {
+            CopyMemory(m_pSharedBuffer, pfOut, u32Frames * sizeof(float) * 2);
+        }
+
+        if (m_pSharedParams)
+        {
+            SharedParameters* pParams = (SharedParameters*)m_pSharedParams;
+            m_fGain = pParams->master_gain;
+            pParams->peak_l = m_fPeakL;
+            pParams->peak_r = m_fPeakR;
+        }
+
+        ppOutputConnections[0]->u32ValidFrameCount = u32Frames;
         ppOutputConnections[0]->u32BufferFlags = ppInputConnections[0]->u32BufferFlags;
     }
+}
+
+void CLeylineAPO::UpdatePeakMeter(float left, float right)
+{
+    float absL = fabsf(left);
+    float absR = fabsf(right);
+    if (absL > m_fPeakL) m_fPeakL = absL;
+    if (absR > m_fPeakR) m_fPeakR = absR;
 }
 
 // ============================================================================
 // IAudioProcessingObject
 // ============================================================================
 
+#define IOCTL_LEYLINE_MAP_BUFFER 0x80002008
+#define IOCTL_LEYLINE_MAP_PARAMS 0x8000200C
+
+struct SharedParameters {
+    float master_gain;
+    float peak_l;
+    float peak_r;
+};
+
 STDMETHODIMP CLeylineAPO::Initialize(UINT32 cbDataSize, BYTE* pbyData)
 {
     UNREFERENCED_PARAMETER(cbDataSize);
     UNREFERENCED_PARAMETER(pbyData);
     
+    // Open the driver for real-time communication
+    m_hDriver = CreateFile(L"\\\\.\\LeylineAudio", GENERIC_READ | GENERIC_WRITE, 
+                           0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (m_hDriver != INVALID_HANDLE_VALUE)
+    {
+        DWORD dwBytesReturned = 0;
+        PVOID pUserMapping = NULL;
+
+        // Request the shared buffer mapping from the kernel driver
+        if (DeviceIoControl(m_hDriver, IOCTL_LEYLINE_MAP_BUFFER, NULL, 0, 
+                             &pUserMapping, sizeof(PVOID), &dwBytesReturned, NULL))
+        {
+            m_pSharedBuffer = (float*)pUserMapping;
+        }
+
+        // Request the shared parameter mapping
+        if (DeviceIoControl(m_hDriver, IOCTL_LEYLINE_MAP_PARAMS, NULL, 0,
+                             &pUserMapping, sizeof(PVOID), &dwBytesReturned, NULL))
+        {
+            m_pSharedParams = pUserMapping;
+        }
+    }
+
     return S_OK;
 }
 

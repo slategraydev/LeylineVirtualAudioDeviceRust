@@ -11,28 +11,52 @@ namespace LeylineHSA
     public sealed partial class MainWindow : Window
     {
         private DriverBridge _bridge = new DriverBridge();
+        private DispatcherTimer _timer;
+        private IntPtr _paramsPtr;
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct SharedParameters
+        {
+            public float master_gain;
+            public float peak_l;
+            public float peak_r;
+        }
 
         public MainWindow()
         {
             this.InitializeComponent();
-            CheckDriverStatus();
-        }
-
-        private void RefreshButton_Click(object sender, RoutedEventArgs e)
-        {
-            CheckDriverStatus();
-        }
-
-        private void CheckDriverStatus()
-        {
             if (_bridge.Connect())
             {
-                uint status = _bridge.GetStatus();
-                StatusText.Text = $"Connected. Status: 0x{status:X8}";
+                _paramsPtr = _bridge.MapParams();
+                StatusText.Text = "Connected to Leyline Driver";
+                
+                _timer = new DispatcherTimer();
+                _timer.Interval = TimeSpan.FromMilliseconds(33);
+                _timer.Tick += (s, e) => UpdateUI();
+                _timer.Start();
             }
             else
             {
-                StatusText.Text = "Driver not found. Ensure Leyline Audio Driver is installed.";
+                StatusText.Text = "Driver not found.";
+            }
+        }
+
+        private unsafe void UpdateUI()
+        {
+            if (_paramsPtr != IntPtr.Zero)
+            {
+                SharedParameters* p = (SharedParameters*)_paramsPtr;
+                MeterL.Value = Math.Clamp(p->peak_l * 100, 0, 100);
+                MeterR.Value = Math.Clamp(p->peak_r * 100, 0, 100);
+            }
+        }
+
+        private unsafe void GainSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (_paramsPtr != IntPtr.Zero)
+            {
+                SharedParameters* p = (SharedParameters*)_paramsPtr;
+                p->master_gain = (float)e.NewValue;
             }
         }
     }
