@@ -11,8 +11,10 @@ $SignTool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtoo
 # 1. Build Kernel
 Write-Host "Building Kernel..."
 $env:LIBCLANG_PATH = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin"
+Push-Location "crates/leyline-kernel"
 cargo wdk build
-if ($LASTEXITCODE -ne 0) { throw "Kernel build failed" }
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Kernel build failed" }
+Pop-Location
 
 # 2. Build HSA
 Write-Host "Building HSA..."

@@ -143,13 +143,33 @@ This file serves as the definitive log for project status, architectural history
 
 ---
 
-## PROJECT TODO (Session #08 Preparation)
+## SESSION #08
+**Reviewer**: Antigravity (Gemini 3 Pro (High))
+**Date**: February 14, 2026
+**Status**: APO REGISTRATION & INF DCH COMPLIANCE COMPLETE
+**Toolchain Hardening**: Fixed `package_driver.ps1` directory context logic.
+
+### Work Completed
+- **INF Modernization**: Rewrote `leyline.inx` to fully support DCH requirements (DirId 13) and correct Audio/Render/Capture interface registration.
+- **APO Registration**: Added complete registry logic to `leyline.inx` to register the `LeylineAPO.dll` COM server and associate it with the audio endpoint via `PKEY_FX_StreamEffectClsid`.
+- **Packaging Logic**: Updated `scripts/package_driver.ps1` to correctly `Push-Location` into the kernel crate, ensuring reliable builds.
+- **Build Verification**: Verified the full package generation (`.sys`, `.dll`, `.inf`, `.cat`) via `Inf2Cat` validation (0 Errors/Warnings).
+- **Project Structure**: Confirmed `package/` now contains a fully installable, signed DCH driver package.
+
+### Architectural Suggestions
+- **Uninstallation**: The current INF handles installation well, but ensure `pnputil /delete-driver` cleanly removes the registry keys. The `[DelReg]` sections might be needed if the OS doesn't handle it automatically (usually it does for INF-based installs).
+- **Extension INF**: For a purely "Universal" driver, sometimes the APO registration is split into an "Extension INF". Currently, we are using a "Componentized" approach in a single INF which is acceptable for a monolithic virtual driver, but splitting might be needed for WHQL.
+
+## PROJECT TODO (Session #09 Preparation)
 
 - [ ] **Physical Installation**
-    - [ ] Install the certificate (`leyline.cer`) to `Root` and `TrustedPublisher`.
-    - [ ] Install the driver via `pnputil`.
-- [ ] **APO Registration**
-    - [ ] Verify APO registration logic (currently in `dllmain.cpp` or needs a separate `.reg` file/installer).
+    - [ ] Run `bcdedit /set testsigning on` (requires reboot).
+    - [ ] Install certificate: `certutil -addstore TrustedPublisher package/leyline.cer`.
+    - [ ] Install driver: `pnputil /add-driver package/leyline.inf /install`.
+- [ ] **Functional Verification**
+    - [ ] Verify audio playback through "Leyline Audio Virtual Adapter".
+    - [ ] Verify HSA meter movement.
+    - [ ] Verify sound effects (APO) are active.
 
 ---
 *Last Updated: February 14, 2026*

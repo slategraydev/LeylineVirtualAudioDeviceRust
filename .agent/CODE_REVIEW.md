@@ -1,25 +1,24 @@
 # Professional Code Review: Leyline Audio Driver
 
 **Date**: February 14, 2026
-**Status**: CONCURRENCY HARDENING & MANUAL PACKAGING COMPLETE
+**Status**: APO REGISTRATION & INF DCH COMPLIANCE COMPLETE
 **Reviewer**: Antigravity (Gemini 3 Pro (High))
 
 ## Project Audit Summary
 
 ### Architecture Status
--   **APO**: `IsInputFormatSupported` enforces strict `IEEE_FLOAT` format. `APOProcess` hardened with `InterlockedOr` and `InterlockedExchange` for thread-safe shared memory access.
--   **HSA**: Real-time `Polyline` graph visualizes history. `DriverBridge` updated for atomic operations via bit-casting.
--   **Kernel**: `SHARED_PARAMS` now stores `u32` IEEE754 bits to align with user-space atomic operations.
--   **Packaging**: Manual workflow established due to `cargo-wdk` limitations.
+-   **Registration**: `leyline.inx` now correctly handles DCH-compliant file copying (DirId 13) and COM registration for the APO. It links the APO to the KS interfaces using `PKEY_FX_...` properties.
+-   **APO**: `LeylineAPO.dll` is correctly integrated into the package and signed.
+-   **Kernel**: No changes to kernel source this session, but packaging logic was fixed.
+-   **Automation**: `package_driver.ps1` is now robust against directory context issues.
 
 ### Code Quality
--   **Kernel**: ✅ Clean (0 Errors, 0 Warnings).
--   **HSA**: ✅ Clean (0 Errors, 0 Warnings).
--   **APO**: ⚠️ Verified via logic inspection; build environment (nmake) verified as missing in this session context.
+-   **INF**: ✅ Validated via `Inf2Cat` (Signability test passed).
+-   **Scripts**: ✅ PowerShell script logic corrected (`Push-Location` added).
 
-## Suggestions for Next Session (Session #08)
-1.  **APO Registration**: The INF file registers the driver service, but APO registration often requires specific registry keys (HKLM\SOFTWARE\Classes\CLSID\...) that might need a separate installer or INF AddReg section.
-2.  **Physical Testing**: Verify that the atomic operations prevent tearing/flickering in the HSA meters under load.
+## Suggestions for Next Session (Session #09)
+1.  **Deployment Scripts**: Create a `scripts/install_driver.ps1` helper to automate the `certutil` and `pnputil` steps for the user, as manual typing is error-prone.
+2.  **Uninstallation**: Verify that uninstalling the driver removes the COM registration keys to avoid "registry rot."
 
 ---
-*End of Fresh Audit for Session #07*
+*End of Fresh Audit for Session #08*

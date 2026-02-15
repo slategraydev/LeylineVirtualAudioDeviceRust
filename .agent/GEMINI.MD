@@ -252,9 +252,9 @@ Every agent participating in this project MUST adhere to the following maintenan
 5. **TEST_REVIEW.md**: Update with verification and test coverage status.
 6. **BUILD_REVIEW.MD**: Update with current build health and warnings.
 7. **TOOLCHAIN_REVIEW.md**: Update with current environment status. [CRITICAL]
-8. **Reviewer Metadata**: ALL updated artifacts must use the header format: `**Reviewer**: Antigravity (<Current Model Name>)` and `**Date**: Month Day, Year`.
-6. **Session Cleanup**: MANDATORY deletion of all `*.txt` verification logs and a full build clean (e.g., `cargo clean`) to prevent cross-pollination. [NEW]
-6. **GEMINI.MD Sync**: Update Section 3 (Project Structure) if physical files have changed.
+8. **Reviewer Metadata**: ALL updated artifacts must use the header format: `**Reviewer**: <Current Model Name>` and `**Date**: Month Day, Year`.
+9. **Session Cleanup**: MANDATORY deletion of all `*.txt` verification logs and a full build clean (e.g., `cargo clean`) to prevent cross-pollination. [NEW]
+10. **GEMINI.MD Sync**: Update Section 3 (Project Structure) if physical files have changed.
 
 ### Reference Audit Mandate
 When starting a task involving a Windows API, DDI, or WaveRT concept, the agent MUST:

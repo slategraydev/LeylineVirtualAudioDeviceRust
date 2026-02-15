@@ -15,10 +15,11 @@ PnpLockdown = 1
 1 = %DiskName%,,,
 
 [SourceDisksFiles]
-leyline.sys = 1,,
+leyline.sys    = 1,,
+LeylineAPO.dll = 1,,
 
 [DestinationDirs]
-DefaultDestDir = 13
+DefaultDestDir = 13 ; Driver Store
 
 [Manufacturer]
 %ManufacturerName% = Standard,NTamd64
@@ -26,20 +27,60 @@ DefaultDestDir = 13
 [Standard.NTamd64]
 %DeviceName% = Leyline_Device, Root\LeylineAudio
 
+; ==============================================================================
+; Device Installation
+; ==============================================================================
+
 [Leyline_Device.NT]
 CopyFiles = Leyline_Device.CopyFiles
+AddReg    = Leyline_Device.AddReg
 
 [Leyline_Device.CopyFiles]
 leyline.sys
+LeylineAPO.dll
+
+[Leyline_Device.AddReg]
+; Register the APO COM Server
+HKCR,CLSID\%LeylineAPO_CLSID%,,,"Leyline Audio Processing Object"
+HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,,,%13%\LeylineAPO.dll
+HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,ThreadingModel,,Both
+
+; ==============================================================================
+; Interface Installation (KS / Audio)
+; ==============================================================================
+
+[Leyline_Device.NT.Interfaces]
+AddInterface = %KSCATEGORY_AUDIO%, %KSNAME_Wave%, Leyline_AudioInterface
+AddInterface = %KSCATEGORY_RENDER%, %KSNAME_Wave%, Leyline_AudioInterface
+AddInterface = %KSCATEGORY_CAPTURE%, %KSNAME_Wave%, Leyline_AudioInterface
+
+[Leyline_AudioInterface]
+AddReg = Leyline_AudioInterface.AddReg
+
+[Leyline_AudioInterface.AddReg]
+; Register the APOs for this interface
+; PKEY_FX_StreamEffectClsid (SFX)
+HKR,"FX\\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
+; PKEY_FX_ModeEffectClsid (MFX)
+HKR,"FX\\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
+; PKEY_FX_EndpointEffectClsid (EFX)
+HKR,"FX\\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
+
+; Friendly Name for the Endpoint
+HKR,,FriendlyName,,%DeviceName%
+
+; ==============================================================================
+; Service Installation
+; ==============================================================================
 
 [Leyline_Device.NT.Services]
 AddService = Leyline, 0x00000002, Leyline_Service_Inst
 
 [Leyline_Service_Inst]
 DisplayName   = %ServiceDesc%
-ServiceType   = 1
-StartType     = 3
-ErrorControl  = 1
+ServiceType   = 1 ; SERVICE_KERNEL_DRIVER
+StartType     = 3 ; SERVICE_DEMAND_START
+ErrorControl  = 1 ; SERVICE_ERROR_NORMAL
 ServiceBinary = %13%\leyline.sys
 
 [Strings]
@@ -47,3 +88,17 @@ ManufacturerName = "Randall Rosas (Slategray)"
 DiskName         = "Leyline Audio Installation Disk"
 DeviceName       = "Leyline Audio Virtual Adapter"
 ServiceDesc      = "Leyline Audio Driver Service"
+
+; GUIDs
+KSCATEGORY_AUDIO   = "{6994AD04-93EF-11D0-A3CC-00A0C9223196}"
+KSCATEGORY_RENDER  = "{65E8773E-8F56-11D0-A3B9-00A0C9223196}"
+KSCATEGORY_CAPTURE = "{65E8773D-8F56-11D0-A3B9-00A0C9223196}"
+KSNAME_Wave        = "Wave"
+
+; Property Keys
+PKEY_FX_StreamEffectClsid   = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},5"
+PKEY_FX_ModeEffectClsid     = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},6"
+PKEY_FX_EndpointEffectClsid = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},7"
+
+; Leyline Specifics
+LeylineAPO_CLSID = "{C8D3E4F5-B6A7-4A2D-A1A3-1A2B3C4D5E6F}"
