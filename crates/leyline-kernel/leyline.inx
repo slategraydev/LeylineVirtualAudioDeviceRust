@@ -21,9 +21,9 @@ leyline.sys = 1,,
 DefaultDestDir = 13
 
 [Manufacturer]
-%ManufacturerName% = Standard,NT$ARCH$
+%ManufacturerName% = Standard,NTamd64
 
-[Standard.NT$ARCH$]
+[Standard.NTamd64]
 %DeviceName% = Leyline_Device, Root\LeylineAudio
 
 [Leyline_Device.NT]

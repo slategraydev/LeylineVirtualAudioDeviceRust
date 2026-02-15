@@ -61,9 +61,9 @@ pub const KSCATEGORY_CAPTURE: [u8; 16] = [
 /// Shared parameters between HSA, APO, and Driver.
 #[repr(C)]
 pub struct SharedParameters {
-    pub master_gain: f32,
-    pub peak_l: f32,
-    pub peak_r: f32,
+    pub master_gain_bits: u32, // IEEE754 float bits
+    pub peak_l_bits: u32,      // IEEE754 float bits
+    pub peak_r_bits: u32,      // IEEE754 float bits
 }
 
 /// IOCTL code for setting buffer configuration from HSA.

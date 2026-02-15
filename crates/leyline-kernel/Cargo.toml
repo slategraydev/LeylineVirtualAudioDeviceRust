@@ -5,6 +5,7 @@ edition = "2021"
 authors = ["Randall Rosas (Slategray)"]
 
 [lib]
+name = "leyline"
 crate-type = ["cdylib"]
 
 [dependencies]

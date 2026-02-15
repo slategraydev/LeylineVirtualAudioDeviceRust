@@ -1,20 +1,58 @@
-# Rust/C++ Build Artifacts
+# Rust
 target/
+**/*.rs.bk
+
+# C# / .NET
 bin/
 obj/
+*.user
+*.suo
+*.userprefs
+
+# C++ / WDK
+*.obj
+*.lib
+*.exp
+*.tlb
 *.pdb
-*.log
+*.ilk
+*.aps
+*.res
+*.pch
+*.idb
+*.ipch
+*_h.h
+*_i.c
+*_p.c
+dlldata.c
+
+# Binaries
+*.dll
+*.exe
+*.sys
+*.msi
 
 # Driver Signing (CRITICAL: DO NOT COMMIT)
 *.cer
 *.pfx
 *.pvk
 
-# Deployment Metadata
+# Deployment Metadata & Artifacts
 *.cat
-*.sys
 *.inf
+package/
 
-# Agent Artifacts
-# We track the .agent directory, but ignore specific ephemeral files if they appear.
-# For now, we want to track everything in .agent/
+# Logs
+*.log
+*.txt
+*.err
+*.wrn
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Agent - Keep .agent but ignore temp files if any
+.agent/tmp/

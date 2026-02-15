@@ -12,6 +12,7 @@ The framework relies on a hierarchical stack of markdown artifacts in the projec
 - **`CODE_REVIEW.md`**: Architectural audit. (Located in `.agent/`)
 - **`TEST_REVIEW.md`**: verification and test status. (Located in `.agent/`)
 - **`BUILD_REVIEW.MD`**: Build health. (Located in `.agent/`)
+- **`SCRIPTS_REVIEW.md`**: Automation script audit. (Located in `.agent/`)
 - **`TOOLCHAIN_REVIEW.md`**: Granular environment management. (Located in `.agent/`)
 - **`COMMIT_MESSAGE.MD`**: Session commit message template. (Located in `.agent/`)
 
@@ -32,7 +33,7 @@ description: Synchronize with the latest project status, standards, and TODOs.
 ## 3. The Hand-off Mandate
 To maintain the integrity of this framework, agents are bound by a strict maintenance protocol at the end of every session:
 1. **Log Progress**: Append work to the session log in `.agent/PROJECT_PROGRESS.MD`.
-2. **Commit Message**: Update `.agent/COMMIT_MESSAGE.MD` with a summary, changes, and verification proof. [NEW]
+2. **Draft Commit Message**: Update `.agent/COMMIT_MESSAGE.MD` with a summary, changes, and verification proof. **DO NOT EXECUTE `git commit`**. Wait for user confirmation.
 3. **Audit Architecture**: Update `.agent/CODE_REVIEW.md` with a fresh perspective.
 4. **Verify Tests**: Update `.agent/TEST_REVIEW.md` with current coverage and results.
 5. **Verify Build**: Update `.agent/BUILD_REVIEW.MD` with current build status.
@@ -44,6 +45,7 @@ To maintain the integrity of this framework, agents are bound by a strict mainte
 11. **Goal-Oriented Development**: Every action MUST progress the project toward the "Product North Star" defined in `GEMINI.MD` Section 0. Aimless development or feature-creep is a protocol violation. [NEW]
 12. **Sacrosanct Testing**: Tests represent the 1:1 physical manifestation of the technical spec. Diluting tests to make code pass is strictly prohibited. If code fails a test, refactor the code, not the test. [NEW]
 13. **Delicate Spec Evolution**: Update the "Constitution" (`GEMINI.MD`) only for deliberate architectural decisions or structure changes.
+14. **No Auto-Commit**: Agents MUST NOT execute `git commit`. The session ends with changes staged or in the working directory for user review.
 
 ### 3.1 Task List Protocol [CRITICAL]
 The session `task.md` is the operational checklist for the agent. To ensure no mandatory file is skipped, agents MUST list each review file as a separate checklist item in the "Session Verification" section.

@@ -40,3 +40,11 @@ script = [
     "certutil -addstore root WDRLocalTestCert.cer",
     "certutil -addstore TrustedPublisher WDRLocalTestCert.cer"
 ]
+
+[tasks.package-all]
+description = "Full build and package (Kernel + APO + HSA)"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\package_driver.ps1"
+]

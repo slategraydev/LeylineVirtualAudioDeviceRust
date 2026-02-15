@@ -1,29 +1,30 @@
-feat: Implement APO format negotiation and HSA real-time graph
+# Session Commit: Manual Packaging & Concurrency Hardening
 
-**Session #06 Summary**:
-This session focused on hardening the APO's format negotiation logic and enhancing the HSA with real-time visualization of the shared audio state. It also enforced strict cleanup protocols for verification logs and resolved a pending kernel warning.
+## Summary
+This session successfully transitioned the project to a deployable state by establishing a manual packaging workflow (due to `cargo-wdk` limitations) and hardening the shared memory interface against concurrency issues. The driver, APO, and HSA now use atomic operations (Interlocked/Atomics) on `u32`/`LONG` representations of IEEE754 floats to prevent tearing during high-frequency updates.
 
-**Changes**:
--   **APO**: Implemented `IsInputFormatSupported` in `LeylineAPO.cpp` to strictly enforce `IEEE_FLOAT` stereo format, replacing the placeholder stub.
--   **HSA**: Added a `Polyline` graph to `MainWindow.xaml` and implemented history tracking in `MainWindow.xaml.cs` to visualize the peak levels from shared memory.
--   **Kernel**: Fixed `static_mut_refs` warning in `lib.rs` by using `&raw mut` for the `SHARED_PARAMS` access.
--   **Project**: Updated `GEMINI_PROJECT_SETUP.md` to require recursive cleanup of `*.txt` and `*.log` files to keep the repo clean.
--   **Cleanup**: Removed accumulated log files from `crates/leyline-kernel`.
+## Changes
+-   **feat(kernel)**: Updated `SharedParameters` to use `u32` bits instead of `f32` for atomic compatibility.
+-   **feat(apo)**: Implemented `InterlockedOr` (read) and `InterlockedExchange` (write) for thread-safe parameter access.
+-   **feat(hsa)**: Updated `DriverBridge` to use `Interlocked.CompareExchange` for safe reading of peak meters.
+-   **chore(build)**: Renamed kernel library to `leyline` in `Cargo.toml` to match INF expectations (`leyline.sys`).
+-   **feat(automation)**: Created `scripts/package_driver.ps1` to fully automate the build-package-sign pipeline.
+-   **chore(repo)**: Updated `.gitignore` and `.gitattributes` to exclude build artifacts (`package/`, `*.dll`, `*.obj`) and enforce line endings.
+-   **docs**: Updated project progress and review documents.
 
-**Verification**:
--   **Kernel**: `cargo wdk build` -> SUCCESS (0 Errors, 0 Warnings).
--   **HSA**: `dotnet build` -> SUCCESS (0 Errors, 0 Warnings).
--   **APO**: Logic verified via code review (Build environment pending).
--   **Zero-Warning Proof**: Manually verified build logs for "warning" string sufficiency.
+## Verification
+-   **Kernel Build**: `cargo wdk build` -> SUCCESS (0 Errors, 0 Warnings verified via `Select-String`).
+-   **HSA Build**: `dotnet build` -> SUCCESS.
+-   **Packaging**: `scripts/package_driver.ps1` successfully created `package/` with signed `leyline.sys`, `leyline.cat`, `leyline.inf`, `LeylineAPO.dll`, and `HSA/LeylineHSA.exe`.
 
-**Git Commit Payload**:
+## Git Commit Payload
 ```
-feat: Implement APO format negotiation and HSA real-time graph
+feat: harden concurrency and automate packaging
 
-- Implement `IsInputFormatSupported` in `LeylineAPO.cpp` (Float32 Stereo strict).
-- Add `Polyline` to `MainWindow.xaml` for audio monitoring.
-- Implement graph update logic in `MainWindow.xaml.cs`.
-- Fix `static_mut_refs` warning in kernel `lib.rs` using `&raw mut`.
-- Update `GEMINI_PROJECT_SETUP.md` with recursive cleanup mandate.
-- Clean up verification logs in `crates/leyline-kernel`.
+- Update SharedParameters to use u32/LONG bits for atomic operations
+- Implement Interlocked read/write in APO and HSA
+- Rename kernel library to 'leyline' for INF compatibility
+- Create scripts/package_driver.ps1 for automated build/package/sign
+- Establish manual packaging workflow (sys/inf/cat/sign)
+- Verify zero-warning build state
 ```

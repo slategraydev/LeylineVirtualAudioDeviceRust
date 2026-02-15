@@ -1,11 +1,42 @@
 #include "LeylineAPO.h"
 #include <initguid.h>
+#include <math.h>
 
 // {C8D3E4F5-B6A7-4A2D-A1A3-1A2B3C4D5E6F}
 DEFINE_GUID(CLSID_LeylineAPO, 0xc8d3e4f5, 0xb6a7, 0x4a2d, 0xa1, 0xa3, 0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f);
 
 // {D9A2A1A3-C7B1-4A2D-1A2B-3C4D5E6F77B8}
 DEFINE_GUID(IID_ILeylineAPO, 0xd9a2a1a3, 0xc7b1, 0x4a2d, 0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x77, 0xb8);
+
+// ============================================================================
+// Shared Memory & Helpers
+// ============================================================================
+
+#define IOCTL_LEYLINE_MAP_BUFFER 0x80002008
+#define IOCTL_LEYLINE_MAP_PARAMS 0x8000200C
+
+struct SharedParameters {
+    LONG master_gain_bits;
+    LONG peak_l_bits;
+    LONG peak_r_bits;
+};
+
+// Bit-cast helpers for atomic operations
+LONG FloatToLong(float f) {
+    union { float f; LONG l; } u;
+    u.f = f;
+    return u.l;
+}
+
+float LongToFloat(LONG l) {
+    union { float f; LONG l; } u;
+    u.l = l;
+    return u.f;
+}
+
+// ============================================================================
+// Implementation
+// ============================================================================
 
 CLeylineAPO::CLeylineAPO() :
     m_cRef(1),
@@ -16,6 +47,16 @@ CLeylineAPO::CLeylineAPO() :
     m_fPeakL(0.0f),
     m_fPeakR(0.0f)
 {
+    // Initialize registration properties
+    // We strictly use the default flags (APO_FLAG_DEFAULT) as we process data in-place.
+    ZeroMemory(&m_RegProperties, sizeof(m_RegProperties));
+    m_RegProperties.clsid = CLSID_LeylineAPO;
+    m_RegProperties.Flags = APO_FLAG_DEFAULT;
+    // Standard APOs typically support 1 input and 1 output connection.
+    m_RegProperties.u32MinInputConnections = 1;
+    m_RegProperties.u32MaxInputConnections = 1;
+    m_RegProperties.u32MinOutputConnections = 1;
+    m_RegProperties.u32MaxOutputConnections = 1;
 }
 
 CLeylineAPO::~CLeylineAPO()
@@ -52,13 +93,21 @@ STDMETHODIMP CLeylineAPO::QueryInterface(REFIID riid, void** ppvObject)
         return E_POINTER;
     }
 
-    if (riid == IID_IUnknown || riid == __uuidof(IAudioProcessingObject) || riid == __uuidof(IAudioProcessingObjectRT))
+    if (riid == IID_IUnknown)
     {
-        *ppvObject = static_cast<IAudioProcessingObject*>(this);
+        *ppvObject = static_cast<IUnknown*>(static_cast<ILeylineAPO*>(this));
     }
     else if (riid == IID_ILeylineAPO)
     {
         *ppvObject = static_cast<ILeylineAPO*>(this);
+    }
+    else if (riid == __uuidof(IAudioProcessingObject))
+    {
+        *ppvObject = static_cast<IAudioProcessingObject*>(this);
+    }
+    else if (riid == __uuidof(IAudioProcessingObjectRT))
+    {
+        *ppvObject = static_cast<IAudioProcessingObjectRT*>(this);
     }
     else if (riid == __uuidof(IAudioSystemEffects))
     {
@@ -115,14 +164,26 @@ STDMETHODIMP_(void) CLeylineAPO::APOProcess(
         if (m_pSharedParams)
         {
             SharedParameters* pParams = (SharedParameters*)m_pSharedParams;
-            m_fGain = pParams->master_gain;
-            pParams->peak_l = m_fPeakL;
-            pParams->peak_r = m_fPeakR;
+            // Atomic Read: Use InterlockedOr to read 32-bit value atomically
+            LONG lGain = InterlockedOr(&pParams->master_gain_bits, 0);
+            m_fGain = LongToFloat(lGain);
+
+            // Atomic Write: Use InterlockedExchange to update peaks preventing tearing
+            InterlockedExchange(&pParams->peak_l_bits, FloatToLong(m_fPeakL));
+            InterlockedExchange(&pParams->peak_r_bits, FloatToLong(m_fPeakR));
         }
 
         ppOutputConnections[0]->u32ValidFrameCount = u32Frames;
         ppOutputConnections[0]->u32BufferFlags = ppInputConnections[0]->u32BufferFlags;
     }
+}
+
+STDMETHODIMP_(UINT32) CLeylineAPO::CalcInputFrames(UINT32 u32OutputFrameCount) {
+    return u32OutputFrameCount;
+}
+
+STDMETHODIMP_(UINT32) CLeylineAPO::CalcOutputFrames(UINT32 u32InputFrameCount) {
+    return u32InputFrameCount;
 }
 
 void CLeylineAPO::UpdatePeakMeter(float left, float right)
@@ -136,15 +197,6 @@ void CLeylineAPO::UpdatePeakMeter(float left, float right)
 // ============================================================================
 // IAudioProcessingObject
 // ============================================================================
-
-#define IOCTL_LEYLINE_MAP_BUFFER 0x80002008
-#define IOCTL_LEYLINE_MAP_PARAMS 0x8000200C
-
-struct SharedParameters {
-    float master_gain;
-    float peak_l;
-    float peak_r;
-};
 
 STDMETHODIMP CLeylineAPO::Initialize(UINT32 cbDataSize, BYTE* pbyData)
 {
@@ -178,6 +230,44 @@ STDMETHODIMP CLeylineAPO::Initialize(UINT32 cbDataSize, BYTE* pbyData)
     return S_OK;
 }
 
+STDMETHODIMP CLeylineAPO::Reset() {
+    return S_OK;
+}
+
+STDMETHODIMP CLeylineAPO::GetLatency(HNSTIME* pTime) {
+    if (!pTime) return E_POINTER;
+    *pTime = 0;
+    return S_OK;
+}
+
+STDMETHODIMP CLeylineAPO::GetRegistrationProperties(APO_REG_PROPERTIES** ppRegProps) {
+    if (!ppRegProps) return E_POINTER;
+
+    // Allocate the registration properties structure using COM task memory.
+    // The audio engine is responsible for freeing this memory.
+    APO_REG_PROPERTIES* pProps = (APO_REG_PROPERTIES*)CoTaskMemAlloc(sizeof(APO_REG_PROPERTIES));
+    if (!pProps) return E_OUTOFMEMORY;
+
+    *pProps = m_RegProperties;
+    *ppRegProps = pProps;
+    return S_OK;
+}
+
+STDMETHODIMP CLeylineAPO::GetInputChannelCount(UINT32* pu32ChannelCount) {
+    if (!pu32ChannelCount) return E_POINTER;
+    *pu32ChannelCount = 2; // Stereo
+    return S_OK;
+}
+
+STDMETHODIMP CLeylineAPO::IsOutputFormatSupported(
+    IAudioMediaType* pOppositeFormat,
+    IAudioMediaType* pRequestedOutputFormat,
+    IAudioMediaType** ppSupportedOutputFormat)
+{
+    // Mirror the input logic for now - we are 1:1 in/out
+    return IsInputFormatSupported(pOppositeFormat, pRequestedOutputFormat, ppSupportedOutputFormat);
+}
+
 STDMETHODIMP CLeylineAPO::IsInputFormatSupported(
     IAudioMediaType* pOppositeFormat,
     IAudioMediaType* pRequestedInputFormat,
@@ -190,7 +280,7 @@ STDMETHODIMP CLeylineAPO::IsInputFormatSupported(
 
     // Helper to validate format
     auto IsFloat32Stereo = [](IAudioMediaType* pFormat) -> bool {
-        WAVEFORMATEX* pWfx = pFormat->GetAudioFormat();
+        const WAVEFORMATEX* pWfx = pFormat->GetAudioFormat();
         if (NULL == pWfx) return false;
 
         if (pWfx->wFormatTag == WAVE_FORMAT_IEEE_FLOAT)
@@ -199,7 +289,7 @@ STDMETHODIMP CLeylineAPO::IsInputFormatSupported(
         }
         else if (pWfx->wFormatTag == WAVE_FORMAT_EXTENSIBLE)
         {
-            WAVEFORMATEXTENSIBLE* pWfxExt = (WAVEFORMATEXTENSIBLE*)pWfx;
+            const WAVEFORMATEXTENSIBLE* pWfxExt = (const WAVEFORMATEXTENSIBLE*)pWfx;
             return (pWfx->nChannels == 2 && 
                     pWfx->wBitsPerSample == 32 &&
                     IsEqualGUID(pWfxExt->SubFormat, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT));

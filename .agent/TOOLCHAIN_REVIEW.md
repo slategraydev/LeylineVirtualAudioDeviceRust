@@ -24,7 +24,12 @@ This document tracks the mandatory toolchains for the Leyline Audio Driver proje
 ### 3. APO Component (C++)
 - **Mandatory Toolchain**: Visual Studio 2022 C++ Build Tools
 - **Mandatory SDK**: Windows 11 SDK / eWDK
-- **PATH Requirement**: `nmake.exe` and `cl.exe` (hoisted via eWDK/VS Developer Prompt).
+- **Automation**: `scripts/package_driver.ps1` handles the build if run from a Developer Prompt.
+
+### 4. Driver Packaging (Automated)
+- **Script**: `scripts/package_driver.ps1`
+- **Mandatory Tools**: `inf2cat.exe`, `signtool.exe`, `stampinf.exe`
+- **Action**: The script locates and invokes these tools automatically.
 
 ---
 
@@ -37,6 +42,8 @@ This document tracks the mandatory toolchains for the Leyline Audio Driver proje
 | **LLVM 17.0.6** | Rust/Kernel | ✅ | Yes | Verified in Session #05 |
 | **.NET SDK 8.0** | WinUI 3/HSA | ✅ | Yes | Verified in Session #03 |
 | **MSVC (C++)** | APO | ✅ | Yes | Accessible via VS Professional |
+| **Inf2Cat** | Packaging | ✅ | Auto | Script uses hardcoded path (checked) |
+| **SignTool** | Packaging | ✅ | Auto | Script uses hardcoded path (checked) |
 
 ---
 
@@ -50,6 +57,7 @@ $env:LIBCLANG_PATH = "C:\Program Files\Microsoft Visual Studio\2022\Professional
 Write-Host "Verifying Toolchains..."
 if (Get-Command cargo -ErrorAction SilentlyContinue) { Write-Host "✅ Cargo: Found" } else { Write-Warning "❌ Cargo: Missing" }
 if (Get-Command dotnet -ErrorAction SilentlyContinue) { Write-Host "✅ .NET: Found" } else { Write-Warning "❌ .NET: Missing" }
+if (Test-Path "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x86\Inf2Cat.exe") { Write-Host "✅ Inf2Cat: Found" } else { Write-Warning "❌ Inf2Cat: Missing" }
 ```
 
 ---

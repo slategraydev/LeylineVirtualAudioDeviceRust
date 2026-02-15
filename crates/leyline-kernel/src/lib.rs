@@ -63,9 +63,9 @@ pub struct MiniportWaveRT {
 pub static mut MINI_PORT: Option<MiniportWaveRT> = None;
 
 pub static mut SHARED_PARAMS: leyline_shared::SharedParameters = leyline_shared::SharedParameters {
-    master_gain: 1.0,
-    peak_l: 0.0,
-    peak_r: 0.0,
+    master_gain_bits: 0x3F800000, // 1.0
+    peak_l_bits: 0,
+    peak_r_bits: 0,
 };
 
 // ============================================================================
