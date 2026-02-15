@@ -1,7 +1,7 @@
 # Toolchain Review: Leyline Audio Driver
 
 **Date**: February 15, 2026
-**Status**: SESSION #11 COMPLETE
+**Status**: SESSION #13 COMPLETE
 **Reviewer**: Antigravity (Gemini 3 Pro)
 
 ## Required Toolchain Requirements
@@ -13,13 +13,15 @@
 - **Environment Variable**: `WDK_ROOT` (Set via eWDK)
 
 ### 2. Build Automation
-- **Master Script**: `scripts/LaunchBuildEnv.ps1` (Self-contained on Drive D:)
+- **Master Script**: `scripts/LaunchBuildEnv.ps1`
+- **Task Runner**: `cargo-make` (version 0.37.x+)
 
 ---
 
 ## Required Environment Variables & PATHs
 - **eWDK Root**: `D:\eWDK_28000`
 - **LLVM Bin**: `D:\eWDK_28000\LLVM\bin`
+- **PATH**: Must include the eWDK bin directories (set via `LaunchBuildEnv.ps1`).
 
 ---
 *Last Updated: February 15, 2026*

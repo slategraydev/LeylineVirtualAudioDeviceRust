@@ -1,21 +1,21 @@
-feat: refactor shared logic and implement host-side unit testing
+feat: register topology filter and expand data ranges
 
-Decoupled core math and buffer logic into `leyline-shared` and implemented host-side unit testing.
+Registered the Topology subdevice and implemented multi-format data negotiation to support professional audio streaming.
 
-Changes:
-- Moved `RingBuffer` and `WaveRTMath` to `leyline-shared` crate.
-- Added 4 unit tests covering buffer wrapping and WaveRT position arithmetic.
-- Refactored `leyline-kernel` to use `leyline-shared` exports.
-- Modified `build.rs` to allow `cargo test` to run on the kernel crate without kernel linker flags.
-- Confirmed zero-warning build for both crates.
+- Implemented `IMiniportTopology` COM wrapper and registration logic.
+- Defined `PCFILTER_DESCRIPTOR` for the Wave filter with PCM and IEEE Float support.
+- Implemented `DataRangeIntersection` for dynamic format negotiation.
+- Created `scripts/Update-Version.ps1` for automated INF stamping.
+- Verified zero-warning build across the entire kernel crate.
 
-Verification Proof:
-- `cargo test -p leyline-shared`: 4 tests passed.
-- `cargo wdk build`: Success (0 warnings).
+**Zero-Warning Proof**: Verified via `Select-String -Pattern "warning"` on build logs (No matches).
 
-Git Commit Payload:
-feat: shared logic refactor and unit testing
-- Decoupled RingBuffer and WaveRTMath to leyline-shared.
-- Implemented unit tests for audio buffer and math primitives.
-- Updated leyline-kernel for shared logic consumption.
-- Refined build script for user-space testing compatibility.
+**Git Commit Payload**:
+```
+feat: register topology filter and expand data ranges
+
+- Implement IMiniportTopology COM wrapper and registration.
+- Define static Wave filter descriptors for PCM/Float.
+- Implement DataRangeIntersection negotiation logic.
+- Automate INF version stamping in build pipeline.
+```

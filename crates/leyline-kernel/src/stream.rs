@@ -60,6 +60,79 @@ pub struct KSDATAFORMAT_WAVEFORMATEX {
     pub WaveFormatEx: WAVEFORMATEX,
 }
 
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSDATARANGE {
+    pub FormatSize: ULONG,
+    pub Flags: ULONG,
+    pub SampleSize: ULONG,
+    pub Reserved: ULONG,
+    pub MajorFormat: GUID,
+    pub SubFormat: GUID,
+    pub Specifier: GUID,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSDATARANGE_AUDIO {
+    pub DataRange: KSDATARANGE,
+    pub MaximumChannels: ULONG,
+    pub MinimumBitsPerSample: ULONG,
+    pub MaximumBitsPerSample: ULONG,
+    pub MinimumSampleFrequency: ULONG,
+    pub MaximumSampleFrequency: ULONG,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct PCPIN_DESCRIPTOR {
+    pub MaxGlobalInstanceCount: ULONG,
+    pub MaxFilterInstanceCount: ULONG,
+    pub MinFilterInstanceCount: ULONG,
+    pub AutomationTable: *const u8, // PCAUTOMATION_TABLE
+    pub KsPinDescriptor: KSPIN_DESCRIPTOR,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSPIN_DESCRIPTOR {
+    pub InterfacesCount: ULONG,
+    pub Interfaces: *const GUID,
+    pub MediumsCount: ULONG,
+    pub Mediums: *const u8, // KSPIN_MEDIUM
+    pub DataRangesCount: ULONG,
+    pub DataRanges: *const *const KSDATARANGE,
+    pub DataFlow: ULONG,
+    pub Communication: ULONG,
+    pub Category: *const GUID,
+    pub Name: *const GUID,
+    pub Reserved: ULONG,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct PCFILTER_DESCRIPTOR {
+    pub Version: ULONG,
+    pub AutomationTable: *const u8,
+    pub PinSize: ULONG,
+    pub PinDescriptorSize: ULONG,
+    pub Pins: *const PCPIN_DESCRIPTOR,
+    pub NodeSize: ULONG,
+    pub NodeDescriptorSize: ULONG,
+    pub Nodes: *const u8,
+    pub ConnectionCount: ULONG,
+    pub Connections: *const u8,
+    pub CategoryCount: ULONG,
+    pub Categories: *const GUID,
+}
+
+// SAFETY: These descriptors are static data structures used by PortCls for read-only access.
+unsafe impl Sync for KSDATARANGE {}
+unsafe impl Sync for KSDATARANGE_AUDIO {}
+unsafe impl Sync for PCPIN_DESCRIPTOR {}
+unsafe impl Sync for KSPIN_DESCRIPTOR {}
+unsafe impl Sync for PCFILTER_DESCRIPTOR {}
+
 // ============================================================================
 // Time Source Abstraction (For Testing)
 // ============================================================================

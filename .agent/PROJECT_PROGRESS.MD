@@ -39,8 +39,22 @@
     - `cargo test -p leyline-shared`: 4 Passed.
     - `cargo wdk build`: Success (0 warnings).
 
-## PROJECT TODO (Next Session: #13)
-- **[ ] Topology Filter Registration**: Implement `PcNewPort` for `CLSID_PortTopology` and register the Topology subdevice to define endpoint routing.
-- **[ ] Data Range Expansion**: Implement `DataRangeIntersection` in `MiniportWaveRT` to support common audio formats (PCM, Float).
-- **[ ] Filter Verification**: Use `ksstudio.exe` to verify that the "Wave" filter is correctly exposed and active.
-- **[ ] INF Stamp**: Implement an automated version-stamping routine for the INF file to ensure driver updates are recognized.
+### Session #13: Topology Registration & Data Range Expansion
+- **Date**: February 15, 2026
+- **Reviewer**: Antigravity (Gemini 3 Pro)
+- **Summary**: Registered the Topology filter and expanded data range support to PCM and IEEE Float.
+- **Key Changes**:
+    - Implemented `IMiniportTopology` COM wrapper and registered the Topology subdevice.
+    - Defined `PCFILTER_DESCRIPTOR` for the Wave filter with PCM and Float data ranges.
+    - Implemented `DataRangeIntersection` logic in `MiniportWaveRT`.
+    - Created `scripts/Update-Version.ps1` for automated INF version stamping.
+    - Integrated version stamping into the `cargo-make` build pipeline.
+- **Verification**: 
+    - Build: `leyline-kernel` Success (0 warnings).
+    - Automation: INF stamping verified (`1.0.13.xxx`).
+
+## PROJECT TODO (Next Session: #14)
+- **[ ] Internal Routing (Bridge Pins)**: Define the connection between the Wave and Topology filters via bridge pins to establish the full audio path.
+- **[ ] Filter Verification**: Use `ksstudio.exe` to verify that both "Wave" and "Topology" filters are correctly exposed.
+- **[ ] APO Scaffolding**: Create the project structure for the C++ Audio Processing Object (APO).
+- **[ ] HSA Base**: Initialize the WinUI 3 Hardware Support App project.

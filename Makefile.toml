@@ -1,18 +1,30 @@
 [config]
 skip_core_tasks = true
 
+[tasks.stamp-inf]
+description = "Update the INF version and date"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\Update-Version.ps1"
+]
+
 [tasks.build]
 description = "Build the driver in release mode"
+dependencies = ["stamp-inf"]
+cwd = "crates/leyline-kernel"
 command = "cargo"
 args = ["wdk", "build", "--profile", "release"]
 
 [tasks.test]
 description = "Run unit tests"
+cwd = "crates/leyline-kernel"
 command = "cargo"
 args = ["test"]
 
 [tasks.package]
 description = "Package the driver"
+cwd = "crates/leyline-kernel"
 command = "cargo"
 args = ["wdk", "package"]
 
