@@ -32,10 +32,10 @@ This document tracks the mandatory toolchains for the Leyline Audio Driver proje
 
 | Tool | Category | Status | Path Configured? | Action Required |
 | :--- | :--- | :---: | :---: | :--- |
-| **cargo-wdk** | Rust/Kernel | ✅ | Yes | Installed in Session #03 |
-| **cargo-make** | Workspace | ✅ | Yes | Installed in Session #03 |
-| **LLVM 17.0.6** | Rust/Kernel | ✅ | Yes | `LIBCLANG_PATH` verified in Session #03 |
-| **.NET SDK 8.0** | WinUI 3/HSA | ✅ | Yes | Installed via winget in Session #03 |
+| **cargo-wdk** | Rust/Kernel | ✅ | Yes | Verified in Session #05 (Build Success) |
+| **cargo-make** | Workspace | ✅ | Yes | Verified in Session #05 |
+| **LLVM 17.0.6** | Rust/Kernel | ✅ | Yes | Verified in Session #05 |
+| **.NET SDK 8.0** | WinUI 3/HSA | ✅ | Yes | Verified in Session #03 |
 | **MSVC (C++)** | APO | ✅ | Yes | Accessible via VS Professional |
 
 ---

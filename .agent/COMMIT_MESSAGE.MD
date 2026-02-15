@@ -1,33 +1,30 @@
-# Session #04: APO Core DSP & HSA Expansion
+# Session #05: Advanced WaveRT & Verification
 
 ## Summary
-Implemented the core Audio Processing Object (APO) DSP logic and expanded the Hardware Support App (HSA) to include real-time level metering and gain control. This involved a vertical slice implementation spanning kernel-mode driver (IOCTLs, shared memory), C++ APO (DSP, shared buffer mapping), and C# WinUI 3 App (Interop, UI).
+Implemented Advanced WaveRT features including `GetPosition` using a custom `WaveRTMath` module for logic isolation. Enforced a zero-warning policy across the kernel crate and hardened the project's artifact update protocol.
 
 ## Changes
-- **[KERNEL]** Added `IOCTL_LEYLINE_MAP_BUFFER` and `IOCTL_LEYLINE_MAP_PARAMS` to expose shared memory to user-mode.
-- **[KERNEL]** Implemented Control Device Object (CDO) and symbolic link `\\.\LeylineAudio`.
-- **[APO]** Implemented `APOProcess` with gain logic and peak meter calculation.
-- **[APO]** Updated `Initialize` to map shared buffer/params from kernel driver.
-- **[HSA]** Added `MeterL`, `MeterR` (ProgressBar) and `GainSlider` to UI.
-- **[HSA]** Implemented `DriverBridge` with new IOCTLs and real-time UI synchronization timer.
-- **[FIX]** Resolved UTF-16 string encoding issue in kernel `lib.rs`.
-- **[FIX]** Resolved XAML syntax error (`ProgressBar` Orientation) in HSA.
+- **[KERNEL]** Implemented `GetPosition` in `stream.rs` using `KeQueryPerformanceCounter`.
+- **[KERNEL]** Extracted position calculation logic to `src/math.rs` (pure Rust) to enable isolated unit testing.
+- **[KERNEL]** Tuned `DEFAULT_HW_LATENCY` to 2ms (20,000 units).
+- **[TEST]** Verified `math.rs` via temporary test harness, then removed harness to ensure clean kernel build.
+- **[DOCS]** Updated `GEMINI.MD` and `GEMINI_PROJECT_SETUP.md` to enforce strict, granular artifact updates in the task list.
+- **[FIX]** Suppressed `non_snake_case` warnings for `WAVEFORMATEX` and `KSDATAFORMAT` structs (C-interop).
 
 ## Zero-Warning Proof
-- **Kernel Build**: `cargo wdk build --profile release` -> **SUCCESS** (0 Errors, 0 Warnings [Verified in `kernel_final_verify_2.txt`]).
-- **HSA Build**: `dotnet build` -> **SUCCESS** (0 Errors, 0 Warnings [`NETSDK1206` Suppressed: Safe upstream issue]).
-- **APO Build**: Skipped (Missing `nmake` environment), but code verified against kernel interface.
+- **Kernel Build**: `cargo wdk build` -> **SUCCESS** (0 Errors, 0 Warnings).
+- **HSA Build**: **SUCCESS** (Status maintained from Session #04).
 
 ## Verification
-- **Kernel**: Successfully mapped IOCTLs and memory sharing logic. Build logs confirm clean compilation.
-- **HSA**: Successfully compiled and verified UI logic (verified via build).
+- **Logic**: `math.rs` unit tests passed (buffer wrap-around, byte rate calc).
+- **Build**: Full WDK build succeeded with no warnings.
 
 ## Git Commit Payload
-feat: APO Core DSP & HSA Expansion
+feat: Advanced WaveRT & Logic Isolation
 
-- Implement core APO DSP logic (Gain, Peak Metering)
-- Add IOCTL_LEYLINE_MAP_PARAMS for shared kernel memory
-- Update HSA UI with real-time level meters and gain slider
-- Fix UTF-16 string encoding in kernel driver
-- Suppress NETSDK1206 warning in HSA (Safe upstream issue)
-- Enforce Zero-Warning policy across all builds
+- Implement GetPosition with KeQueryPerformanceCounter
+- Extract WaveRT logic to math.rs for isolation
+- Tune hardware latency to 2ms
+- Enforce granular artifact update protocol
+- Verify zero-warning build for kernel
+

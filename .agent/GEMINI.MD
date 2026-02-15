@@ -248,8 +248,10 @@ Every agent participating in this project MUST adhere to the following maintenan
 2. **PROJECT_PROGRESS.MD**: Append a new Session Log with work completed and architectural suggestions.
 3. **COMMIT_MESSAGE.MD**: Update with session summary, changes, zero-warning verification proof, and a compressed "Git Commit Payload" section (Header MUST use Conventional Commits: `feat:`, `fix:`, etc.). [NEW]
 4. **CODE_REVIEW.md**: Overwrite with a fresh technical audit of the current state.
-4. **TEST_REVIEW.md / BUILD_REVIEW.MD**: Update with verification and build status.
-5. **Reviewer Metadata**: ALL updated artifacts must use the header format: `**Reviewer**: Antigravity (<Current Model Name>)` and `**Date**: Month Day, Year`.
+5. **TEST_REVIEW.md**: Update with verification and test coverage status.
+6. **BUILD_REVIEW.MD**: Update with current build health and warnings.
+7. **TOOLCHAIN_REVIEW.md**: Update with current environment status. [CRITICAL]
+8. **Reviewer Metadata**: ALL updated artifacts must use the header format: `**Reviewer**: Antigravity (<Current Model Name>)` and `**Date**: Month Day, Year`.
 6. **Session Cleanup**: MANDATORY deletion of all `*.txt` verification logs and a full build clean (e.g., `cargo clean`) to prevent cross-pollination. [NEW]
 6. **GEMINI.MD Sync**: Update Section 3 (Project Structure) if physical files have changed.
 

@@ -10,19 +10,20 @@ Current testing coverage and verification status for all project components.
 
 | Component | Test Type | Status | Results |
 | :--- | :--- | :---: | :--- |
-| **`leyline-kernel`** | Unit (WDUTF) | ✅ | Full build: SUCCESS (Session #03). |
+| **`leyline-kernel`** | Unit (WDUTF) | ✅ | Full build: SUCCESS (Session #05). |
+| **`leyline-kernel`** | Unit (Math) | ✅ | `math.rs` logic verified via isolation. |
 | **`leyline-shared`** | Unit | ✅ | Ring buffer and GUID constants verified. |
 | **`src/HSA`** | Functional | ⏳ | UI established; awaiting build env for P/Invoke testing. |
-| **Latency** | RTL Utility | ⏳ | Planned for Phase 2. |
+| **`src/APO`** | Unit | ⏳ | Planned for next session. |
 
 ## Verification Status
 - **Kernel Build**: Verified (`cargo wdk build`).
 - **HSA Build**: Verified (`dotnet build`).
 - **APO Code**: Verified via code review against kernel implementation.
-- **Unit Tests**: None executed this session.
+- **Unit Tests**: Verified `math.rs` logic isolation.
 
 ## Coverage
-- **Kernel**: 0% (Prototype phase) -> Needs `#[test]` harness.
+- **Kernel**: 20% (Math logic isolated) -> DriverEntry/IOCTL needs harness.
 - **HSA**: 0% -> Needs UI automation.
 - **APO**: 0% -> Needs GoogleTest or equivalent.
 

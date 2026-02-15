@@ -39,6 +39,11 @@ impl RingBuffer {
         self.buffer
     }
 
+    /// Returns the total size of the buffer in bytes.
+    pub fn get_size(&self) -> usize {
+        self.size
+    }
+
     /// # Safety
     /// The caller must ensure that `buffer` points to a valid memory region
     /// of at least `size` bytes. The lifetime of the buffer must exceed

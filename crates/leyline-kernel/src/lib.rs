@@ -10,7 +10,11 @@
 extern crate alloc;
 
 pub mod buffer;
+pub mod math;
 pub mod stream;
+
+#[cfg(test)]
+mod test_harness;
 
 use crate::stream::MiniportWaveRTStream;
 use alloc::boxed::Box;
@@ -108,7 +112,11 @@ impl MiniportWaveRT {
                 // SAFETY: The stream corresponds to a kernel object whose lifecycle
                 // is controlled by the port driver. Box ensures pointer stability.
                 unsafe {
-                    *stream_slot = Some(Box::new(MiniportWaveRTStream::new(_data_format as PVOID)));
+                    *stream_slot = Some(Box::new(MiniportWaveRTStream::new(
+                        _data_format as PVOID,
+                        _capture,
+                        Box::new(crate::stream::KernelTimeSource),
+                    )));
                 }
 
                 return stream_slot.as_mut().unwrap().as_mut() as *mut MiniportWaveRTStream;
@@ -275,6 +283,7 @@ pub unsafe extern "C" fn DispatchDeviceControl(
 // ============================================================================
 // Required for no_std environments to handle critical runtime errors.
 
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
