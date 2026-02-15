@@ -21,6 +21,7 @@ use crate::stream::*;
 use alloc::boxed::Box;
 use wdk_alloc::WDKAllocator;
 use wdk_sys::ntddk::*;
+use wdk_sys::_MODE;
 use wdk_sys::*;
 
 // ============================================================================
@@ -254,6 +255,7 @@ pub struct DeviceExtension {
     pub loopback_mdl: PMDL,
     pub loopback_buffer: *mut u8,
     pub loopback_size: usize,
+    pub user_mapping: *mut u8, // Tracks user-mode mapping for cleanup
     pub render_miniport: *mut MiniportWaveRTCom,
     pub capture_miniport: *mut MiniportWaveRTCom,
 }
@@ -1120,6 +1122,13 @@ unsafe extern "C" fn dispatch_create(device_object: PDEVICE_OBJECT, irp: PIRP) -
 
 unsafe extern "C" fn dispatch_close(device_object: PDEVICE_OBJECT, irp: PIRP) -> NTSTATUS {
     if device_object == CONTROL_DEVICE_OBJECT {
+        let cdo_ext = (*device_object).DeviceExtension as *mut usize;
+        let dev_ext = (*cdo_ext) as *mut DeviceExtension;
+        if !dev_ext.is_null() && !(*dev_ext).user_mapping.is_null() {
+            MmUnmapLockedPages((*dev_ext).user_mapping as PVOID, (*dev_ext).loopback_mdl);
+            (*dev_ext).user_mapping = core::ptr::null_mut();
+        }
+
         (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
         (*irp).IoStatus.Information = 0;
         IofCompleteRequest(irp, 0);
@@ -1134,12 +1143,48 @@ unsafe extern "C" fn dispatch_close(device_object: PDEVICE_OBJECT, irp: PIRP) ->
 
 unsafe extern "C" fn dispatch_device_control(device_object: PDEVICE_OBJECT, irp: PIRP) -> NTSTATUS {
     if device_object == CONTROL_DEVICE_OBJECT {
+        let cdo_ext = (*device_object).DeviceExtension as *mut usize;
+        let dev_ext = (*cdo_ext) as *mut DeviceExtension;
+
         let stack = get_current_irp_stack_location(irp);
         let ioctl = (*stack).Parameters.DeviceIoControl.IoControlCode;
 
         let (status, info) = match ioctl {
             leyline_shared::IOCTL_LEYLINE_GET_STATUS => (STATUS_SUCCESS, 0),
             leyline_shared::IOCTL_LEYLINE_MAP_PARAMS => (STATUS_SUCCESS, 0),
+            leyline_shared::IOCTL_LEYLINE_MAP_BUFFER => {
+                if dev_ext.is_null() || (*dev_ext).loopback_mdl.is_null() {
+                    (STATUS_INVALID_DEVICE_STATE, 0)
+                } else {
+                    let mut mapped_ptr = (*dev_ext).user_mapping;
+                    if mapped_ptr.is_null() {
+                        mapped_ptr = MmMapLockedPagesSpecifyCache(
+                            (*dev_ext).loopback_mdl,
+                            _MODE::UserMode as i8,
+                            _MEMORY_CACHING_TYPE::MmCached,
+                            core::ptr::null_mut(),
+                            0,
+                            _MM_PAGE_PRIORITY::NormalPagePriority as u32,
+                        ) as *mut u8;
+                        if !mapped_ptr.is_null() {
+                            (*dev_ext).user_mapping = mapped_ptr;
+                        }
+                    }
+
+                    if !mapped_ptr.is_null() {
+                        let out_len = (*stack).Parameters.DeviceIoControl.OutputBufferLength;
+                        if out_len < core::mem::size_of::<usize>() as u32 {
+                            (STATUS_BUFFER_TOO_SMALL, 0)
+                        } else {
+                            let sys_buffer = (*irp).AssociatedIrp.SystemBuffer as *mut usize;
+                            *sys_buffer = mapped_ptr as usize;
+                            (STATUS_SUCCESS, core::mem::size_of::<usize>())
+                        }
+                    } else {
+                        (STATUS_INSUFFICIENT_RESOURCES, 0)
+                    }
+                }
+            }
             _ => (STATUS_INVALID_DEVICE_REQUEST, 0),
         };
 
@@ -1240,6 +1285,7 @@ pub unsafe extern "system" fn StartDevice(
                 _MM_PAGE_PRIORITY::NormalPagePriority as u32,
             ) as *mut u8;
             (*dev_ext).loopback_size = buffer_size;
+            (*dev_ext).user_mapping = core::ptr::null_mut();
         }
     }
 
@@ -1256,7 +1302,7 @@ pub unsafe extern "system" fn StartDevice(
         };
         status = IoCreateDevice(
             (*device_object).DriverObject,
-            0,
+            core::mem::size_of::<usize>() as u32,
             &mut device_name,
             FILE_DEVICE_UNKNOWN,
             0,
@@ -1264,6 +1310,9 @@ pub unsafe extern "system" fn StartDevice(
             &raw mut CONTROL_DEVICE_OBJECT,
         );
         if status == STATUS_SUCCESS {
+            let cdo_ext = (*CONTROL_DEVICE_OBJECT).DeviceExtension as *mut usize;
+            *cdo_ext = dev_ext as usize;
+
             let mut link_name_str = [0u16; 25];
             let link_prefix = r"\DosDevices\LeylineAudio";
             for (i, c) in link_prefix.encode_utf16().enumerate() {

@@ -13,10 +13,11 @@ namespace LeylineHSA
         // {A1B2C3D4-E5F6-4A2D-B3C4-D5E6F7A8B9C0}
         public static readonly Guid LEYLINE_INTERFACE_GUID = new Guid(0xA1B2C3D4, 0xE5F6, 0x4A2D, 0xB3, 0xC4, 0xD5, 0xE6, 0xF7, 0xA8, 0xB9, 0xC0);
 
-        public const uint IOCTL_LEYLINE_SET_CONFIG = 0x80002000;
-        public const uint IOCTL_LEYLINE_GET_STATUS = 0x80002004;
-        public const uint IOCTL_LEYLINE_MAP_BUFFER = 0x80002008;
-        public const uint IOCTL_LEYLINE_MAP_PARAMS = 0x8000200C;
+        // IOCTLs (FILE_DEVICE_UNKNOWN = 0x22, METHOD_BUFFERED = 0, FILE_ANY_ACCESS = 0)
+        public const uint IOCTL_LEYLINE_SET_CONFIG = 0x00222000;
+        public const uint IOCTL_LEYLINE_GET_STATUS = 0x00222004;
+        public const uint IOCTL_LEYLINE_MAP_BUFFER = 0x00222008;
+        public const uint IOCTL_LEYLINE_MAP_PARAMS = 0x0022200C;
 
         private SafeFileHandle _handle;
 
@@ -25,10 +26,10 @@ namespace LeylineHSA
         public bool Connect()
         {
             // In a real HSA, we'd use SetupDiGetClassDevs / SetupDiEnumDeviceInterfaces
-            // to find the symbolic link. For now, we'll use a placeholder or 
-            // the expected symbolic link name if known. 
+            // to find the symbolic link. For now, we'll use a placeholder or
+            // the expected symbolic link name if known.
             // Typically: \\\\.\\LeylineAudio
-            
+
             _handle = CreateFile(
                 "\\\\.\\LeylineAudio",
                 FileAccess.GenericRead | FileAccess.GenericWrite,
@@ -47,7 +48,7 @@ namespace LeylineHSA
 
             uint status = 0;
             uint bytesReturned = 0;
-            
+
             bool success = DeviceIoControlInt(
                 _handle,
                 IOCTL_LEYLINE_GET_STATUS,

@@ -2,7 +2,7 @@
 
 **Reviewer**: Antigravity (Gemini 3 Pro)
 **Date**: February 15, 2026
-**Status**: SESSION #16 COMPLETE
+**Status**: SESSION #17 COMPLETE
 
 ## Test Coverage Summary
 
@@ -11,11 +11,12 @@
 | **`leyline-shared`** | Unit | ✅ | 4 Tests Passed. |
 | **`leyline-kernel`** | Build | ✅ | SUCCESS (0 Warnings). |
 | **`LeylineHSA`** | Build | ✅ | SUCCESS (0 Warnings). |
+| **`System Loop`** | Manual | ⚠️ | Visualization Logic implemented but pending runtime verification on target machine. |
 
 ## Verification Progress
-- **CDO Creation**: Logic verified via code audit.
-- **Loopback Allocation**: Logic verified via code audit.
-- **IRP Traversal**: Build verified (compiles successfully, field names resolved).
+- **HSA Connection**: Logic verified (IOCTL codes match).
+- **Buffer Mapping**: Logic verified (Kernel mapping & HSA pointer access).
+- **Oscilloscope**: Logic verified (QPC sync & index calculation).
 
 ## Testing Gaps & Priorities
-1.  **Zero-Copy Verification**: Perform a loopback test using the HSA. The next session should focus on reading the shared buffer from user-mode and displaying the data, which serves as an integration test for the kernel functionality.
+1.  **Runtime Integration**: The ultimate test is installing the driver and running the HSA. The next session should prioritize generating a signed package and testing on a VM or test machine.

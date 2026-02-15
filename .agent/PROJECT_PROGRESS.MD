@@ -103,3 +103,23 @@
 - **[ ] HSA Real-Time Monitoring**: Implement the `DriverBridge` connection in `MainWindow.xaml.cs` to visualize the shared buffer data.
 - **[ ] APO Integration**: Wire the C++ APO into the INF and verify that the audio engine loads it for the Leyline endpoints.
 - **[ ] Dynamic Formats**: Implement dynamic format negotiation in `DataRangeIntersection` to allow applications to request arbitrary sample rates.
+
+### Session #17: HSA Bridge & Visualization
+- **Date**: February 15, 2026
+- **Reviewer**: Antigravity (Gemini 3 Pro)
+- **Summary**: Implemented the kernel-to-user bridge and real-time waveform visualization in the HSA.
+- **Key Changes**:
+    - **Shared Protocol**: Updated `SharedParameters` to include QPC timing and buffer metadata; fixed IOCTL codes to use standard `CTL_CODE` macros.
+    - **Kernel Mapping**: Implemented `IOCTL_LEYLINE_MAP_BUFFER` in `dispatch_device_control` using `MmMapLockedPagesSpecifyCache` (UserMode).
+    - **Kernel Sync**: Updated `MiniportWaveRTStream` to publish `render_start_qpc`, `frequency`, and `byte_rate` to shared memory.
+    - **HSA Implementation**: Implemented `DriverBridge` connection and `MainWindow` visualization loop (60Hz oscilloscope).
+    - **Cleanup Logic**: Added `user_mapping` tracking in `DeviceExtension` and auto-unmap in `dispatch_close`.
+- **Verification**: 
+    - Build: `leyline-kernel` Success (0 warnings).
+    - Build: `LeylineHSA` Success (0 warnings).
+    - Integration: Validated `SharedParameters` struct alignment and IOCTL values.
+
+## PROJECT TODO (Next Session: #18)
+- **[ ] APO Integration**: Wire the C++ APO into the INF and verify that the audio engine loads it for the Leyline endpoints.
+- **[ ] Dynamic Formats**: Implement dynamic format negotiation in `DataRangeIntersection` to allow applications to request arbitrary sample rates.
+- **[ ] Driver Installation**: Perform a full test installation (disable Secure Boot) to verify the visualization on actual audio.

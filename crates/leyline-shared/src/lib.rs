@@ -61,22 +61,40 @@ pub const KSCATEGORY_CAPTURE: [u8; 16] = [
 // IOCTL codes for communication between the Hardware Support App (HSA)
 // and the kernel-mode driver.
 
+// Helper for defining IOCTLs (CTL_CODE macro logic)
+const fn ctl_code(device_type: u32, function: u32, method: u32, access: u32) -> u32 {
+    (device_type << 16) | (access << 14) | (function << 2) | method
+}
+
+const FILE_DEVICE_UNKNOWN: u32 = 0x00000022;
+const METHOD_BUFFERED: u32 = 0;
+const FILE_ANY_ACCESS: u32 = 0;
+
 /// Shared parameters between HSA, APO, and Driver.
 #[repr(C)]
 pub struct SharedParameters {
     pub master_gain_bits: u32, // IEEE754 float bits
     pub peak_l_bits: u32,      // IEEE754 float bits
     pub peak_r_bits: u32,      // IEEE754 float bits
+    pub qpc_frequency: i64,
+    pub render_start_qpc: i64,
+    pub capture_start_qpc: i64,
+    pub buffer_size: u32,
+    pub byte_rate: u32,
 }
 
 /// IOCTL code for setting buffer configuration from HSA.
-pub const IOCTL_LEYLINE_SET_CONFIG: u32 = 0x80002000;
+pub const IOCTL_LEYLINE_SET_CONFIG: u32 =
+    ctl_code(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS);
 
 /// IOCTL code for getting driver status.
-pub const IOCTL_LEYLINE_GET_STATUS: u32 = 0x80002004;
+pub const IOCTL_LEYLINE_GET_STATUS: u32 =
+    ctl_code(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS);
 
 /// IOCTL code for mapping the shared audio buffer to user-space.
-pub const IOCTL_LEYLINE_MAP_BUFFER: u32 = 0x80002008;
+pub const IOCTL_LEYLINE_MAP_BUFFER: u32 =
+    ctl_code(FILE_DEVICE_UNKNOWN, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS);
 
 /// IOCTL code for mapping the shared parameter block to user-space.
-pub const IOCTL_LEYLINE_MAP_PARAMS: u32 = 0x8000200C;
+pub const IOCTL_LEYLINE_MAP_PARAMS: u32 =
+    ctl_code(FILE_DEVICE_UNKNOWN, 0x803, METHOD_BUFFERED, FILE_ANY_ACCESS);

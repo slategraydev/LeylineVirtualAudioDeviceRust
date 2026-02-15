@@ -191,6 +191,22 @@ impl MiniportWaveRTStream {
             }
             KSSTATE_RUN => {
                 self.start_time = self.time_source.query_time();
+                if !self.device_extension.is_null() {
+                    let dev_ext = self.device_extension as *mut crate::DeviceExtension;
+                    unsafe {
+                        if !(*dev_ext).shared_params.is_null() {
+                            let params = (*dev_ext).shared_params;
+                            (*params).qpc_frequency = self.frequency;
+                            (*params).buffer_size = self.buffer.get_size() as u32;
+                            (*params).byte_rate = self.byte_rate;
+                            if self._is_capture {
+                                (*params).capture_start_qpc = self.start_time;
+                            } else {
+                                (*params).render_start_qpc = self.start_time;
+                            }
+                        }
+                    }
+                }
             }
             _ => {}
         }
