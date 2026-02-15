@@ -1,31 +1,25 @@
 # Professional Build Review: Leyline Audio Driver
 
-**Date**: February 15, 2026
-**Status**: SESSION #14 COMPLETE
 **Reviewer**: Antigravity (Gemini 3 Pro)
+**Date**: February 15, 2026
+**Status**: SESSION #15 INCOMPLETE
 
 ## Build Status & Environment
--   **leyline-kernel**: ✅ SUCCESS (0 Errors, 0 Warnings).
--   **leyline-shared**: ✅ SUCCESS (0 Errors, 0 Warnings).
--   **LeylineHSA**: ✅ SUCCESS (0 Errors, 0 Warnings).
--   **Sanity Check**: ✅ COMPLETED. Fixed GUID alignment in `leyline-shared`.
--   **Build Pipeline**: ✅ `/NODEFAULTLIB:msvcrt` added to prevent user-mode CRT contamination.
--   **Environment**: Locked to **D:\eWDK_28000** (eWDK 26H1).
+- **leyline-kernel**: ❌ FAILED (1 Error).
+- **leyline-shared**: ✅ SUCCESS.
+- **LeylineHSA**: ✅ SUCCESS.
 
-## Warning Hygiene
--   **Kernel**: 0 Warnings (Zero-Warning Policy enforced).
--   **HSA**: 0 Warnings.
+## Warning & Error Hygiene
+### Blockers
+- **Error E0609**: `no field CurrentStackLocation on type _IRP__bindgen_ty_4__bindgen_ty_1__bindgen_ty_1`.
+    - **Context**: Accessing the IRP stack location in `dispatch_device_control`.
+    - **Path found so far**: `(*irp).Tail.Overlay...`
+    - **Suggested Fix**: Explore `__bindgen_anon_1` or use `IoGetCurrentIrpStackLocation` if reachable from `ntddk.rs`.
 
-## Active Suppressions
-| Component | ID | Justification |
-| :--- | :--- | :--- |
-| **Kernel** | `non_snake_case` | Required for COM VTable method names and `PCCONNECTION` struct (DDI compliance). |
-| **Kernel** | `non_upper_case_globals` | Required for COM IID/CLSID names (Windows DDI compliance). |
-| **HSA** | `NETSDK1206` | Suppressed win10-x64 RID warning (standard for WinUI 3 + .NET 8). |
+### Resolved Issues
+- **Calling Convention**: Changed dispatchers to `extern "C"` to match PortCls requirements.
+- **Sync Trait**: Applied `unsafe impl Sync` to `PCPIN_DESCRIPTOR` and related structs.
+- **Escape Sequences**: Fixed unknown character escapes in device/link paths using raw strings.
 
 ## Build Artifacts
--   **leyline.sys**: Generated in `crates/leyline-kernel/target/release`.
--   **LeylineHSA.dll**: Generated in `src/HSA/bin/Debug`.
-
----
-*Last Updated: February 15, 2026*
+- **INF Stamping**: Verified (`1.0.13.119`).

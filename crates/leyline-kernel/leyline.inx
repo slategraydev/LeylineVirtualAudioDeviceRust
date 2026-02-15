@@ -8,7 +8,7 @@ Class       = MEDIA
 ClassGuid   = {4d36e96c-e325-11ce-bfc1-08002be10318}
 Provider    = %ManufacturerName%
 CatalogFile = leyline.cat
-DriverVer   = 02/15/2026,1.0.13.61
+DriverVer   = 02/15/2026,1.0.13.119
 PnpLockdown = 1
 
 [SourceDisksNames]

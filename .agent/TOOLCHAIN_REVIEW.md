@@ -1,8 +1,8 @@
 # Toolchain Review: Leyline Audio Driver
 
-**Date**: February 15, 2026
-**Status**: SESSION #14 COMPLETE
 **Reviewer**: Antigravity (Gemini 3 Pro)
+**Date**: February 15, 2026
+**Status**: SESSION #15 COMPLETE
 
 ## Required Toolchain Requirements
 
@@ -19,7 +19,7 @@
 
 ### 3. Hardware Support App (.NET)
 - **SDK**: .NET 8.0
-- **Workload**: `microsoft.net.sdk.maui` (for WinUI 3 dependencies if applicable, though using standard SDK here)
+- **Workload**: `microsoft.net.sdk.maui` (if applicable)
 - **Tooling**: `Microsoft.WindowsAppSDK` (version 1.5+)
 
 ---
@@ -29,5 +29,5 @@
 - **LLVM Bin**: `D:\eWDK_28000\LLVM\bin`
 - **PATH**: Includes eWDK bin directories (sourced via `LaunchBuildEnv.ps1`).
 
----
-*Last Updated: February 15, 2026*
+## Recent Issues & Considerations
+- **Bindgen Complexity**: Nested anonymous unions in `IRP` struct are proving difficult to traverse with standard field paths. Using a direct `*mut _IO_STACK_LOCATION` calculation based on the `CurrentStackLocation` offset may be more reliable than field-by-field access.

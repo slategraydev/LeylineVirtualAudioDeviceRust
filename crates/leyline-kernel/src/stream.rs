@@ -10,24 +10,9 @@ use crate::math::WaveRTMath;
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// ============================================================================
-// Constants
-// ============================================================================
-// Driver-specific constants and defaults.
-
-/// Default hardware latency in 100-nanosecond units.
-const DEFAULT_HW_LATENCY: u32 = 20_000; // 2ms
-
-/// KSSTATE enumeration values.
+const DEFAULT_HW_LATENCY: u32 = 20_000;
 const KSSTATE_STOP: i32 = 0;
-const KSSTATE_ACQUIRE: i32 = 1;
-const KSSTATE_PAUSE: i32 = 2;
 const KSSTATE_RUN: i32 = 3;
-
-// ============================================================================
-// KS Data Formats (Manual Definitions)
-// ============================================================================
-// wdk-sys does not export these by default, so we define them to match the C layout.
 
 #[repr(C)]
 #[allow(non_snake_case)]
@@ -89,7 +74,7 @@ pub struct PCPIN_DESCRIPTOR {
     pub MaxGlobalInstanceCount: ULONG,
     pub MaxFilterInstanceCount: ULONG,
     pub MinFilterInstanceCount: ULONG,
-    pub AutomationTable: *const u8, // PCAUTOMATION_TABLE
+    pub AutomationTable: *const u8,
     pub KsPinDescriptor: KSPIN_DESCRIPTOR,
 }
 
@@ -99,7 +84,7 @@ pub struct KSPIN_DESCRIPTOR {
     pub InterfacesCount: ULONG,
     pub Interfaces: *const GUID,
     pub MediumsCount: ULONG,
-    pub Mediums: *const u8, // KSPIN_MEDIUM
+    pub Mediums: *const u8,
     pub DataRangesCount: ULONG,
     pub DataRanges: *const *const KSDATARANGE,
     pub DataFlow: ULONG,
@@ -126,16 +111,11 @@ pub struct PCFILTER_DESCRIPTOR {
     pub Categories: *const GUID,
 }
 
-// SAFETY: These descriptors are static data structures used by PortCls for read-only access.
 unsafe impl Sync for KSDATARANGE {}
 unsafe impl Sync for KSDATARANGE_AUDIO {}
 unsafe impl Sync for PCPIN_DESCRIPTOR {}
 unsafe impl Sync for KSPIN_DESCRIPTOR {}
 unsafe impl Sync for PCFILTER_DESCRIPTOR {}
-
-// ============================================================================
-// Time Source Abstraction (For Testing)
-// ============================================================================
 
 pub trait TimeSource {
     fn query_time(&self) -> i64;
@@ -144,7 +124,6 @@ pub trait TimeSource {
 
 pub struct KernelTimeSource;
 
-#[cfg(not(test))]
 impl TimeSource for KernelTimeSource {
     fn query_time(&self) -> i64 {
         unsafe {
@@ -152,32 +131,14 @@ impl TimeSource for KernelTimeSource {
             counter.QuadPart
         }
     }
-
     fn query_frequency(&self) -> i64 {
-        let mut frequency: LARGE_INTEGER;
+        let mut freq: LARGE_INTEGER = unsafe { core::mem::zeroed() };
         unsafe {
-            frequency = core::mem::zeroed();
-            KeQueryPerformanceCounter(&mut frequency);
-            frequency.QuadPart
+            KeQueryPerformanceCounter(&mut freq);
+            freq.QuadPart
         }
     }
 }
-
-#[cfg(test)]
-impl TimeSource for KernelTimeSource {
-    fn query_time(&self) -> i64 {
-        0
-    }
-
-    fn query_frequency(&self) -> i64 {
-        10_000_000
-    }
-}
-
-// ============================================================================
-// WaveRT Stream Structure
-// ============================================================================
-// Represents a single audio stream instance (pin) on the virtual adapter.
 
 pub struct MiniportWaveRTStream {
     buffer: RingBuffer,
@@ -185,41 +146,27 @@ pub struct MiniportWaveRTStream {
     _format: PVOID,
     mdl: PMDL,
     mapping: PVOID,
-    // Advanced WaveRT Fields
     _is_capture: bool,
     start_time: i64,
     byte_rate: u32,
     frequency: i64,
     time_source: alloc::boxed::Box<dyn TimeSource>,
+    pub device_extension: *mut u8,
 }
 
-// ============================================================================
-// WaveRT Stream Implementation
-// ============================================================================
-// Domain logic for stream state control, position reporting, and
-// Resource management for audio streams.
-
-// Resource management for audio streams.
-
 impl MiniportWaveRTStream {
-    /// # Safety
-    /// The caller must ensure the format pointer is valid.
     pub unsafe fn new(
         format: PVOID,
         is_capture: bool,
         time_source: alloc::boxed::Box<dyn TimeSource>,
+        device_extension: *mut u8,
     ) -> Self {
-        let mut byte_rate: u32 = 192000 * 4; // Default fallback
-
+        let mut byte_rate: u32 = 48000 * 4;
         let frequency = time_source.query_frequency();
-
-        // SAFETY: Parse the data format to extract the byte rate.
-        // We assume KSDATAFORMAT_WAVEFORMATEX for this prototype.
         if !format.is_null() {
             let wave_format = format as *const KSDATAFORMAT_WAVEFORMATEX;
             byte_rate = (*wave_format).WaveFormatEx.nAvgBytesPerSec;
         }
-
         Self {
             buffer: RingBuffer::new(core::ptr::null_mut(), 0),
             state: KSSTATE_STOP,
@@ -231,169 +178,104 @@ impl MiniportWaveRTStream {
             byte_rate,
             frequency,
             time_source,
+            device_extension,
         }
     }
 
-    /// Sets the current state of the stream.
     pub fn set_state(&mut self, state: i32) -> NTSTATUS {
         self.state = state;
-
         match state {
             KSSTATE_STOP => {
-                // Resetting the buffer ensures subsequent playback
-                // starts from a clean state.
                 self.buffer.reset();
                 self.start_time = 0;
             }
-            KSSTATE_ACQUIRE => {
-                // Future: Resource acquisition (e.g., MMCSS registration).
-            }
-            KSSTATE_PAUSE => {
-                // Future: Suspend DMA processing.
-            }
             KSSTATE_RUN => {
-                // Determine the start time for position calculation.
                 self.start_time = self.time_source.query_time();
             }
-            _ => return STATUS_INVALID_PARAMETER,
+            _ => {}
         }
         STATUS_SUCCESS
     }
 
-    /// Reports the current read/write position of the stream.
     pub fn get_position(&self, position: *mut u64) -> NTSTATUS {
         if position.is_null() {
             return STATUS_INVALID_PARAMETER;
         }
-
-        // Calculate simulated position based on elapsed time.
-        // Formula: Bytes = (ElapsedTicks * ByteRate) / Frequency
-        let current_time: i64;
-        let elapsed_ticks: i64;
-        let mut calculated_position: u64;
-
+        let mut calculated_position: u64 = 0;
         if self.state == KSSTATE_RUN {
-            current_time = self.time_source.query_time();
-            elapsed_ticks = current_time - self.start_time;
-
+            let current_time = self.time_source.query_time();
+            let elapsed_ticks = current_time - self.start_time;
             calculated_position = WaveRTMath::calculate_position(
                 elapsed_ticks,
                 self.byte_rate,
                 self.frequency,
                 self.buffer.get_size(),
             );
-        } else {
-            calculated_position = 0;
-            if self.state == KSSTATE_PAUSE {
-                // In pause, we should ideally hold the last position.
-                // For now, we return 0 or the last calculated (todo: store last pos).
-                // Returning self.buffer.read_pos for now as a fallback if available.
-                calculated_position = self.buffer.available_read() as u64;
-            }
         }
-
-        // SAFETY: Return the calculated position
         unsafe {
             *position = calculated_position;
         }
         STATUS_SUCCESS
     }
 
-    /// Allocates kernel memory for the audio buffer using MDLs.
-    pub fn allocate_audio_buffer(
-        &mut self,
-        requested_size: usize,
-        audio_buffer_mdl: *mut PMDL,
-    ) -> NTSTATUS {
-        // Hoist local variables
-        let low_address: PHYSICAL_ADDRESS;
-        let mut high_address: PHYSICAL_ADDRESS;
-        let skip_bytes: PHYSICAL_ADDRESS;
-        let total_bytes: u64;
-
-        if audio_buffer_mdl.is_null() {
+    pub fn allocate_audio_buffer(&mut self, req_size: usize, audio_mdl: *mut PMDL) -> NTSTATUS {
+        if audio_mdl.is_null() {
             return STATUS_INVALID_PARAMETER;
         }
-
-        total_bytes = requested_size as u64;
-
-        // SAFETY: Initialize physical address range for allocation.
-        unsafe {
-            low_address = core::mem::zeroed();
-            high_address = core::mem::zeroed();
-            high_address.QuadPart = 0xFFFFFFFF; // 4GB range
-            skip_bytes = core::mem::zeroed();
+        if !self.device_extension.is_null() {
+            let dev_ext = self.device_extension as *mut crate::DeviceExtension;
+            unsafe {
+                if !(*dev_ext).loopback_mdl.is_null() {
+                    self.mdl = (*dev_ext).loopback_mdl;
+                    self.mapping = (*dev_ext).loopback_buffer as PVOID;
+                    self.buffer.rebase(self.mapping as *mut u8, req_size);
+                    *audio_mdl = self.mdl;
+                    return STATUS_SUCCESS;
+                }
+            }
         }
 
-        // SAFETY: MmAllocatePagesForMdlEx allocates physical pages for the buffer.
+        let low: PHYSICAL_ADDRESS = unsafe { core::mem::zeroed() };
+        let mut high: PHYSICAL_ADDRESS = unsafe { core::mem::zeroed() };
+        unsafe {
+            high.QuadPart = 0xFFFFFFFF;
+        }
+        let skip: PHYSICAL_ADDRESS = unsafe { core::mem::zeroed() };
+
         unsafe {
             self.mdl = MmAllocatePagesForMdlEx(
-                low_address,
-                high_address,
-                skip_bytes,
-                total_bytes,
+                low,
+                high,
+                skip,
+                req_size as u64,
                 _MEMORY_CACHING_TYPE::MmCached,
                 MM_ALLOCATE_FULLY_REQUIRED,
             );
-        }
-
-        if self.mdl.is_null() {
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        // SAFETY: Map the MDL to a system virtual address for driver access.
-        unsafe {
+            if self.mdl.is_null() {
+                return STATUS_INSUFFICIENT_RESOURCES;
+            }
             self.mapping = MmMapLockedPagesSpecifyCache(
                 self.mdl,
-                0, // KernelMode
+                0,
                 _MEMORY_CACHING_TYPE::MmCached,
                 core::ptr::null_mut(),
                 0,
                 _MM_PAGE_PRIORITY::NormalPagePriority as u32,
             );
-        }
-
-        if self.mapping.is_null() {
-            unsafe {
+            if self.mapping.is_null() {
                 MmFreePagesFromMdl(self.mdl);
                 IoFreeMdl(self.mdl);
                 self.mdl = core::ptr::null_mut();
+                return STATUS_INSUFFICIENT_RESOURCES;
             }
-            return STATUS_INSUFFICIENT_RESOURCES;
+            self.buffer.rebase(self.mapping as *mut u8, req_size);
+            *audio_mdl = self.mdl;
         }
-
-        // Rebase the ring buffer to the new mapping
-        unsafe {
-            self.buffer.rebase(self.mapping as *mut u8, requested_size);
-            *audio_buffer_mdl = self.mdl;
-        }
-
         STATUS_SUCCESS
     }
 
-    /// Maps the audio buffer to the specified process's user address space.
-    pub fn map_user_buffer(&mut self, _process: PEPROCESS) -> *mut u8 {
-        if self.mdl.is_null() {
-            return core::ptr::null_mut();
-        }
-
-        // SAFETY: Map the MDL to user-space for zero-copy access from the APO.
-        unsafe {
-            MmMapLockedPagesSpecifyCache(
-                self.mdl,
-                1, // UserMode
-                _MEMORY_CACHING_TYPE::MmCached,
-                core::ptr::null_mut(),
-                0,
-                _MM_PAGE_PRIORITY::NormalPagePriority as u32,
-            ) as *mut u8
-        }
-    }
-
-    /// Returns the hardware latency estimate for the stream.
     pub fn get_hw_latency(&self, latency: *mut u32) {
         if !latency.is_null() {
-            // SAFETY: The latency pointer is verified non-null.
             unsafe {
                 *latency = DEFAULT_HW_LATENCY;
             }
@@ -401,19 +283,26 @@ impl MiniportWaveRTStream {
     }
 }
 
-// ============================================================================
-// Resource Cleanup (RAII)
-// ============================================================================
 impl Drop for MiniportWaveRTStream {
     fn drop(&mut self) {
         if !self.mdl.is_null() {
-            // SAFETY: Clean up MDL and mapping.
-            unsafe {
-                if !self.mapping.is_null() {
-                    MmUnmapLockedPages(self.mapping, self.mdl);
+            let mut is_shared = false;
+            if !self.device_extension.is_null() {
+                let dev_ext = self.device_extension as *mut crate::DeviceExtension;
+                unsafe {
+                    if self.mdl == (*dev_ext).loopback_mdl {
+                        is_shared = true;
+                    }
                 }
-                MmFreePagesFromMdl(self.mdl);
-                IoFreeMdl(self.mdl);
+            }
+            if !is_shared {
+                unsafe {
+                    if !self.mapping.is_null() {
+                        MmUnmapLockedPages(self.mapping, self.mdl);
+                    }
+                    MmFreePagesFromMdl(self.mdl);
+                    IoFreeMdl(self.mdl);
+                }
             }
         }
     }
