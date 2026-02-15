@@ -20,6 +20,11 @@ function Uninstall-Driver
 {
     Test-IsAdministrator
 
+    Write-Host "--- Removing Virtual Device Nodes ---" -ForegroundColor Cyan
+    $devcon = "D:\eWDK_28000\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64\devcon.exe"
+    & $devcon remove "Root\LeylineAudio"
+    & $devcon remove "ROOT\MEDIA*Leyline*"
+
     Write-Host "--- Locating Installed Driver ---" -ForegroundColor Cyan
     $driver = pnputil /enum-drivers | Select-String "leyline.inf" -Context 3,0
 

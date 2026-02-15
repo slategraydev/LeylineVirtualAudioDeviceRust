@@ -28,19 +28,27 @@ use wdk_sys::*;
 // PortCls External Declarations
 // ============================================================================
 
+extern "C" {
+    pub fn DbgPrint(Format: *const u8, ...) -> u32;
+}
+
+// ============================================================================
+// PortCls External Declarations
+// ============================================================================
+
 extern "system" {
     pub fn PcAddAdapterDevice(
         DriverObject: PDRIVER_OBJECT,
         PhysicalDeviceObject: PDEVICE_OBJECT,
         StartDevice: Option<unsafe extern "system" fn(PDEVICE_OBJECT, PIRP, PVOID) -> NTSTATUS>,
-        MaxOutputStreams: u32,
+        MaxSubDevices: u32,
         DeviceExtensionSize: u32,
     ) -> NTSTATUS;
 
     pub fn PcInitializeAdapterDriver(
         DriverObject: PDRIVER_OBJECT,
         RegistryPath: PUNICODE_STRING,
-        AddDevice: Option<unsafe extern "C" fn(PDRIVER_OBJECT, PDEVICE_OBJECT) -> NTSTATUS>,
+        AddDevice: Option<unsafe extern "system" fn(PDRIVER_OBJECT, PDEVICE_OBJECT) -> NTSTATUS>,
     ) -> NTSTATUS;
 
     pub fn PcNewPort(OutPort: *mut *mut u8, ClassId: *const GUID) -> NTSTATUS;
@@ -241,6 +249,16 @@ pub struct IMiniportWaveRTStreamVTable {
 const _POOL_TAG: u32 = u32::from_be_bytes(*b"LLAD");
 const MAX_STREAMS: usize = 4;
 
+/// PortCls reserves the first part of the device extension.
+/// On x64, this is 512 bytes (64 * sizeof(ULONG_PTR)).
+const PORT_CLASS_DEVICE_EXTENSION_SIZE: usize = 64 * core::mem::size_of::<usize>();
+
+#[inline(always)]
+unsafe fn get_device_extension(device_object: PDEVICE_OBJECT) -> *mut DeviceExtension {
+    let base = (*device_object).DeviceExtension as *mut u8;
+    base.add(PORT_CLASS_DEVICE_EXTENSION_SIZE) as *mut DeviceExtension
+}
+
 #[global_allocator]
 static GLOBAL: WDKAllocator = WDKAllocator;
 
@@ -252,6 +270,8 @@ static GLOBAL: WDKAllocator = WDKAllocator;
 pub struct DeviceExtension {
     pub control_device_object: *mut DEVICE_OBJECT,
     pub shared_params: *mut leyline_shared::SharedParameters,
+    pub shared_params_mdl: PMDL,
+    pub shared_params_user_mapping: *mut u8,
     pub loopback_mdl: PMDL,
     pub loopback_buffer: *mut u8,
     pub loopback_size: usize,
@@ -847,10 +867,10 @@ static FLOAT_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
 
 #[allow(non_upper_case_globals)]
 pub const KSCATEGORY_AUDIO_GUID: GUID = GUID {
-    Data1: 0x69223398,
-    Data2: 0x306C,
-    Data3: 0x11CF,
-    Data4: [0xB5, 0xCA, 0x00, 0x80, 0x5F, 0x48, 0xA1, 0x92],
+    Data1: 0x6994AD04,
+    Data2: 0x93EF,
+    Data3: 0x11D0,
+    Data4: [0xA3, 0xCC, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
 };
 
 #[allow(non_upper_case_globals)]
@@ -900,8 +920,8 @@ static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Mediums: core::ptr::null(),
             DataRangesCount: 2,
             DataRanges: WAVE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: 1,
-            Communication: 3,
+            DataFlow: 1,      // KSPIN_DATAFLOW_IN
+            Communication: 3, // KSPIN_COMMUNICATION_BOTH
             Category: &KSCATEGORY_AUDIO_GUID,
             Name: core::ptr::null(),
             Reserved: 0,
@@ -919,8 +939,8 @@ static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: 2,
-            Communication: 1,
+            DataFlow: 2,      // KSPIN_DATAFLOW_OUT
+            Communication: 0, // KSPIN_COMMUNICATION_NONE
             Category: &KSCATEGORY_AUDIO_GUID,
             Name: core::ptr::null(),
             Reserved: 0,
@@ -941,8 +961,8 @@ static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: 1,
-            Communication: 1,
+            DataFlow: 1,      // KSPIN_DATAFLOW_IN
+            Communication: 0, // KSPIN_COMMUNICATION_NONE
             Category: &KSCATEGORY_AUDIO_GUID,
             Name: core::ptr::null(),
             Reserved: 0,
@@ -960,8 +980,8 @@ static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Mediums: core::ptr::null(),
             DataRangesCount: 2,
             DataRanges: WAVE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: 2,
-            Communication: 2,
+            DataFlow: 2,      // KSPIN_DATAFLOW_OUT
+            Communication: 3, // KSPIN_COMMUNICATION_BOTH
             Category: &KSCATEGORY_AUDIO_GUID,
             Name: core::ptr::null(),
             Reserved: 0,
@@ -1165,11 +1185,19 @@ unsafe extern "C" fn dispatch_close(device_object: PDEVICE_OBJECT, irp: PIRP) ->
     if device_object == CONTROL_DEVICE_OBJECT {
         let cdo_ext = (*device_object).DeviceExtension as *mut usize;
         let dev_ext = (*cdo_ext) as *mut DeviceExtension;
-        if !dev_ext.is_null() && !(*dev_ext).user_mapping.is_null() {
-            MmUnmapLockedPages((*dev_ext).user_mapping as PVOID, (*dev_ext).loopback_mdl);
-            (*dev_ext).user_mapping = core::ptr::null_mut();
+        if !dev_ext.is_null() {
+            if !(*dev_ext).user_mapping.is_null() {
+                MmUnmapLockedPages((*dev_ext).user_mapping as PVOID, (*dev_ext).loopback_mdl);
+                (*dev_ext).user_mapping = core::ptr::null_mut();
+            }
+            if !(*dev_ext).shared_params_user_mapping.is_null() {
+                MmUnmapLockedPages(
+                    (*dev_ext).shared_params_user_mapping as PVOID,
+                    (*dev_ext).shared_params_mdl,
+                );
+                (*dev_ext).shared_params_user_mapping = core::ptr::null_mut();
+            }
         }
-
         (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
         (*irp).IoStatus.Information = 0;
         IofCompleteRequest(irp, 0);
@@ -1192,7 +1220,39 @@ unsafe extern "C" fn dispatch_device_control(device_object: PDEVICE_OBJECT, irp:
 
         let (status, info) = match ioctl {
             leyline_shared::IOCTL_LEYLINE_GET_STATUS => (STATUS_SUCCESS, 0),
-            leyline_shared::IOCTL_LEYLINE_MAP_PARAMS => (STATUS_SUCCESS, 0),
+            leyline_shared::IOCTL_LEYLINE_MAP_PARAMS => {
+                if dev_ext.is_null() || (*dev_ext).shared_params_mdl.is_null() {
+                    (STATUS_INVALID_DEVICE_STATE, 0)
+                } else {
+                    let mut mapped_ptr = (*dev_ext).shared_params_user_mapping;
+                    if mapped_ptr.is_null() {
+                        mapped_ptr = MmMapLockedPagesSpecifyCache(
+                            (*dev_ext).shared_params_mdl,
+                            _MODE::UserMode as i8,
+                            _MEMORY_CACHING_TYPE::MmCached,
+                            core::ptr::null_mut(),
+                            0,
+                            _MM_PAGE_PRIORITY::NormalPagePriority as u32,
+                        ) as *mut u8;
+                        if !mapped_ptr.is_null() {
+                            (*dev_ext).shared_params_user_mapping = mapped_ptr;
+                        }
+                    }
+
+                    if !mapped_ptr.is_null() {
+                        let out_len = (*stack).Parameters.DeviceIoControl.OutputBufferLength;
+                        if out_len < core::mem::size_of::<usize>() as u32 {
+                            (STATUS_BUFFER_TOO_SMALL, 0)
+                        } else {
+                            let sys_buffer = (*irp).AssociatedIrp.SystemBuffer as *mut usize;
+                            *sys_buffer = mapped_ptr as usize;
+                            (STATUS_SUCCESS, core::mem::size_of::<usize>())
+                        }
+                    } else {
+                        (STATUS_INSUFFICIENT_RESOURCES, 0)
+                    }
+                }
+            }
             leyline_shared::IOCTL_LEYLINE_MAP_BUFFER => {
                 if dev_ext.is_null() || (*dev_ext).loopback_mdl.is_null() {
                     (STATUS_INVALID_DEVICE_STATE, 0)
@@ -1250,36 +1310,53 @@ pub unsafe extern "system" fn DriverEntry(
     driver_object: PDRIVER_OBJECT,
     registry_path: PUNICODE_STRING,
 ) -> NTSTATUS {
+    DbgPrint("Leyline: DriverEntry\n\0".as_ptr());
     let status = PcInitializeAdapterDriver(driver_object, registry_path, Some(AddDevice));
     if status == STATUS_SUCCESS {
-        ORIGINAL_DISPATCH_CREATE = (*driver_object).MajorFunction[IRP_MJ_CREATE as usize];
-        (*driver_object).MajorFunction[IRP_MJ_CREATE as usize] = Some(dispatch_create);
-
-        ORIGINAL_DISPATCH_CLOSE = (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize];
-        (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize] = Some(dispatch_close);
-
-        ORIGINAL_DISPATCH_DEVICE_CONTROL =
-            (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize];
-        (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize] =
-            Some(dispatch_device_control);
+        DbgPrint("Leyline: PcInitializeAdapterDriver Success\n\0".as_ptr());
+        // HOOKING MOVED TO STARTDEVICE
+    } else {
+        DbgPrint(
+            "Leyline: PcInitializeAdapterDriver Failed with status 0x%08X\n\0".as_ptr(),
+            status,
+        );
     }
     status
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn AddDevice(
+pub unsafe extern "system" fn AddDevice(
     driver_object: PDRIVER_OBJECT,
     physical_device_object: PDEVICE_OBJECT,
 ) -> NTSTATUS {
-    PcAddAdapterDevice(
+    DbgPrint("Leyline: AddDevice\n\0".as_ptr());
+
+    if driver_object.is_null() || physical_device_object.is_null() {
+        DbgPrint("Leyline: AddDevice received NULL parameters\n\0".as_ptr());
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    // PortCls requires DeviceExtensionSize to be at least PORT_CLASS_DEVICE_EXTENSION_SIZE.
+    // We calculate the total size as PortCls overhead + our custom DeviceExtension structure.
+    let extension_size =
+        (PORT_CLASS_DEVICE_EXTENSION_SIZE + core::mem::size_of::<DeviceExtension>()) as u32;
+
+    let status = PcAddAdapterDevice(
         driver_object,
         physical_device_object,
         Some(StartDevice),
-        MAX_STREAMS as u32,
-        core::mem::size_of::<DeviceExtension>() as u32,
-    )
-}
+        8, // MaxSubDevices (Must be > 0, typically 5-10)
+        extension_size,
+    );
 
+    if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcAddAdapterDevice failed with status 0x%08X\n\0".as_ptr(),
+            status,
+        );
+    }
+    status
+}
 #[no_mangle]
 pub unsafe extern "system" fn StartDevice(
     device_object: PDEVICE_OBJECT,
@@ -1287,19 +1364,34 @@ pub unsafe extern "system" fn StartDevice(
     resource_list: PVOID,
 ) -> NTSTATUS {
     let mut status: NTSTATUS;
-    let dev_ext = (*device_object).DeviceExtension as *mut DeviceExtension;
+    let dev_ext = get_device_extension(device_object);
+    DbgPrint("Leyline: StartDevice\n\0".as_ptr());
 
     if (*dev_ext).shared_params.is_null() {
+        DbgPrint("Leyline: Allocating Shared Memory\n\0".as_ptr());
         let params = ExAllocatePool2(
             POOL_FLAG_NON_PAGED,
             core::mem::size_of::<leyline_shared::SharedParameters>() as u64,
             _POOL_TAG,
         );
         if params.is_null() {
+            DbgPrint("Leyline: Shared memory allocation FAILED\n\0".as_ptr());
             return STATUS_INSUFFICIENT_RESOURCES;
         }
         (*dev_ext).shared_params = params as *mut leyline_shared::SharedParameters;
         (*(*dev_ext).shared_params).master_gain_bits = 0x3F800000;
+
+        (*dev_ext).shared_params_mdl = IoAllocateMdl(
+            params,
+            core::mem::size_of::<leyline_shared::SharedParameters>() as u32,
+            0,
+            0,
+            core::ptr::null_mut(),
+        );
+        if !(*dev_ext).shared_params_mdl.is_null() {
+            MmBuildMdlForNonPagedPool((*dev_ext).shared_params_mdl);
+        }
+        (*dev_ext).shared_params_user_mapping = core::ptr::null_mut();
 
         let buffer_size = 64 * 1024;
         let low: PHYSICAL_ADDRESS = core::mem::zeroed();
@@ -1327,6 +1419,9 @@ pub unsafe extern "system" fn StartDevice(
             ) as *mut u8;
             (*dev_ext).loopback_size = buffer_size;
             (*dev_ext).user_mapping = core::ptr::null_mut();
+            DbgPrint("Leyline: Loopback Buffer Ready\n\0".as_ptr());
+        } else {
+            DbgPrint("Leyline: MDL allocation FAILED\n\0".as_ptr());
         }
     }
 
@@ -1341,6 +1436,7 @@ pub unsafe extern "system" fn StartDevice(
             MaximumLength: (device_name_str.len() * 2) as u16,
             Buffer: device_name_str.as_mut_ptr(),
         };
+        DbgPrint("Leyline: Creating CDO\n\0".as_ptr());
         status = IoCreateDevice(
             (*device_object).DriverObject,
             core::mem::size_of::<usize>() as u32,
@@ -1366,15 +1462,32 @@ pub unsafe extern "system" fn StartDevice(
             };
             status = IoCreateSymbolicLink(&mut link_name, &mut device_name);
             if status != STATUS_SUCCESS {
+                DbgPrint(
+                    "Leyline: IoCreateSymbolicLink FAILED (0x%08X)\n\0".as_ptr(),
+                    status,
+                );
                 IoDeleteDevice(CONTROL_DEVICE_OBJECT);
                 CONTROL_DEVICE_OBJECT = core::ptr::null_mut();
+                return status;
             }
+            DbgPrint("Leyline: CDO Ready\n\0".as_ptr());
+        } else {
+            DbgPrint(
+                "Leyline: IoCreateDevice FAILED (0x%08X)\n\0".as_ptr(),
+                status,
+            );
+            return status;
         }
     }
 
+    DbgPrint("Leyline: Registering WaveRender Port\n\0".as_ptr());
     let mut render_port: *mut u8 = core::ptr::null_mut();
     status = PcNewPort(&mut render_port, &CLSID_PortWaveRT);
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcNewPort WaveRT FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
     let render_miniport_com = MiniportWaveRTCom::new(false, dev_ext);
@@ -1403,6 +1516,10 @@ pub unsafe extern "system" fn StartDevice(
         resource_list,
     );
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: Port Init WaveRT FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
 
@@ -1411,12 +1528,21 @@ pub unsafe extern "system" fn StartDevice(
     ];
     status = PcRegisterSubdevice(device_object, wave_render_name.as_ptr(), render_port);
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcRegisterSubdevice WaveRT FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
 
+    DbgPrint("Leyline: Registering TopoRender Port\n\0".as_ptr());
     let mut render_topo_port: *mut u8 = core::ptr::null_mut();
     status = PcNewPort(&mut render_topo_port, &CLSID_PortTopology);
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcNewPort Topology FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
     let render_topo_miniport_com = MiniportTopologyCom::new(false);
@@ -1430,6 +1556,10 @@ pub unsafe extern "system" fn StartDevice(
         resource_list,
     );
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: Port Init Topology FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
     let topo_render_name: [u16; 11] = [
@@ -1437,8 +1567,13 @@ pub unsafe extern "system" fn StartDevice(
     ];
     status = PcRegisterSubdevice(device_object, topo_render_name.as_ptr(), render_topo_port);
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcRegisterSubdevice Topology FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
+
     status = PcRegisterPhysicalConnection(
         device_object,
         render_port,
@@ -1447,12 +1582,21 @@ pub unsafe extern "system" fn StartDevice(
         KSPIN_TOPO_BRIDGE,
     );
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcRegisterPhysicalConnection Render FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
 
+    DbgPrint("Leyline: Registering WaveCapture Port\n\0".as_ptr());
     let mut capture_port: *mut u8 = core::ptr::null_mut();
     status = PcNewPort(&mut capture_port, &CLSID_PortWaveRT);
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcNewPort Capture WaveRT FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
     let capture_miniport_com = MiniportWaveRTCom::new(true, dev_ext);
@@ -1468,6 +1612,10 @@ pub unsafe extern "system" fn StartDevice(
         resource_list,
     );
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: Port Init Capture WaveRT FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
 
@@ -1477,12 +1625,21 @@ pub unsafe extern "system" fn StartDevice(
     ];
     status = PcRegisterSubdevice(device_object, wave_capture_name.as_ptr(), capture_port);
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcRegisterSubdevice Capture WaveRT FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
 
+    DbgPrint("Leyline: Registering TopoCapture Port\n\0".as_ptr());
     let mut capture_topo_port: *mut u8 = core::ptr::null_mut();
     status = PcNewPort(&mut capture_topo_port, &CLSID_PortTopology);
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcNewPort Capture Topology FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
     let capture_topo_miniport_com = MiniportTopologyCom::new(true);
@@ -1496,6 +1653,10 @@ pub unsafe extern "system" fn StartDevice(
         resource_list,
     );
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: Port Init Capture Topology FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
     let topo_capture_name: [u16; 12] = [
@@ -1504,6 +1665,10 @@ pub unsafe extern "system" fn StartDevice(
     ];
     status = PcRegisterSubdevice(device_object, topo_capture_name.as_ptr(), capture_topo_port);
     if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcRegisterSubdevice Capture Topology FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
         return status;
     }
     status = PcRegisterPhysicalConnection(
@@ -1513,6 +1678,29 @@ pub unsafe extern "system" fn StartDevice(
         capture_port,
         KSPIN_TOPO_BRIDGE,
     );
+    if status != STATUS_SUCCESS {
+        DbgPrint(
+            "Leyline: PcRegisterPhysicalConnection Capture FAILED (0x%08X)\n\0".as_ptr(),
+            status,
+        );
+    } else {
+        DbgPrint("Leyline: StartDevice COMPLETED SUCCESSFULLY\n\0".as_ptr());
+
+        // Install CDO hooks only after successful start
+        let driver_object = (*device_object).DriverObject;
+        ORIGINAL_DISPATCH_CREATE = (*driver_object).MajorFunction[IRP_MJ_CREATE as usize];
+        (*driver_object).MajorFunction[IRP_MJ_CREATE as usize] = Some(dispatch_create);
+
+        ORIGINAL_DISPATCH_CLOSE = (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize];
+        (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize] = Some(dispatch_close);
+
+        ORIGINAL_DISPATCH_DEVICE_CONTROL =
+            (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize];
+        (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize] =
+            Some(dispatch_device_control);
+
+        DbgPrint("Leyline: Dispatch Hooks Installed\n\0".as_ptr());
+    }
     status
 }
 

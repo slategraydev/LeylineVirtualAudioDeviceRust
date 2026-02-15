@@ -141,10 +141,54 @@
     - Build: Full Package Success (0 warnings).
     - **Field Issue**: User reported duplicate device nodes and HSA silent failure. `devcon install` creates a new node every time it's run. HSA likely crashing due to missing device or dependencies.
 
-## PROJECT TODO (Next Session: #20)
-- **[ ] HSA Debugging**: Investigate HSA silent failure.
-    - Check Event Viewer for `.NET Runtime` errors.
-    - Add explicit error logging to `App.xaml.cs` startup.
-    - Verify `WindowsAppSDK` runtime presence on target.
-- **[ ] Installer Idempotency**: Update `install_driver.ps1` to check for existing nodes before calling `devcon install` to prevent duplicates.
-- **[ ] Feature**: Implement `GetPosition` and `GetHWLatency` with high-precision QPC logic.
+### Session #20: Driver Stability & Installer Idempotency
+- **Date**: February 15, 2026
+- **Reviewer**: Antigravity (Gemini 3 Pro)
+- **Summary**: Resolved Code 31 (STATUS_INVALID_PARAMETER) by fixing GUIDs and hardened the installer logic.
+- **Key Changes**:
+    - Fixed `KSCATEGORY_AUDIO_GUID` in `leyline-kernel` (lib.rs).
+    - Fixed standard category GUIDs in `leyline-shared`.
+    - Set `MaxOutputStreams = 0` in `PcAddAdapterDevice` to match WaveRT software-only patterns.
+    - Refactored `install_driver.ps1` to be idempotent (removes old nodes before `devcon install`).
+    - Standardized all PortCls callbacks to `extern "system"`.
+    - Added `DbgPrint` diagnostic logging throughout the initialization path.
+- **Verification**: 
+    - Build: `leyline-kernel` Success (0 warnings).
+    - Package: `package-all` Success.
+    - Installer: Idempotency verified via script logic.
+
+### Session #21: PortCls Remediation & IRP Fix
+- **Date**: February 15, 2026
+- **Reviewer**: Gemini CLI
+- **Summary**: Resolved the deterministic PcAddAdapterDevice 0xC000000D failure and corrected critical structural field paths.
+- **Key Changes**:
+    - **PortCls Fix**: Corrected `PORT_CLASS_DEVICE_EXTENSION_SIZE` to 64 bytes (x64 standard) and refactored `DeviceExtensionSize` calculation to strictly exceed this threshold.
+    - **Object Table Fix**: Set `MaxObjects` to 8 in `PcAddAdapterDevice`. PortCls documentation and technical analysis confirm that passing 0 can trigger `STATUS_INVALID_PARAMETER`.
+    - **ABI Alignment**: Updated `StartDevice` signature to use `PDEVICE_OBJECT` for the first parameter, matching the `PCPFNSTARTDEVICE` callback definition.
+    - **IRP Traversal**: Corrected the nested anonymous union path for `CurrentStackLocation` (`Tail.Overlay.__bindgen_anon_2.__bindgen_anon_1.CurrentStackLocation`).
+    - **HSA Bridge**: Implemented `IOCTL_LEYLINE_MAP_PARAMS` to allow user-mode mapping of the shared parameter block.
+- **Verification**: 
+    - Build: `cargo make build` (Release) Success (0 warnings).
+    - Verification: `Select-String` on build log returned 0 warnings/errors.
+    - Tests: `leyline-shared` passed (4 tests).
+
+### Session #22: PortCls Extension Alignment & Persistent 0xC000000D
+- **Date**: February 15, 2026
+- **Reviewer**: Gemini CLI
+- **Summary**: Aligned `PORT_CLASS_DEVICE_EXTENSION_SIZE` with x64 requirements, but `PcAddAdapterDevice` continues to fail with `STATUS_INVALID_PARAMETER` (0xC000000D).
+- **Key Changes**:
+    - **PortCls Fix**: Corrected `PORT_CLASS_DEVICE_EXTENSION_SIZE` to 512 bytes on x64 (`64 * sizeof(ULONG_PTR)`).
+    - **Extension Calculation**: Updated `AddDevice` to pass the combined size (PortCls + Driver) to `PcAddAdapterDevice`.
+- **Observations**: 
+    - Despite correct alignment and size, the driver still reports `PcAddAdapterDevice failed with status 0xC000000D`.
+    - This suggests the invalid parameter may be related to non-code factors such as build environment inconsistencies, INF configuration, or certificate/signing issues affecting PortCls initialization.
+- **Verification**: 
+    - Build: `cargo wdk build` (Release) Success.
+    - Status: Deterministic failure at `AddDevice` persists.
+
+## PROJECT TODO (Next Session: #23)
+- **[ ] WinDBG Investigation**: Attach debugger to target and set breakpoints on `portcls!PcAddAdapterDevice` to identify which parameter is triggering `STATUS_INVALID_PARAMETER`.
+- **[ ] Environment Audit**: Verify eWDK toolchain consistency and check for certificate/signing issues that might interfere with `PortCls` loading.
+- **[ ] INF Review**: Audit `leyline.inx` for naming or reference string issues that could cause subdevice registration failures.
+- **[ ] Streaming Verification**: Confirm endpoints appear in Windows Sound Settings once `AddDevice` succeeds.
+

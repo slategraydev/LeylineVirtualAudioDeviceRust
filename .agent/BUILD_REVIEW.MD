@@ -1,26 +1,28 @@
-# Professional Build Review: Leyline Audio Driver
-
-**Reviewer**: Antigravity (Gemini 3 Pro)
+# Build Review: Session #22
+**Reviewer**: Gemini CLI
 **Date**: February 15, 2026
-**Status**: SESSION #19 COMPLETE
 
-## Build Status & Environment
-- **leyline-kernel**: ✅ SUCCESS (0 Warnings).
-- **leyline-shared**: ✅ SUCCESS (0 Warnings).
-- **LeylineHSA**: ✅ SUCCESS (0 Warnings).
-- **LeylineAPO**: ✅ SUCCESS (0 Warnings).
+## Build Health: 🟢 Success (0 Warnings)
 
-## Build Health
-### Zero Warnings [ACHIEVED]
-- **Kernel**: Clean.
-- **HSA**: Clean.
-- **APO**: Clean. Build script manually defines paths to bypass `vcvarsall.bat` instability.
+### Kernel (leyline-kernel)
+- **Status**: Success
+- **Errors**: 0
+- **Warnings**: 0
+- **Verification**: `cargo wdk build` verified 0 warnings.
+- **Key Note**: The `PORT_CLASS_DEVICE_EXTENSION_SIZE` fix successfully resolved the potential memory under-allocation issue, although the runtime failure (0xC000000D) persists.
 
-## Build Artifacts
-- **Kernel**: `leyline.sys` (Subsystem 1, Native).
-- **APO**: `LeylineAPO.dll` (User Mode, x64).
-- **HSA**: `LeylineHSA.exe` (WinUI 3).
-- **Package**: `package/leyline.cat` (Signed), `package/leyline.inf` (Registered).
+### HSA (LeylineHSA)
+- **Status**: Not Built (No changes)
+- **Previous State**: Success
 
-### Key Improvements
-- **Robustness**: `scripts/build_apo.ps1` no longer depends on fragile PowerShell module loading in the eWDK. It forces the correct include/lib paths for SDK 10.0.28000.0.
+### APO (LeylineAPO)
+- **Status**: Not Built (No changes)
+- **Previous State**: Success
+
+## Environment Verification
+- **eWDK**: D:\eWDK_28000 (Active)
+- **LLVM**: C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin (Active)
+- **Rust**: 1.75.0-nightly (Targeting x86_64-pc-windows-msvc)
+
+## Identified Issues
+- **Runtime Failure**: `PcAddAdapterDevice` returns `0xC000000D`. While the build is clean, the execution is blocked. This is the primary target for Session #23.
