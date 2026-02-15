@@ -53,8 +53,25 @@
     - Build: `leyline-kernel` Success (0 warnings).
     - Automation: INF stamping verified (`1.0.13.xxx`).
 
-## PROJECT TODO (Next Session: #14)
-- **[ ] Internal Routing (Bridge Pins)**: Define the connection between the Wave and Topology filters via bridge pins to establish the full audio path.
-- **[ ] Filter Verification**: Use `ksstudio.exe` to verify that both "Wave" and "Topology" filters are correctly exposed.
-- **[ ] APO Scaffolding**: Create the project structure for the C++ Audio Processing Object (APO).
-- **[ ] HSA Base**: Initialize the WinUI 3 Hardware Support App project.
+### Session #14: Bridge Pins & Dual-Endpoint Convergence
+- **Date**: February 15, 2026
+- **Reviewer**: Antigravity (Gemini 3 Pro)
+- **Summary**: Implemented internal filter routing and expanded the driver to expose two discrete audio endpoints (Render/Capture).
+- **Key Changes**:
+    - Defined `PCCONNECTION` arrays and bridge pins to connect Wave and Topology filters.
+    - Implemented `PcRegisterPhysicalConnection` logic in `StartDevice`.
+    - Doubled the filter registration to expose both "Leyline Output" (Render) and "Leyline Input" (Capture) subdevices.
+    - Refactored `MiniportWaveRT` and `MiniportTopology` to return context-aware descriptors (Render vs. Capture).
+    - Fixed kernel linker error by suppressing `msvcrt.lib` via `/NODEFAULTLIB`.
+    - **Sanity Check**: Audited project state; fixed GUID discrepancies in `leyline-shared` and identified missing IOCTL/Loopback logic.
+- **Verification**: 
+    - Build: `leyline-kernel` Success (0 warnings).
+    - Build: `LeylineHSA` Success (0 warnings).
+    - GUID Alignment: Verified 1:1 match between shared and kernel crates.
+
+## PROJECT TODO (Next Session: #15)
+- **[ ] Dynamic Formats**: Implement dynamic format negotiation in `DataRangeIntersection` to allow applications to request arbitrary sample rates.
+- **[ ] APO Integration**: Wire the C++ APO into the INF and verify that the audio engine loads it for the Leyline endpoints.
+- **[ ] HSA Real-Time Monitoring**: Implement the `DriverBridge` connection in `MainWindow.xaml.cs` to visualize the shared buffer data.
+- **[ ] Capture Logic**: Implement the "Loopback" path where data rendered to the Output endpoint is mirrored to the Input endpoint.
+

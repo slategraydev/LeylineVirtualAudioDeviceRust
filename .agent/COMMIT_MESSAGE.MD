@@ -1,21 +1,23 @@
-feat: register topology filter and expand data ranges
+# Session Commit Message: Bridge Pins & Dual-Endpoint Convergence
 
-Registered the Topology subdevice and implemented multi-format data negotiation to support professional audio streaming.
+**Reviewer**: Antigravity (Gemini 3 Pro)
+**Date**: February 15, 2026
 
-- Implemented `IMiniportTopology` COM wrapper and registration logic.
-- Defined `PCFILTER_DESCRIPTOR` for the Wave filter with PCM and IEEE Float support.
-- Implemented `DataRangeIntersection` for dynamic format negotiation.
-- Created `scripts/Update-Version.ps1` for automated INF stamping.
-- Verified zero-warning build across the entire kernel crate.
+## Zero-Warning Proof
+- **Kernel Build**: `cargo wdk build` -> SUCCESS (0 warnings).
+- **HSA Build**: `dotnet build` -> SUCCESS (0 warnings).
+- **Verification**: `Select-String -Pattern "warning" build.log` (Internal check) -> No matches.
 
-**Zero-Warning Proof**: Verified via `Select-String -Pattern "warning"` on build logs (No matches).
+## Git Commit Payload
+```text
+feat: implement bridge pins and dual-endpoint registration
 
-**Git Commit Payload**:
-```
-feat: register topology filter and expand data ranges
+Implemented internal filter routing and expanded the kernel driver to expose two discrete audio endpoints (Render/Capture) to the system. 
 
-- Implement IMiniportTopology COM wrapper and registration.
-- Define static Wave filter descriptors for PCM/Float.
-- Implement DataRangeIntersection negotiation logic.
-- Automate INF version stamping in build pipeline.
+- Implemented PCCONNECTION arrays and bridge pins to connect Wave and Topology filters.
+- Registered "Leyline Output" (Render) and "Leyline Input" (Capture) subdevices in StartDevice.
+- Doubled filter registration with context-aware MiniportWaveRT and MiniportTopology instances.
+- Forced /NODEFAULTLIB:msvcrt in build.rs to prevent user-mode CRT contamination in kernel space.
+- Aligned KSCATEGORY_RENDER/CAPTURE GUIDs in leyline-shared with standard Windows constants.
+- Verified WinUI 3 HSA project stability and 0-warning build status.
 ```

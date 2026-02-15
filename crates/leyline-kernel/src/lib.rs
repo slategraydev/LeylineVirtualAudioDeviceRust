@@ -50,6 +50,14 @@ extern "system" {
         Name: *const u16,
         Unknown: *mut u8,
     ) -> NTSTATUS;
+
+    pub fn PcRegisterPhysicalConnection(
+        DeviceObject: PDEVICE_OBJECT,
+        FromUnknown: *mut u8,
+        FromPin: u32,
+        ToUnknown: *mut u8,
+        ToPin: u32,
+    ) -> NTSTATUS;
 }
 
 // ============================================================================
@@ -412,10 +420,10 @@ pub struct MiniportTopologyCom {
 }
 
 impl MiniportTopologyCom {
-    pub fn new() -> Box<Self> {
+    pub fn new(is_capture: bool) -> Box<Self> {
         Box::new(Self {
             vtable: &TOPOLOGY_VTABLE,
-            inner: MiniportTopology::new(),
+            inner: MiniportTopology::new(is_capture),
             ref_count: 1,
         })
     }
@@ -462,9 +470,17 @@ unsafe extern "system" fn topology_release(this: *mut u8) -> u32 {
 }
 
 unsafe extern "system" fn topology_get_description(
-    _this: *mut u8,
-    _out_description: *mut u8,
+    this: *mut u8,
+    out_description: *mut u8,
 ) -> NTSTATUS {
+    let com_obj = this as *mut MiniportTopologyCom;
+    let description = out_description as *mut *const PCFILTER_DESCRIPTOR;
+
+    if (*com_obj).inner.is_capture {
+        *description = &TOPO_CAPTURE_FILTER_DESCRIPTOR;
+    } else {
+        *description = &TOPO_RENDER_FILTER_DESCRIPTOR;
+    }
     STATUS_SUCCESS
 }
 
@@ -511,12 +527,14 @@ static TOPOLOGY_VTABLE: IMiniportTopologyVTable = IMiniportTopologyVTable {
 
 pub struct MiniportTopology {
     pub is_initialized: bool,
+    pub is_capture: bool,
 }
 
 impl MiniportTopology {
-    pub fn new() -> Self {
+    pub fn new(is_capture: bool) -> Self {
         Self {
             is_initialized: false,
+            is_capture,
         }
     }
 
@@ -530,6 +548,31 @@ impl MiniportTopology {
         STATUS_SUCCESS
     }
 }
+
+// ============================================================================
+// PortCls Topology Structs
+// ============================================================================
+
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct PCCONNECTION {
+    pub FromNode: u32,
+    pub FromPin: u32,
+    pub ToNode: u32,
+    pub ToPin: u32,
+}
+
+pub const PCFILTER_NODE: u32 = !0u32;
+
+// ============================================================================
+// Pin IDs
+// ============================================================================
+
+const KSPIN_WAVE_SINK: u32 = 0;
+const KSPIN_WAVE_BRIDGE: u32 = 1;
+
+const KSPIN_TOPO_BRIDGE: u32 = 0;
+const KSPIN_TOPO_LINEOUT: u32 = 1;
 
 // ============================================================================
 // Wave Filter Description (Static)
@@ -586,37 +629,299 @@ pub const KSCATEGORY_AUDIO_GUID: GUID = GUID {
     Data4: [0xB5, 0xCA, 0x00, 0x80, 0x5F, 0x48, 0xA1, 0x92],
 };
 
-static WAVE_PINS: [PCPIN_DESCRIPTOR; 1] = [PCPIN_DESCRIPTOR {
-    MaxGlobalInstanceCount: MAX_STREAMS as u32,
-    MaxFilterInstanceCount: MAX_STREAMS as u32,
-    MinFilterInstanceCount: 1,
-    AutomationTable: core::ptr::null(),
-    KsPinDescriptor: KSPIN_DESCRIPTOR {
-        InterfacesCount: 0,
-        Interfaces: core::ptr::null(),
-        MediumsCount: 0,
-        Mediums: core::ptr::null(),
-        DataRangesCount: 2,
-        DataRanges: WAVE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-        DataFlow: 1,      // KSPIN_DATAFLOW_IN
-        Communication: 3, // KSPIN_COMMUNICATION_SINK
-        Category: &KSCATEGORY_AUDIO_GUID,
-        Name: core::ptr::null(),
-        Reserved: 0,
+#[allow(non_upper_case_globals)]
+pub const KSCATEGORY_RENDER_GUID: GUID = GUID {
+    Data1: 0x65E8773E,
+    Data2: 0x8F56,
+    Data3: 0x11D0,
+    Data4: [0xA3, 0xB9, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSCATEGORY_CAPTURE_GUID: GUID = GUID {
+    Data1: 0x65E8773D,
+    Data2: 0x8F56,
+    Data3: 0x11D0,
+    Data4: [0xA3, 0xB9, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSNODETYPE_SPEAKER_GUID: GUID = GUID {
+    Data1: 0xDFF219E1,
+    Data2: 0xF70F,
+    Data3: 0x11D0,
+    Data4: [0xB9, 0x17, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+static BRIDGE_DATARANGE: KSDATARANGE = KSDATARANGE {
+    FormatSize: core::mem::size_of::<KSDATARANGE>() as u32,
+    Flags: 0,
+    SampleSize: 0,
+    Reserved: 0,
+    MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
+    SubFormat: GUID {
+        Data1: 0x00000000,
+        Data2: 0x0000,
+        Data3: 0x0000,
+        Data4: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+    }, // KSDATAFORMAT_SUBTYPE_NONE
+    Specifier: GUID {
+        Data1: 0x05589F81,
+        Data2: 0xC356,
+        Data3: 0x11CE,
+        Data4: [0xBF, 0x01, 0x00, 0xAA, 0x00, 0x55, 0x59, 0x5A],
+    }, // KSDATAFORMAT_SPECIFIER_NONE / WAVEFORMATEX
+};
+
+static BRIDGE_DATARANGES: [SyncPtr<KSDATARANGE>; 1] =
+    [SyncPtr(&BRIDGE_DATARANGE as *const KSDATARANGE)];
+
+static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
+    // Pin 0: Streaming Sink (Host -> Driver)
+    PCPIN_DESCRIPTOR {
+        MaxGlobalInstanceCount: MAX_STREAMS as u32,
+        MaxFilterInstanceCount: MAX_STREAMS as u32,
+        MinFilterInstanceCount: 1,
+        AutomationTable: core::ptr::null(),
+        KsPinDescriptor: KSPIN_DESCRIPTOR {
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
+            MediumsCount: 0,
+            Mediums: core::ptr::null(),
+            DataRangesCount: 2,
+            DataRanges: WAVE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
+            DataFlow: 1,      // KSPIN_DATAFLOW_IN
+            Communication: 3, // KSPIN_COMMUNICATION_SINK
+            Category: &KSCATEGORY_AUDIO_GUID,
+            Name: core::ptr::null(),
+            Reserved: 0,
+        },
     },
+    // Pin 1: Bridge Source (Driver -> Topology)
+    PCPIN_DESCRIPTOR {
+        MaxGlobalInstanceCount: 1,
+        MaxFilterInstanceCount: 1,
+        MinFilterInstanceCount: 1,
+        AutomationTable: core::ptr::null(),
+        KsPinDescriptor: KSPIN_DESCRIPTOR {
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
+            MediumsCount: 0,
+            Mediums: core::ptr::null(),
+            DataRangesCount: 1,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
+            DataFlow: 2,      // KSPIN_DATAFLOW_OUT
+            Communication: 1, // KSPIN_COMMUNICATION_BRIDGE
+            Category: &KSCATEGORY_AUDIO_GUID,
+            Name: core::ptr::null(),
+            Reserved: 0,
+        },
+    },
+];
+
+static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
+    // Pin 0: Bridge Sink (Topology -> Driver)
+    PCPIN_DESCRIPTOR {
+        MaxGlobalInstanceCount: 1,
+        MaxFilterInstanceCount: 1,
+        MinFilterInstanceCount: 1,
+        AutomationTable: core::ptr::null(),
+        KsPinDescriptor: KSPIN_DESCRIPTOR {
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
+            MediumsCount: 0,
+            Mediums: core::ptr::null(),
+            DataRangesCount: 1,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
+            DataFlow: 1,      // KSPIN_DATAFLOW_IN
+            Communication: 1, // KSPIN_COMMUNICATION_BRIDGE
+            Category: &KSCATEGORY_AUDIO_GUID,
+            Name: core::ptr::null(),
+            Reserved: 0,
+        },
+    },
+    // Pin 1: Streaming Source (Driver -> Host)
+    PCPIN_DESCRIPTOR {
+        MaxGlobalInstanceCount: MAX_STREAMS as u32,
+        MaxFilterInstanceCount: MAX_STREAMS as u32,
+        MinFilterInstanceCount: 1,
+        AutomationTable: core::ptr::null(),
+        KsPinDescriptor: KSPIN_DESCRIPTOR {
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
+            MediumsCount: 0,
+            Mediums: core::ptr::null(),
+            DataRangesCount: 2,
+            DataRanges: WAVE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
+            DataFlow: 2,      // KSPIN_DATAFLOW_OUT
+            Communication: 2, // KSPIN_COMMUNICATION_SOURCE
+            Category: &KSCATEGORY_AUDIO_GUID,
+            Name: core::ptr::null(),
+            Reserved: 0,
+        },
+    },
+];
+
+static WAVE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
+    FromNode: PCFILTER_NODE,
+    FromPin: KSPIN_WAVE_SINK,
+    ToNode: PCFILTER_NODE,
+    ToPin: KSPIN_WAVE_BRIDGE,
 }];
 
-static WAVE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
+static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 1,
     AutomationTable: core::ptr::null(),
-    PinSize: 1,
+    PinSize: 2,
     PinDescriptorSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
-    Pins: WAVE_PINS.as_ptr(),
+    Pins: WAVE_RENDER_PINS.as_ptr(),
     NodeSize: 0,
     NodeDescriptorSize: 0,
     Nodes: core::ptr::null(),
-    ConnectionCount: 0,
-    Connections: core::ptr::null(),
+    ConnectionCount: 1,
+    Connections: WAVE_CONNECTIONS.as_ptr() as *const u8,
+    CategoryCount: 0,
+    Categories: core::ptr::null(),
+};
+
+static WAVE_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
+    Version: 1,
+    AutomationTable: core::ptr::null(),
+    PinSize: 2,
+    PinDescriptorSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    Pins: WAVE_CAPTURE_PINS.as_ptr(),
+    NodeSize: 0,
+    NodeDescriptorSize: 0,
+    Nodes: core::ptr::null(),
+    ConnectionCount: 1,
+    Connections: WAVE_CONNECTIONS.as_ptr() as *const u8,
+    CategoryCount: 0,
+    Categories: core::ptr::null(),
+};
+
+// ============================================================================
+// Topology Filter Description (Static)
+// ============================================================================
+
+static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
+    // Pin 0: Bridge Sink (Wave -> Topology)
+    PCPIN_DESCRIPTOR {
+        MaxGlobalInstanceCount: 1,
+        MaxFilterInstanceCount: 1,
+        MinFilterInstanceCount: 1,
+        AutomationTable: core::ptr::null(),
+        KsPinDescriptor: KSPIN_DESCRIPTOR {
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
+            MediumsCount: 0,
+            Mediums: core::ptr::null(),
+            DataRangesCount: 1,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
+            DataFlow: 1,      // KSPIN_DATAFLOW_IN
+            Communication: 1, // KSPIN_COMMUNICATION_BRIDGE
+            Category: &KSCATEGORY_AUDIO_GUID,
+            Name: core::ptr::null(),
+            Reserved: 0,
+        },
+    },
+    // Pin 1: Physical Source (The Endpoint)
+    PCPIN_DESCRIPTOR {
+        MaxGlobalInstanceCount: 1,
+        MaxFilterInstanceCount: 1,
+        MinFilterInstanceCount: 1,
+        AutomationTable: core::ptr::null(),
+        KsPinDescriptor: KSPIN_DESCRIPTOR {
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
+            MediumsCount: 0,
+            Mediums: core::ptr::null(),
+            DataRangesCount: 1,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
+            DataFlow: 2,      // KSPIN_DATAFLOW_OUT
+            Communication: 0, // KSPIN_COMMUNICATION_NONE
+            Category: &KSCATEGORY_RENDER_GUID,
+            Name: core::ptr::null(),
+            Reserved: 0,
+        },
+    },
+];
+
+static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
+    // Pin 0: Physical Sink (The External Source)
+    PCPIN_DESCRIPTOR {
+        MaxGlobalInstanceCount: 1,
+        MaxFilterInstanceCount: 1,
+        MinFilterInstanceCount: 1,
+        AutomationTable: core::ptr::null(),
+        KsPinDescriptor: KSPIN_DESCRIPTOR {
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
+            MediumsCount: 0,
+            Mediums: core::ptr::null(),
+            DataRangesCount: 1,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
+            DataFlow: 1,      // KSPIN_DATAFLOW_IN
+            Communication: 0, // KSPIN_COMMUNICATION_NONE
+            Category: &KSCATEGORY_CAPTURE_GUID,
+            Name: core::ptr::null(),
+            Reserved: 0,
+        },
+    },
+    // Pin 1: Bridge Source (Topology -> Wave)
+    PCPIN_DESCRIPTOR {
+        MaxGlobalInstanceCount: 1,
+        MaxFilterInstanceCount: 1,
+        MinFilterInstanceCount: 1,
+        AutomationTable: core::ptr::null(),
+        KsPinDescriptor: KSPIN_DESCRIPTOR {
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
+            MediumsCount: 0,
+            Mediums: core::ptr::null(),
+            DataRangesCount: 1,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
+            DataFlow: 2,      // KSPIN_DATAFLOW_OUT
+            Communication: 1, // KSPIN_COMMUNICATION_BRIDGE
+            Category: &KSCATEGORY_AUDIO_GUID,
+            Name: core::ptr::null(),
+            Reserved: 0,
+        },
+    },
+];
+
+static TOPO_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
+    FromNode: PCFILTER_NODE,
+    FromPin: KSPIN_TOPO_BRIDGE,
+    ToNode: PCFILTER_NODE,
+    ToPin: KSPIN_TOPO_LINEOUT,
+}];
+
+static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
+    Version: 1,
+    AutomationTable: core::ptr::null(),
+    PinSize: 2,
+    PinDescriptorSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    Pins: TOPO_RENDER_PINS.as_ptr(),
+    NodeSize: 0,
+    NodeDescriptorSize: 0,
+    Nodes: core::ptr::null(),
+    ConnectionCount: 1,
+    Connections: TOPO_CONNECTIONS.as_ptr() as *const u8,
+    CategoryCount: 0,
+    Categories: core::ptr::null(),
+};
+
+static TOPO_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
+    Version: 1,
+    AutomationTable: core::ptr::null(),
+    PinSize: 2,
+    PinDescriptorSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    Pins: TOPO_CAPTURE_PINS.as_ptr(),
+    NodeSize: 0,
+    NodeDescriptorSize: 0,
+    Nodes: core::ptr::null(),
+    ConnectionCount: 1,
+    Connections: TOPO_CONNECTIONS.as_ptr() as *const u8,
     CategoryCount: 0,
     Categories: core::ptr::null(),
 };
@@ -633,10 +938,10 @@ pub struct MiniportWaveRTCom {
 }
 
 impl MiniportWaveRTCom {
-    pub fn new() -> Box<Self> {
+    pub fn new(is_capture: bool) -> Box<Self> {
         Box::new(Self {
             vtable: &MINIPORT_VTABLE,
-            inner: MiniportWaveRT::new(),
+            inner: MiniportWaveRT::new(is_capture),
             ref_count: 1,
         })
     }
@@ -684,11 +989,17 @@ unsafe extern "system" fn miniport_release(this: *mut u8) -> u32 {
 }
 
 unsafe extern "system" fn miniport_get_description(
-    _this: *mut u8,
+    this: *mut u8,
     out_description: *mut u8,
 ) -> NTSTATUS {
+    let com_obj = this as *mut MiniportWaveRTCom;
     let description = out_description as *mut *const PCFILTER_DESCRIPTOR;
-    *description = &WAVE_FILTER_DESCRIPTOR;
+
+    if (*com_obj).inner.is_capture {
+        *description = &WAVE_CAPTURE_FILTER_DESCRIPTOR;
+    } else {
+        *description = &WAVE_RENDER_FILTER_DESCRIPTOR;
+    }
     STATUS_SUCCESS
 }
 
@@ -851,6 +1162,7 @@ fn is_equal_guid(a: *const GUID, b: &GUID) -> bool {
 pub struct MiniportWaveRT {
     pub max_pci_bar: u32,
     pub is_initialized: bool,
+    pub is_capture: bool,
     pub streams: [Option<Box<MiniportWaveRTStream>>; MAX_STREAMS],
 }
 
@@ -871,10 +1183,11 @@ pub static mut SHARED_PARAMS: leyline_shared::SharedParameters = leyline_shared:
 
 impl MiniportWaveRT {
     /// Creates a new, uninitialized instance of the miniport.
-    pub fn new() -> Self {
+    pub fn new(is_capture: bool) -> Self {
         Self {
             max_pci_bar: 0,
             is_initialized: false,
+            is_capture,
             streams: [None, None, None, None],
         }
     }
@@ -965,20 +1278,20 @@ pub unsafe extern "system" fn StartDevice(
 ) -> NTSTATUS {
     let mut status: NTSTATUS;
 
+    // --- LEYLINE OUTPUT (RENDER) ---
+
     // 1. Create the WaveRT Port object.
-    let mut port: *mut u8 = core::ptr::null_mut();
-    status = PcNewPort(&mut port, &CLSID_PortWaveRT);
+    let mut render_port: *mut u8 = core::ptr::null_mut();
+    status = PcNewPort(&mut render_port, &CLSID_PortWaveRT);
     if status != STATUS_SUCCESS {
         return status;
     }
 
     // 2. Create the Miniport object.
-    // The COM wrapper will manage the lifecycle of the MiniportWaveRT.
-    let miniport_com = MiniportWaveRTCom::new();
-    let miniport_ptr = Box::into_raw(miniport_com) as *mut u8;
+    let render_miniport_com = MiniportWaveRTCom::new(false); // false = render
+    let render_miniport_ptr = Box::into_raw(render_miniport_com) as *mut u8;
 
     // 3. Initialize the Port with the Miniport.
-    // We call the Init method from the IPort interface VTable (index 3).
     type PortInitFn = unsafe extern "system" fn(
         this: *mut u8,
         device_object: PDEVICE_OBJECT,
@@ -988,15 +1301,15 @@ pub unsafe extern "system" fn StartDevice(
         resource_list: PVOID,
     ) -> NTSTATUS;
 
-    let vtable = *(port as *const *const *const u8);
+    let vtable = *(render_port as *const *const *const u8);
     let init_ptr = *vtable.add(3);
     let init_fn: PortInitFn = core::mem::transmute(init_ptr);
 
     status = init_fn(
-        port,
+        render_port,
         device_object,
         core::ptr::null_mut(),
-        miniport_ptr,
+        render_miniport_ptr,
         core::ptr::null_mut(),
         resource_list,
     );
@@ -1005,30 +1318,31 @@ pub unsafe extern "system" fn StartDevice(
     }
 
     // 4. Register the WaveRT subdevice.
-    // The name "Wave" is used by convention to identify the streaming filter.
-    let wave_name: [u16; 5] = [0x0057, 0x0061, 0x0076, 0x0065, 0x0000]; // "Wave\0"
-    status = PcRegisterSubdevice(device_object, wave_name.as_ptr(), port);
+    let wave_render_name: [u16; 11] = [
+        0x0057, 0x0061, 0x0076, 0x0065, 0x0052, 0x0065, 0x006E, 0x0064, 0x0065, 0x0072, 0x0000,
+    ]; // "WaveRender\0"
+    status = PcRegisterSubdevice(device_object, wave_render_name.as_ptr(), render_port);
     if status != STATUS_SUCCESS {
         return status;
     }
 
     // 5. Create the Topology Port object.
-    let mut topo_port: *mut u8 = core::ptr::null_mut();
-    status = PcNewPort(&mut topo_port, &CLSID_PortTopology);
+    let mut render_topo_port: *mut u8 = core::ptr::null_mut();
+    status = PcNewPort(&mut render_topo_port, &CLSID_PortTopology);
     if status != STATUS_SUCCESS {
         return status;
     }
 
     // 6. Create the Topology Miniport object.
-    let topo_miniport_com = MiniportTopologyCom::new();
-    let topo_miniport_ptr = Box::into_raw(topo_miniport_com) as *mut u8;
+    let render_topo_miniport_com = MiniportTopologyCom::new(false);
+    let render_topo_miniport_ptr = Box::into_raw(render_topo_miniport_com) as *mut u8;
 
     // 7. Initialize the Topology Port with the Miniport.
     status = init_fn(
-        topo_port,
+        render_topo_port,
         device_object,
         core::ptr::null_mut(),
-        topo_miniport_ptr,
+        render_topo_miniport_ptr,
         core::ptr::null_mut(),
         resource_list,
     );
@@ -1037,10 +1351,105 @@ pub unsafe extern "system" fn StartDevice(
     }
 
     // 8. Register the Topology subdevice.
-    let topo_name: [u16; 9] = [
-        0x0054, 0x006F, 0x0070, 0x006F, 0x006C, 0x006F, 0x0067, 0x0079, 0x0000,
-    ]; // "Topology\0"
-    status = PcRegisterSubdevice(device_object, topo_name.as_ptr(), topo_port);
+    let topo_render_name: [u16; 11] = [
+        0x0054, 0x006F, 0x0070, 0x006F, 0x0052, 0x0065, 0x006E, 0x0064, 0x0065, 0x0072, 0x0000,
+    ]; // "TopoRender\0"
+    status = PcRegisterSubdevice(device_object, topo_render_name.as_ptr(), render_topo_port);
+    if status != STATUS_SUCCESS {
+        return status;
+    }
+
+    // 9. Link the Wave filter to the Topology filter.
+    status = PcRegisterPhysicalConnection(
+        device_object,
+        render_port,
+        KSPIN_WAVE_BRIDGE,
+        render_topo_port,
+        KSPIN_TOPO_BRIDGE,
+    );
+    if status != STATUS_SUCCESS {
+        return status;
+    }
+
+    // --- LEYLINE INPUT (CAPTURE) ---
+
+    // 10. Create the WaveRT Port object for Capture.
+    let mut capture_port: *mut u8 = core::ptr::null_mut();
+    status = PcNewPort(&mut capture_port, &CLSID_PortWaveRT);
+    if status != STATUS_SUCCESS {
+        return status;
+    }
+
+    // 11. Create the Miniport object for Capture.
+    let capture_miniport_com = MiniportWaveRTCom::new(true); // true = capture
+    let capture_miniport_ptr = Box::into_raw(capture_miniport_com) as *mut u8;
+
+    // 12. Initialize the Capture Port.
+    status = init_fn(
+        capture_port,
+        device_object,
+        core::ptr::null_mut(),
+        capture_miniport_ptr,
+        core::ptr::null_mut(),
+        resource_list,
+    );
+    if status != STATUS_SUCCESS {
+        return status;
+    }
+
+    // 13. Register the Capture WaveRT subdevice.
+    let wave_capture_name: [u16; 12] = [
+        0x0057, 0x0061, 0x0076, 0x0065, 0x0043, 0x0061, 0x0070, 0x0074, 0x0075, 0x0072, 0x0065,
+        0x0000,
+    ]; // "WaveCapture\0"
+    status = PcRegisterSubdevice(device_object, wave_capture_name.as_ptr(), capture_port);
+    if status != STATUS_SUCCESS {
+        return status;
+    }
+
+    // 14. Create the Topology Port object for Capture.
+    let mut capture_topo_port: *mut u8 = core::ptr::null_mut();
+    status = PcNewPort(&mut capture_topo_port, &CLSID_PortTopology);
+    if status != STATUS_SUCCESS {
+        return status;
+    }
+
+    // 15. Create the Topology Miniport object for Capture.
+    let capture_topo_miniport_com = MiniportTopologyCom::new(true);
+    let capture_topo_miniport_ptr = Box::into_raw(capture_topo_miniport_com) as *mut u8;
+
+    // 16. Initialize the Capture Topology Port.
+    status = init_fn(
+        capture_topo_port,
+        device_object,
+        core::ptr::null_mut(),
+        capture_topo_miniport_ptr,
+        core::ptr::null_mut(),
+        resource_list,
+    );
+    if status != STATUS_SUCCESS {
+        return status;
+    }
+
+    // 17. Register the Capture Topology subdevice.
+    let topo_capture_name: [u16; 12] = [
+        0x0054, 0x006F, 0x0070, 0x006F, 0x0043, 0x0061, 0x0070, 0x0074, 0x0075, 0x0072, 0x0065,
+        0x0000,
+    ]; // "TopoCapture\0"
+    status = PcRegisterSubdevice(device_object, topo_capture_name.as_ptr(), capture_topo_port);
+    if status != STATUS_SUCCESS {
+        return status;
+    }
+
+    // 18. Link the Capture Wave filter to the Capture Topology filter.
+    // Note: For capture, flow is Topo -> Wave
+    status = PcRegisterPhysicalConnection(
+        device_object,
+        capture_topo_port,
+        KSPIN_TOPO_LINEOUT, // For capture, this is the "Source" bridge
+        capture_port,
+        KSPIN_TOPO_BRIDGE, // This constant ID happens to be 0
+    );
 
     status
 }

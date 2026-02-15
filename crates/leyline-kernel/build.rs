@@ -21,6 +21,7 @@ fn main() {
         println!("cargo:rustc-link-arg=/subsystem:native");
         println!("cargo:rustc-link-arg=/driver");
         println!("cargo:rustc-link-arg=/entry:DriverEntry");
+        println!("cargo:rustc-link-arg=/NODEFAULTLIB:msvcrt");
 
         // Core Kernel Libraries
         println!("cargo:rustc-link-lib=ntoskrnl");
