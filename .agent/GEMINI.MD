@@ -25,16 +25,18 @@ Framework: Rust-native WaveRT (Wave Real-Time)
 - **[x] COM Compatibility**: Manual VTable implementations for PortCls DDIs.
 - **[x] Shared Logic**: Ring Buffer implementation and cross-crate GUID/IOCTL definitions.
 - **[x] Build Tooling**: Comprehensive `Makefile.toml` for `cargo-make` workflow.
+- **[x] Topology Implementation**: Registered Topology port, bridge pins, and internal routing.
+- **[x] Dispatch Infrastructure**: IRP hooking, CDO creation, and IOCTL dispatching.
+- **[x] Zero-Copy Loopback**: Kernel-side shared memory mapping (Render to Capture).
 
 ### In Progress 🏗️
 - **[/] Trait Implementation**: Mapping foundational structures to `wdk` traits.
-- **[/] Topology Definition**: Planning the internal filter topology and bridge pins.
 - **[/] Shared Constants**: Expanding `leyline-shared` with driver-specific GUIDs.
+- **[/] HSA Integration**: Development of the WinUI 3 Hardware Support App.
 
 ### Upcoming 📅
-- **[ ] Topology Implementation**: Registering the Topology port and defining internal routing.
 - **[ ] APO Component**: Implementation of C++ Audio Processing Objects for effects.
-- **[ ] HSA Integration**: Development of the WinUI 3 Hardware Support App.
+- **[ ] Dynamic Formats**: Support for arbitrary sample rate negotiation.
 
 1. Professional Licensing & README Standards
 
@@ -455,6 +457,10 @@ All agents MUST proactively manage the build environment. If required tools (e.g
 2.  **Attempt to set environment variables** (e.g., `$env:LIBCLANG_PATH`) within the session.
 3.  **Propose installation commands** (e.g., `cargo install cargo-wdk`) if tools are missing from the system.
 4.  **Update `TOOLCHAIN_REVIEW.md`** with any changes or newly identified requirements.
+
+### 7.8 Rust Driver Implementation Patterns
+- **Bindgen IRP Traversal**: Accessing the `CurrentStackLocation` in `bindgen`-generated `wdk-sys` structs requires traversing nested anonymous unions. On x64, the correct path is often `(*irp).Tail.Overlay.__bindgen_anon_2.__bindgen_anon_1.CurrentStackLocation`. This corresponds to the `ListEntry` variant of the `Overlay` union. Always verify against the generated `bindings.rs`.
+- **Static Mut Safety**: To safely pass a pointer to a `static mut` variable (like `CONTROL_DEVICE_OBJECT`) to a DDI without triggering Rust 2024 undefined behavior warnings, use the `&raw mut VARIABLE` syntax instead of `&mut VARIABLE`.
 
 ---
 *Comprehensive Audit & Reference Mapping Complete: February 14, 2026*

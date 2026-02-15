@@ -1,26 +1,24 @@
-# Session Commit Message: Leyline Audio Driver
+# Session Commit Message
 
-**Reviewer**: Antigravity (Gemini 3 Pro)
-**Date**: February 15, 2026
+## Header
+fix(kernel): resolve IRP traversal and achieve zero-warning build
+
+## Summary
+Fixed critical bindgen layout issue preventing kernel compilation and resolved all remaining warnings.
+
+## Impact
+- **Implemented** `get_current_irp_stack_location` helper targeting `Overlay.__bindgen_anon_2` to correctly access `CurrentStackLocation` in x64 IRPs.
+- **Refactored** `dispatch_device_control` to use the new helper and handle status codes via a clean `match` expression.
+- **Removed** unnecessary `unsafe` blocks in `stream.rs` and fixed mutable static reference warning in `lib.rs` using `&raw mut`.
+- **Verified** Zero-Copy Loopback logic in `stream.rs`: Render and Capture streams now share the same physical memory (`loopback_mdl`).
 
 ## Git Commit Payload
 ```
-feat: implement IOCTL infrastructure and shared loopback buffer
+fix(kernel): resolve IRP traversal and achieve zero-warning build
 
-Implemented the foundation for Hardware Support App (HSA) communication
-and allocated a shared physical buffer for Render-to-Capture loopback.
-
-- Created Control Device Object (CDO) and \DosDevices\LeylineAudio link.
-- Implemented DeviceExtension to store driver-wide shared state.
-- Allocated 64KB physical buffer and MDL for zero-copy loopback.
-- Hooked IRP_MJ dispatchers to handle custom IOCTLs.
-- Updated MiniportWaveRTStream to utilize the shared loopback buffer.
-- Resolved Sync trait requirements for PortCls descriptors.
-
-NOTE: Build is currently failing due to IRP stack location traversal issues.
+- Implemented `get_current_irp_stack_location` targeting `Overlay.__bindgen_anon_2`.
+- Refactored `dispatch_device_control` for cleaner status handling.
+- Removed unnecessary `unsafe` blocks in `stream.rs`.
+- Fixed `static mut` warning using `&raw mut CONTROL_DEVICE_OBJECT`.
+- Confirmed zero-copy loopback logic in `allocate_audio_buffer`.
 ```
-
-## Verification Results
-- **leyline-kernel**: ❌ FAILED (1 error: `no field CurrentStackLocation on type _IRP__bindgen_ty_4__bindgen_ty_1__bindgen_ty_1`).
-- **leyline-shared**: ✅ SUCCESS.
-- **LeylineHSA**: ✅ SUCCESS.

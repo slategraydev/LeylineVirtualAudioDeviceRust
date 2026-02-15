@@ -237,9 +237,7 @@ impl MiniportWaveRTStream {
 
         let low: PHYSICAL_ADDRESS = unsafe { core::mem::zeroed() };
         let mut high: PHYSICAL_ADDRESS = unsafe { core::mem::zeroed() };
-        unsafe {
-            high.QuadPart = 0xFFFFFFFF;
-        }
+        high.QuadPart = 0xFFFFFFFF;
         let skip: PHYSICAL_ADDRESS = unsafe { core::mem::zeroed() };
 
         unsafe {

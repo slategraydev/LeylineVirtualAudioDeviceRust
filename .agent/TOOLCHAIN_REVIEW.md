@@ -2,7 +2,7 @@
 
 **Reviewer**: Antigravity (Gemini 3 Pro)
 **Date**: February 15, 2026
-**Status**: SESSION #15 COMPLETE
+**Status**: SESSION #16 COMPLETE
 
 ## Required Toolchain Requirements
 
@@ -10,8 +10,9 @@
 - **Mandatory Tool**: `cargo-wdk` (version 0.1.1+)
 - **LLVM Version**: 17.0.6 (Contained in `D:\eWDK_28000\LLVM`)
 - **Environment Variable**: `LIBCLANG_PATH` (Set to `D:\eWDK_28000\LLVM\bin`)
-- **Environment Variable**: `WDK_ROOT` (Set via eWDK)
+- **Environment Variable**: `WDK_ROOT` (Set via eWDK - Note: `cargo-wdk` likely infers this from `eWDK_ROOT_DIR` or PATH)
 - **Linker Requirement**: `/NODEFAULTLIB:msvcrt` (Enforced in `build.rs`)
+- **Compiler**: Rust 1.88.0+ (Supports `&raw mut`)
 
 ### 2. Build Automation
 - **Master Script**: `scripts/LaunchBuildEnv.ps1`
@@ -22,12 +23,6 @@
 - **Workload**: `microsoft.net.sdk.maui` (if applicable)
 - **Tooling**: `Microsoft.WindowsAppSDK` (version 1.5+)
 
----
-
-## Required Environment Variables & PATHs
-- **eWDK Root**: `D:\eWDK_28000`
-- **LLVM Bin**: `D:\eWDK_28000\LLVM\bin`
-- **PATH**: Includes eWDK bin directories (sourced via `LaunchBuildEnv.ps1`).
-
 ## Recent Issues & Considerations
-- **Bindgen Complexity**: Nested anonymous unions in `IRP` struct are proving difficult to traverse with standard field paths. Using a direct `*mut _IO_STACK_LOCATION` calculation based on the `CurrentStackLocation` offset may be more reliable than field-by-field access.
+- **Bindgen Complexity**: Resolved by manual `get_current_irp_stack_location` helper targeting `__bindgen_anon_2`.
+- **Rust Unsafe**: `PHYSICAL_ADDRESS` fields (like `QuadPart`) are safe to access in this environment, but accessing `LARGE_INTEGER` union fields is unsafe. The fix was removing an unnecessary `unsafe` block which implied `QuadPart` was accessible safely, likely due to struct definition or other factors.

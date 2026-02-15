@@ -1095,6 +1095,15 @@ static mut ORIGINAL_DISPATCH_CLOSE: PDRIVER_DISPATCH = None;
 // Dispatch Routines
 // ============================================================================
 
+unsafe fn get_current_irp_stack_location(irp: PIRP) -> PIO_STACK_LOCATION {
+    (*irp)
+        .Tail
+        .Overlay
+        .__bindgen_anon_2
+        .__bindgen_anon_1
+        .CurrentStackLocation
+}
+
 unsafe extern "C" fn dispatch_create(device_object: PDEVICE_OBJECT, irp: PIRP) -> NTSTATUS {
     if device_object == CONTROL_DEVICE_OBJECT {
         (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
@@ -1125,26 +1134,17 @@ unsafe extern "C" fn dispatch_close(device_object: PDEVICE_OBJECT, irp: PIRP) ->
 
 unsafe extern "C" fn dispatch_device_control(device_object: PDEVICE_OBJECT, irp: PIRP) -> NTSTATUS {
     if device_object == CONTROL_DEVICE_OBJECT {
-        let stack = (*irp).Tail.Overlay.__bindgen_anon_1.CurrentStackLocation;
+        let stack = get_current_irp_stack_location(irp);
         let ioctl = (*stack).Parameters.DeviceIoControl.IoControlCode;
-        let mut status = STATUS_SUCCESS;
-        let mut info = 0;
 
-        match ioctl {
-            leyline_shared::IOCTL_LEYLINE_GET_STATUS => {
-                info = 0;
-                status = STATUS_SUCCESS;
-            }
-            leyline_shared::IOCTL_LEYLINE_MAP_PARAMS => {
-                info = 0;
-                status = STATUS_SUCCESS;
-            }
-            _ => {
-                status = STATUS_INVALID_DEVICE_REQUEST;
-            }
-        }
+        let (status, info) = match ioctl {
+            leyline_shared::IOCTL_LEYLINE_GET_STATUS => (STATUS_SUCCESS, 0),
+            leyline_shared::IOCTL_LEYLINE_MAP_PARAMS => (STATUS_SUCCESS, 0),
+            _ => (STATUS_INVALID_DEVICE_REQUEST, 0),
+        };
+
         (*irp).IoStatus.__bindgen_anon_1.Status = status;
-        (*irp).IoStatus.Information = info;
+        (*irp).IoStatus.Information = info as u64;
         IofCompleteRequest(irp, 0);
         return status;
     }
@@ -1261,7 +1261,7 @@ pub unsafe extern "system" fn StartDevice(
             FILE_DEVICE_UNKNOWN,
             0,
             0,
-            &mut CONTROL_DEVICE_OBJECT,
+            &raw mut CONTROL_DEVICE_OBJECT,
         );
         if status == STATUS_SUCCESS {
             let mut link_name_str = [0u16; 25];

@@ -69,9 +69,37 @@
     - Build: `LeylineHSA` Success (0 warnings).
     - GUID Alignment: Verified 1:1 match between shared and kernel crates.
 
-## PROJECT TODO (Next Session: #15)
-- **[ ] Dynamic Formats**: Implement dynamic format negotiation in `DataRangeIntersection` to allow applications to request arbitrary sample rates.
-- **[ ] APO Integration**: Wire the C++ APO into the INF and verify that the audio engine loads it for the Leyline endpoints.
-- **[ ] HSA Real-Time Monitoring**: Implement the `DriverBridge` connection in `MainWindow.xaml.cs` to visualize the shared buffer data.
-- **[ ] Capture Logic**: Implement the "Loopback" path where data rendered to the Output endpoint is mirrored to the Input endpoint.
+### Session #15: Dispatch Infrastructure & Loopback Logic
+- **Date**: February 15, 2026
+- **Reviewer**: Antigravity (Gemini 3 Pro)
+- **Summary**: Implemented `DriverEntry` hook overrides, Control Device Object (CDO) creation, and Shared Buffer allocation logic.
+- **Key Changes**:
+    - Hooked `IRP_MJ_CREATE`, `CLOSE`, and `DEVICE_CONTROL` in `DriverEntry`.
+    - Implemented CDO creation and Symbolic Link `\DosDevices\LeylineAudio`.
+    - Implemented `dispatch_device_control` skeleton.
+    - Implemented 64KB loopback buffer allocation in `StartDevice`.
+    - Updated `MiniportWaveRTStream` to reuse `loopback_mdl` if available (Zero-Copy logic).
+    - **Blocker**: Kernel build failed due to `bindgen` complex union traversal issue (IRP Stack Location).
+- **Verification**: 
+    - Build: `leyline-kernel` FAILED (1 Error).
+    - Tests: `leyline-shared` Passed.
 
+### Session #16: IRP Fix & Zero-Copy Verification
+- **Date**: February 15, 2026
+- **Reviewer**: Antigravity (Gemini 3 Pro)
+- **Summary**: Resolved the critical IRP structure traversal error and achieved a zero-warning build for the kernel.
+- **Key Changes**:
+    - Implemented `get_current_irp_stack_location` helper function to traverse `bindgen`'s nested anonymous unions (`Overlay.__bindgen_anon_2.__bindgen_anon_1.CurrentStackLocation`).
+    - Refactored `dispatch_device_control` to use the helper and clean up status logic.
+    - Fixed `unsafe` block warnings in `stream.rs` (removed unnecessary blocks).
+    - Fixed mutable static reference warning in `lib.rs` using `&raw mut`.
+    - Verified Zero-Copy logic: `allocate_audio_buffer` correctly shares `loopback_mdl` between Render/Capture streams.
+- **Verification**: 
+    - Build: `leyline-kernel` Success (0 warnings).
+    - Build: `LeylineHSA` Success (0 warnings).
+    - Tests: `leyline-shared` Passed (4 tests).
+
+## PROJECT TODO (Next Session: #17)
+- **[ ] HSA Real-Time Monitoring**: Implement the `DriverBridge` connection in `MainWindow.xaml.cs` to visualize the shared buffer data.
+- **[ ] APO Integration**: Wire the C++ APO into the INF and verify that the audio engine loads it for the Leyline endpoints.
+- **[ ] Dynamic Formats**: Implement dynamic format negotiation in `DataRangeIntersection` to allow applications to request arbitrary sample rates.
