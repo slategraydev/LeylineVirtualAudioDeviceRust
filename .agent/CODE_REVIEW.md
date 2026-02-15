@@ -1,24 +1,23 @@
 # Professional Code Review: Leyline Audio Driver
 
 **Date**: February 14, 2026
-**Status**: APO REGISTRATION & INF DCH COMPLIANCE COMPLETE
+**Status**: INSTALLATION SCRIPTS & AUDIT COMPLETE
 **Reviewer**: Antigravity (Gemini 3 Pro (High))
 
 ## Project Audit Summary
 
 ### Architecture Status
--   **Registration**: `leyline.inx` now correctly handles DCH-compliant file copying (DirId 13) and COM registration for the APO. It links the APO to the KS interfaces using `PKEY_FX_...` properties.
--   **APO**: `LeylineAPO.dll` is correctly integrated into the package and signed.
--   **Kernel**: No changes to kernel source this session, but packaging logic was fixed.
--   **Automation**: `package_driver.ps1` is now robust against directory context issues.
+-   **Deployment**: Shifted from manual installation steps to script-based automation. This reduces human error during certificate store manipulation.
+-   **Consistency**: A full audit confirmed that the CLSID and interface GUIDs are synchronized across all languages (C++, Rust) and configuration files (INF/INX).
+-   **DCH Compliance**: The INF correctly uses DirId 13 for all binary locations, ensuring it meets modern Windows driver standards.
 
 ### Code Quality
--   **INF**: ✅ Validated via `Inf2Cat` (Signability test passed).
--   **Scripts**: ✅ PowerShell script logic corrected (`Push-Location` added).
+-   **Scripts**: ✅ `install_driver.ps1` and `uninstall_driver.ps1` include admin checks and error handling.
+-   **Makefile**: ✅ Updated to point to robust scripts.
 
-## Suggestions for Next Session (Session #09)
-1.  **Deployment Scripts**: Create a `scripts/install_driver.ps1` helper to automate the `certutil` and `pnputil` steps for the user, as manual typing is error-prone.
-2.  **Uninstallation**: Verify that uninstalling the driver removes the COM registration keys to avoid "registry rot."
+## Suggestions for Next Session (Session #10)
+1.  **Event Notifications**: The kernel driver currently relies on the HSA polling shared memory. For production-level responsiveness, implement a `KEVENT` signaled by the driver on buffer completion that the HSA can wait on.
+2.  **INF Versioning**: Automate the `DriverVer` stamping to prevent "same version" installation issues during rapid iteration.
 
 ---
-*End of Fresh Audit for Session #08*
+*End of Fresh Audit for Session #09*

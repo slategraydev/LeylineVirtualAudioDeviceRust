@@ -9,8 +9,13 @@
 | Script | Purpose | Language | Dependency |
 | :--- | :--- | :--- | :--- |
 | **`scripts/package_driver.ps1`** | Full pipeline: Build (Kernel, HSA, APO), Package, Inf2Cat, Sign. | PowerShell 7+ | `cargo-wdk`, `dotnet`, `nmake`, `inf2cat`, `signtool` |
+| **`scripts/install_driver.ps1`** | Installs self-signed certificate and driver package. | PowerShell 7+ | `certutil`, `pnputil` |
+| **`scripts/uninstall_driver.ps1`** | Uninstalls driver and provides cleanup guidance. | PowerShell 7+ | `pnputil` |
 
 ## Automation Logic Audit
+
+### Standardized Helpers
+-   **`Test-IsAdministrator`**: Mandatory check for elevated privileges in all deployment scripts.
 
 ### `package_driver.ps1`
 -   **Kernel Build**: Invokes `cargo wdk build`. Sets `LIBCLANG_PATH` locally if needed.

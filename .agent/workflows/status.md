@@ -19,20 +19,23 @@ This workflow ensures the agent is fully aligned with the Leyline Audio Driver's
 5.  **Sync with Build Health**:
     *   Read `c:\LeylineAudioDriver\.agent\BUILD_REVIEW.MD` to verify the stability of the multi-crate toolchain and environment constraints.
 
-6.  **Sync with Toolchain Status**: [CRITICAL]
+6.  **Sync with Automation Scripts**:
+    *   Read `c:\LeylineAudioDriver\.agent\SCRIPTS_REVIEW.md` to understand the current automation pipeline and any known script limitations.
+
+7.  **Sync with Toolchain Status**: [CRITICAL]
     *   Read `c:\LeylineAudioDriver\.agent\TOOLCHAIN_REVIEW.md` to verify project toolchains and ensure PATHs/EnvVars are configured.
     *   **Action**: Proactively set `$env:LIBCLANG_PATH` and update `$env:PATH` based on the review.
 
-7.  **Sync with Project Setup Guide**:
+8.  **Sync with Project Setup Guide**:
     *   Read `c:\LeylineAudioDriver\.agent\GEMINI_PROJECT_SETUP.md`.
     *   **Action**: This is the LAST document to review. Evaluate if developer protocols or project structures require updates based on recent changes.
 
-8.  **Reference Audit & Deep Dive**:
+9.  **Reference Audit & Deep Dive**:
     *   Scan `GEMINI.MD` for external links or Microsoft WDK references relevant to the current task.
     *   Perform a proactive deep-dive into these references to ensure the implementation plan is technically sound.
 
 98.  **Summary Output**:
-    *   Synthesize the information from these SIX files.
+    *   Synthesize the information from these SEVEN files.
     *   **Goal Alignment**: Explicitly state how the current task progresses the "Product North Star" (Two-endpoint virtual driver). [NEW]
     *   State the current session number (Previous Session + 1).
     *   Summarize the topmost items in the `PROJECT TODO` list.

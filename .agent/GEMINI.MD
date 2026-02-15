@@ -172,6 +172,7 @@ Clock Synchronization: Uses the system's high-precision timestamp to maintain a 
 │   ├── GEMINI.MD            # Technical Specification
 │   ├── GEMINI_PROJECT_SETUP.md # Agent Meta-Manual
 │   ├── PROJECT_PROGRESS.MD  # session history
+│   ├── SCRIPTS_REVIEW.md    # Automation script audit [NEW]
 │   ├── TEST_REVIEW.md       # Testing audit
 │   ├── TOOLCHAIN_REVIEW.md  # Toolchain management
 │   └── /workflows           # Agent automation scripts
@@ -251,7 +252,8 @@ Every agent participating in this project MUST adhere to the following maintenan
 4. **CODE_REVIEW.md**: Overwrite with a fresh technical audit of the current state.
 5. **TEST_REVIEW.md**: Update with verification and test coverage status.
 6. **BUILD_REVIEW.MD**: Update with current build health and warnings.
-7. **TOOLCHAIN_REVIEW.md**: Update with current environment status. [CRITICAL]
+7. **SCRIPTS_REVIEW.md**: Update with automation script audit. [NEW]
+8. **TOOLCHAIN_REVIEW.md**: Update with current environment status. [CRITICAL]
 8. **Reviewer Metadata**: ALL updated artifacts must use the header format: `**Reviewer**: <Current Model Name>` and `**Date**: Month Day, Year`.
 9. **Session Cleanup**: MANDATORY deletion of all `*.txt` verification logs and a full build clean (e.g., `cargo clean`) to prevent cross-pollination. [NEW]
 10. **GEMINI.MD Sync**: Update Section 3 (Project Structure) if physical files have changed.

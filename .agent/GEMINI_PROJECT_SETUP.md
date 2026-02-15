@@ -55,6 +55,7 @@ The session `task.md` is the operational checklist for the agent. To ensure no m
     - `[ ] Update CODE_REVIEW.md`
     - `[ ] Update TEST_REVIEW.md`
     - `[ ] Update BUILD_REVIEW.MD`
+    - `[ ] Update SCRIPTS_REVIEW.md`
     - `[ ] Update TOOLCHAIN_REVIEW.md`
     - `[ ] Update COMMIT_MESSAGE.MD`
 

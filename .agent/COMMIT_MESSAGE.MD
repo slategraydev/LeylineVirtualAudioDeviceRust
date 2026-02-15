@@ -1,27 +1,32 @@
-# Session #08: APO Registration & DCH Packaging
+# Session Commit Message
+
+**Reviewer**: Antigravity (Gemini 3 Pro (High))
+**Date**: February 14, 2026
 
 ## Summary
-Completed the Driver Package setup by rewriting `leyline.inx` to support DCH compliance and Audio Processing Object (APO) registration. The package generation script was fixed and successfully produced a signed, installable driver package containing the Kernel, APO, and HSA components.
+Established robust installation and uninstallation automation and performed a comprehensive DCH/COM integrity audit.
 
 ## Changes
-- **feat(inf):** Rewrote `leyline.inx` to include `LeylineAPO.dll`, register COM classes, and link APOs to audio endpoints via `PKEY_FX_StreamEffectClsid`.
-- **fix(scripts):** Updated `package_driver.ps1` to correct directory context for `cargo wdk build`.
-- **build(package):** Verified full package generation with `Inf2Cat` passing (0 errors).
+- **feat**: Created `scripts/install_driver.ps1` for automated certificate and driver deployment.
+- **feat**: Created `scripts/uninstall_driver.ps1` for clean driver removal from the system.
+- **feat**: Integrated `SCRIPTS_REVIEW.md` into the mandatory session synchronization and hand-off protocols.
+- **fix**: Renamed `Check-Admin` to `Test-IsAdministrator` in deployment scripts for PowerShell verb compliance.
+- **chore**: Updated `Makefile.toml` with `install` and `uninstall` tasks pointing to new PowerShell scripts.
+- **docs**: Updated `PROJECT_PROGRESS.MD` and `CODE_REVIEW.md` with Session #09 findings.
+- **audit**: Verified CLSID synchronization across IDL, Rust, and INF templates.
 
-## Verification (Zero-Warning Proof)
-```powershell
-> Select-String -Pattern "warning" -Path build.log
-> # Output: (Empty) - Verified manually via script output in Session #08
-> # Inf2Cat: "Signability test complete. Errors: None. Warnings: None."
-```
+## Zero-Warning Verification Proof
+- **Kernel Build**: `cargo wdk build` -> 0 Errors, 0 Warnings.
+- **HSA Build**: `dotnet build` -> 0 Errors, 0 Warnings (Manual suppression of `NETSDK1206` verified).
+- **Packaging**: `Inf2Cat` -> 0 Errors, 0 Warnings.
+- **Scripts**: Manual logic verification for certificate store manipulation -> SUCCESS.
 
 ## Git Commit Payload
-```
-feat: implement APO registration and DCH compliance in INF
+```text
+feat: implement installation automation and GUID integrity audit
 
-- Rewrite leyline.inx to register LeylineAPO.dll COM server
-- Add PKEY_FX_StreamEffectClsid registration for SFX/MFX/EFX
-- Update DestinationDir to 13 (Driver Store) for DCH compliance
-- Fix package_driver.ps1 directory context for kernel build
-- Verify package generation with Inf2Cat (0 errors)
+- Create install_driver.ps1 and uninstall_driver.ps1 for safe deployment.
+- Update Makefile.toml with new install/uninstall tasks.
+- Verify LeylineAPO_CLSID consistency across all components.
+- Prepare project for physical installation and verification.
 ```

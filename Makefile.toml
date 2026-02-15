@@ -17,15 +17,19 @@ command = "cargo"
 args = ["wdk", "package"]
 
 [tasks.install]
-description = "Install the driver using pnputil"
+description = "Install the driver and certificate (Requires Admin)"
+script_runner = "powershell"
+script_extension = "ps1"
 script = [
-    "pnputil /add-driver crates/leyline-kernel/leyline.inf /install"
+    ".\\scripts\\install_driver.ps1"
 ]
 
 [tasks.uninstall]
-description = "Uninstall the driver"
+description = "Uninstall the driver (Requires Admin)"
+script_runner = "powershell"
+script_extension = "ps1"
 script = [
-    "pnputil /delete-driver leyline.inf /uninstall"
+    ".\\scripts\\uninstall_driver.ps1"
 ]
 
 [tasks.setup-test-signing]

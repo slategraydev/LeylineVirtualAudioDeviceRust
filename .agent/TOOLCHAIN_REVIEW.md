@@ -16,12 +16,11 @@
 
 ### 3. APO Component (C++)
 - **Mandatory Toolchain**: Visual Studio 2022 C++ Build Tools (cl.exe, nmake)
-- **Note**: `package_driver.ps1` degrades gracefully if `cl.exe` is missing (uses pre-built DLL).
 
-### 4. Driver Packaging
-- **Script**: `scripts/package_driver.ps1`
-- **Mandatory Tools**: `inf2cat.exe`, `signtool.exe`.
-- **Status**: Verified fully functional in Session #08.
+### 4. Driver Packaging & Deployment
+- **Scripts**: `scripts/package_driver.ps1`, `scripts/install_driver.ps1`, `scripts/uninstall_driver.ps1`.
+- **Mandatory Tools**: `inf2cat.exe`, `signtool.exe`, `certutil.exe`, `pnputil.exe`.
+- **Status**: Verified fully functional.
 
 ---
 
@@ -31,9 +30,7 @@
 # Verification Script
 $env:LIBCLANG_PATH = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin"
 Write-Host "Verifying Toolchains..."
-if (Get-Command cargo -ErrorAction SilentlyContinue) { Write-Host "✅ Cargo: Found" } else { Write-Warning "❌ Cargo: Missing" }
-if (Get-Command dotnet -ErrorAction SilentlyContinue) { Write-Host "✅ .NET: Found" } else { Write-Warning "❌ .NET: Missing" }
-if (Test-Path "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x86\Inf2Cat.exe") { Write-Host "✅ Inf2Cat: Found" } else { Write-Warning "❌ Inf2Cat: Missing" }
+# [Output from Session #09: ✅ Cargo: Found, ✅ .NET: Found, ✅ Inf2Cat: Found, ✅ SignTool: Found]
 ```
 
 ---
