@@ -27,6 +27,15 @@
                 <TextBlock Text="Master Gain" FontWeight="Bold" HorizontalAlignment="Center"/>
                 <Slider x:Name="GainSlider" Minimum="0" Maximum="2" Value="1" StepFrequency="0.1" Width="250" HorizontalAlignment="Center" ValueChanged="GainSlider_ValueChanged"/>
             </StackPanel>
+
+            <StackPanel Spacing="5">
+                <TextBlock Text="Output Monitor" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <Border Background="#1A1A1A" Height="60" Width="300" HorizontalAlignment="Center" CornerRadius="4" BorderBrush="#333333" BorderThickness="1">
+                   <Grid>
+                        <Polyline x:Name="WaveformLine" Stroke="{ThemeResource SystemControlForegroundAccentBrush}" StrokeThickness="1"/>
+                   </Grid>
+                </Border>
+            </StackPanel>
             
             <Border Background="{ThemeResource SystemControlBackgroundAccentBrush}" Padding="15" CornerRadius="8">
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">

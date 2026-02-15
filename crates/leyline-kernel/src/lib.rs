@@ -261,7 +261,7 @@ pub unsafe extern "C" fn DispatchDeviceControl(
                     // For now, we'll assume the params are in a globally accessible region
                     // or we'll simplify by using a direct pointer for this prototype.
                     *(output_buffer as *mut *mut leyline_shared::SharedParameters) =
-                        &mut SHARED_PARAMS;
+                        &raw mut SHARED_PARAMS;
                     (*irp).IoStatus.Information = core::mem::size_of::<*mut u8>() as u64;
                     (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
                 }

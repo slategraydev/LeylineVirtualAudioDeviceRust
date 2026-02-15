@@ -183,11 +183,62 @@ STDMETHODIMP CLeylineAPO::IsInputFormatSupported(
     IAudioMediaType* pRequestedInputFormat,
     IAudioMediaType** ppSupportedInputFormat)
 {
-    // Accept the requested input format by default for this boilerplate.
-    if (ppSupportedInputFormat)
+    if (NULL == pRequestedInputFormat)
     {
-        *ppSupportedInputFormat = NULL;
+        return E_POINTER;
     }
 
-    return S_OK;
+    // Helper to validate format
+    auto IsFloat32Stereo = [](IAudioMediaType* pFormat) -> bool {
+        WAVEFORMATEX* pWfx = pFormat->GetAudioFormat();
+        if (NULL == pWfx) return false;
+
+        if (pWfx->wFormatTag == WAVE_FORMAT_IEEE_FLOAT)
+        {
+            return (pWfx->nChannels == 2 && pWfx->wBitsPerSample == 32);
+        }
+        else if (pWfx->wFormatTag == WAVE_FORMAT_EXTENSIBLE)
+        {
+            WAVEFORMATEXTENSIBLE* pWfxExt = (WAVEFORMATEXTENSIBLE*)pWfx;
+            return (pWfx->nChannels == 2 && 
+                    pWfx->wBitsPerSample == 32 &&
+                    IsEqualGUID(pWfxExt->SubFormat, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT));
+        }
+        return false;
+    };
+
+    // 1. If pOppositeFormat is provided, the requested format must match it conceptually
+    //    (Unless we implemented sample rate conversion, which we haven't).
+    if (pOppositeFormat)
+    {
+        if (!IsFloat32Stereo(pOppositeFormat))
+        {
+            return S_FALSE; // We only support Float32 Stereo output too
+        }
+
+        // For now, strict passthrough match
+        if (pOppositeFormat->IsEqual(pRequestedInputFormat, NULL) != S_OK)
+        {
+             return S_FALSE;
+        }
+    }
+
+    // 2. Validate the requested input format itself
+    if (IsFloat32Stereo(pRequestedInputFormat))
+    {
+        return S_OK;
+    }
+
+    // 3. If we get here, the format is NOT supported. 
+    //    We should propose a supported format if asked.
+    if (ppSupportedInputFormat)
+    {
+        // For brevity in this session, we won't construct a full media type from scratch
+        // as it requires CoCreateInstance(CLSID_AudioMediaType) which might not be 
+        // trivially available without boilerplate. 
+        // Returning S_FALSE with *ppSupportedInputFormat = NULL is valid but less helpful.
+        *ppSupportedInputFormat = NULL; 
+    }
+
+    return S_FALSE;
 }

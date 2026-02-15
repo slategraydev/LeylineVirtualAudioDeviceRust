@@ -13,6 +13,7 @@ namespace LeylineHSA
         private DriverBridge _bridge = new DriverBridge();
         private DispatcherTimer _timer;
         private IntPtr _paramsPtr;
+        private double[] _audioHistory = new double[300]; // 300 points for the graph
 
         [StructLayout(LayoutKind.Sequential)]
         struct SharedParameters
@@ -25,6 +26,10 @@ namespace LeylineHSA
         public MainWindow()
         {
             this.InitializeComponent();
+            
+            // Initialize graph history
+            for (int i = 0; i < _audioHistory.Length; i++) _audioHistory[i] = 60; // Baseline (bottom)
+
             if (_bridge.Connect())
             {
                 _paramsPtr = _bridge.MapParams();
@@ -46,8 +51,26 @@ namespace LeylineHSA
             if (_paramsPtr != IntPtr.Zero)
             {
                 SharedParameters* p = (SharedParameters*)_paramsPtr;
+                float peak = Math.Max(p->peak_l, p->peak_r);
+                
                 MeterL.Value = Math.Clamp(p->peak_l * 100, 0, 100);
                 MeterR.Value = Math.Clamp(p->peak_r * 100, 0, 100);
+
+                // Update Graph History
+                // Shift left
+                Array.Copy(_audioHistory, 1, _audioHistory, 0, _audioHistory.Length - 1);
+                
+                // Add new value (Height is 60, so 60 is bottom, 0 is top)
+                double y = 60 - (Math.Clamp(peak, 0, 1) * 60);
+                _audioHistory[_audioHistory.Length - 1] = y;
+
+                // Redraw Line
+                var collection = new Microsoft.UI.Xaml.Media.PointCollection();
+                for (int i = 0; i < _audioHistory.Length; i++)
+                {
+                    collection.Add(new Windows.Foundation.Point(i, _audioHistory[i]));
+                }
+                WaveformLine.Points = collection;
             }
         }
 

@@ -112,4 +112,36 @@ This file serves as the definitive log for project status, architectural history
     - [ ] Deploy driver to a test machine and verify audio output/input.
 
 ---
+
+## SESSION #06
+**Reviewer**: Antigravity (Gemini 3 Pro (High))
+**Date**: February 14, 2026
+**Status**: APO FORMAT NEGOTIATION & HSA VISUALIZATION COMPLETE
+**Toolchain Hardening**: Enforced cleanup of verification logs in subdirectories.
+
+### Work Completed
+- **APO Refinement**: Implemented `IsInputFormatSupported` in `LeylineAPO.cpp` with strict `FLOAT32` stereo checks.
+- **HSA Polish**: Added a real-time `Polyline` graph to `MainWindow.xaml` to visualize peak meter history.
+- **HSA Logic**: Implemented `UpdateUI` logic in `MainWindow.xaml.cs` to shift and plot audio history points from shared memory.
+- **Kernel Hardening**: Resolved a mutable static reference warning in `lib.rs` (using `&raw mut`), ensuring a strictly zero-warning build.
+- **Project Protocols**: Updated `GEMINI_PROJECT_SETUP.md` to mandate recursive deletion of verification logs.
+- **Session Cleanup**: Removed clutter from `crates/leyline-kernel`.
+
+### Architectural Suggestions
+- **Shared Memory Synchronization**: The current shared memory access is lock-free but not atomic. For production, consider using `Interlocked` operations or a spinlock for `peak_l`/`peak_r` updates to prevent tearing.
+- **HSA Graph Performance**: The current `Polyline` update recreates the `PointCollection` every frame (33ms). For higher frame rates, a more optimized approach (e.g., Win2D or WriteableBitmap) might be needed.
+
+---
+
+## PROJECT TODO (Session #07 Preparation)
+
+- [ ] **Physical Deployment**
+    - [ ] Install the driver on a test machine (requires `bcdedit /set testsigning on`).
+    - [ ] Verify audio flow through the endpoints.
+- [ ] **APO Testing**
+    - [ ] Verify `IsInputFormatSupported` with actual Windows Audio Engine calls (requires installation).
+- [ ] **HSA Refinement**
+    - [ ] Add labels and grid lines to the monitor graph.
+
+---
 *Last Updated: February 14, 2026*

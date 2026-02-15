@@ -37,7 +37,7 @@ To maintain the integrity of this framework, agents are bound by a strict mainte
 4. **Verify Tests**: Update `.agent/TEST_REVIEW.md` with current coverage and results.
 5. **Verify Build**: Update `.agent/BUILD_REVIEW.MD` with current build status.
 6. **Harden Environment**: Update `.agent/TOOLCHAIN_REVIEW.md` with current path status and any new tool requirements. [CRITICAL]
-7. **Session Cleanup**: Delete all ephemeral verification logs (e.g., `*.txt`) from the project root.
+7. **Session Cleanup**: Delete all ephemeral verification logs (e.g., `*.txt`, `*.log`) from the project root **and all subdirectories** (e.g., `crates/leyline-kernel`).
 8. **Build Sanitation**: Execute a "clean" command on all build targets to ensure no cross-pollination between sessions. [CRITICAL]
 9. **Zero-Warning Enforcement**: Resolve ALL errors and warnings before updating logs or artifacts. No "temporary" warnings allowed.
 10. **Warning Literacy**: Agents MUST NOT trust the summary output of build tools. They MUST proactively search build logs using `grep` or `Select-String` for "warning" to ensure 100% cleanliness. [NEW]

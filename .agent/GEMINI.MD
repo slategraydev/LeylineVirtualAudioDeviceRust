@@ -123,6 +123,7 @@ MMCSS Coordination: All streaming threads are registered with the Multimedia Cla
 
 5.3. Build Sanitation
 - **Requirement**: Execute `cargo clean` (kernel) and `dotnet clean` (HSA) at the end of every session.
+- **Log Hygiene**: Recursively delete all `*.txt`, `*.log`, and `*.pdb` files from the project root and subdirectories to prevent clutter.
 - **Goal**: Prevent stale artifacts from confusing future build verification steps.
 
 # 6. Permanent Decisions & Exceptions
