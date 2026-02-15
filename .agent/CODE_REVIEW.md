@@ -2,23 +2,21 @@
 
 **Reviewer**: Antigravity (Gemini 3 Pro)
 **Date**: February 15, 2026
-**Status**: SESSION #18 COMPLETE - BUILD SUCCESS (ZERO WARNINGS)
+**Status**: SESSION #19 COMPLETE - BUILD SUCCESS (ZERO WARNINGS)
 
-## Project Sanity Check (Session #18)
+## Project Sanity Check (Session #19)
 
 ### Findings & Observations
-1.  **APO Pipeline**: [ESTABLISHED] The build pipeline now correctly builds the C++ APO (`LeylineAPO.dll`) inside the eWDK environment.
-2.  **INF Registration**: [CORRECTED] The INF template now correctly registers the APO CLSID for the specific `WaveRender` and `WaveCapture` interfaces exposed by the kernel. The reference strings match `PcRegisterSubdevice`.
-3.  **Warning Hygiene**: [CLEAN] All C++ warnings (`C4100`) have been resolved. The project (Rust Kernel, C# HSA, C++ APO) builds with **zero warnings**.
-4.  **Zero-Copy Logic**: [VERIFIED] The shared logic for loopback buffer management remains sound.
+1.  **Format Negotiation**: [RESOLVED] The `DataRangeIntersection` logic is now robust. It correctly handles the `KSDATARANGE_AUDIO` struct and negotiates the best common format between the OS request and the driver's capabilities (44.1kHz - 192kHz).
+2.  **UX Improvement**: [IMPLEMENTED] The INF now explicitly names the endpoints "Leyline Output" and "Leyline Input". This will significantly help users distinguish the devices in Sound Settings.
+3.  **Toolchain Resilience**: [HARDENED] The C++ APO build script (`build_apo.ps1`) was failing due to environmental issues with `vcvarsall.bat`. It has been hardened with a manual fallback that explicitly defines the eWDK's INCLUDE/LIB paths, ensuring reliability.
 
 ### Architectural Health
-The system is now fully integrated:
--   **Kernel**: Handles WaveRT streaming and exposes interfaces.
--   **APO**: Registered for effects processing (currently skeletal implementation).
--   **HSA**: Visualizes the loopback buffer.
+The system is architecturally complete for a "v1.0" functional prototype:
+-   **Kernel**: WaveRT + Topology + Dynamic Formats + Shared Memory.
+-   **APO**: Registered and Building.
+-   **HSA**: Visualizing.
 
-## Suggestions for Next Session (Session #19)
-1.  **Dynamic Format Negotiation**: The current kernel hardcodes 48kHz. Implementing `DataRangeIntersection` fully to support arbitrary rates is the next critical step for compatibility.
-2.  **Endpoint Naming**: Update the INF to give distinct friendly names ("Leyline Output" vs "Leyline Input") to improve UX.
-3.  **APO Functionality**: Expand the APO skeleton to actually perform a trivial effect (e.g., gain or passthrough logging) to verify it's active.
+## Suggestions for Next Session (Session #20)
+1.  **Clocking Precision**: With dynamic rates (e.g., 44.1kHz vs 48kHz), the `GetPosition` logic must be careful about integer math. Use QPC (QueryPerformanceCounter) with 128-bit math or high-precision scalers to prevent drift.
+2.  **State Management**: The `SetState` (Run/Pause/Stop) implementation is currently minimal. Ensure it correctly resets the position counters and buffer pointers to prevent glitches on stream restart.

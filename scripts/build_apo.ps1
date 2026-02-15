@@ -60,14 +60,31 @@ if (-not (Test-Path $vcvarsPath))
 
 Write-Host "Found vcvarsall.bat at: $vcvarsPath" -ForegroundColor Green
 
-# Execute nmake within the eWDK environment
+# Manual Environment Definition for eWDK 26H1 (Robust Fallback)
+$KitRoot = "D:\eWDK_28000\Program Files\Windows Kits\10"
+$SDKVer = "10.0.28000.0"
+$MSVCVer = "14.44.35207"
+$MSVCRoot = "D:\eWDK_28000\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\$MSVCVer"
+
+$IncludePath = @(
+    "$KitRoot\Include\$SDKVer\um",
+    "$KitRoot\Include\$SDKVer\shared",
+    "$KitRoot\Include\$SDKVer\ucrt",
+    "$MSVCRoot\include"
+) -join ";"
+
+$LibPath = @(
+    "$KitRoot\Lib\$SDKVer\um\x64",
+    "$KitRoot\Lib\$SDKVer\ucrt\x64",
+    "$MSVCRoot\lib\x64"
+) -join ";"
+
+# Execute nmake with manual environment
 # We construct a command that:
-# 1. Calls LaunchBuildEnv.cmd to set up the WDK environment
-# 2. Calls vcvarsall.bat to set up the C++ toolchain (INCLUDE, LIB, CL)
-# 3. Adds the nmake directory to the PATH (redundancy)
-# 4. Changes directory to source
-# 5. Runs nmake
-$buildCmd = "call `"$eWDKPath`" amd64 && call `"$vcvarsPath`" x64 && set `"PATH=$nmakeDir;%PATH%`" && cd /d `"$APOSource`" && nmake"
+# 1. Calls vcvarsall.bat (Best effort, mostly for PATH tools like cl.exe/link.exe)
+# 2. Explicitly appends our Hardcoded INCLUDE and LIB paths to ensure success.
+# 3. Runs nmake
+$buildCmd = "call `"$vcvarsPath`" x64 && set `"INCLUDE=$IncludePath;%INCLUDE%`" && set `"LIB=$LibPath;%LIB%`" && set `"PATH=$nmakeDir;%PATH%`" && cd /d `"$APOSource`" && nmake"
 
 $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $buildCmd -NoNewWindow -PassThru -Wait
 

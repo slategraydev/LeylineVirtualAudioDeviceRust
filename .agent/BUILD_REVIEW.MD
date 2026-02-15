@@ -2,7 +2,7 @@
 
 **Reviewer**: Antigravity (Gemini 3 Pro)
 **Date**: February 15, 2026
-**Status**: SESSION #18 COMPLETE
+**Status**: SESSION #19 COMPLETE
 
 ## Build Status & Environment
 - **leyline-kernel**: ✅ SUCCESS (0 Warnings).
@@ -12,11 +12,15 @@
 
 ## Build Health
 ### Zero Warnings [ACHIEVED]
-- **Resolved**: `C4100` (Unreferenced parameter) warnings in `src/APO/dllmain.cpp` via explicit `(void)` casts.
-- **Environment**: Robustly handled via `scripts/build_apo.ps1` calling `vcvarsall.bat` (x64) and `nmake`.
+- **Kernel**: Clean.
+- **HSA**: Clean.
+- **APO**: Clean. Build script manually defines paths to bypass `vcvarsall.bat` instability.
 
 ## Build Artifacts
 - **Kernel**: `leyline.sys` (Subsystem 1, Native).
 - **APO**: `LeylineAPO.dll` (User Mode, x64).
 - **HSA**: `LeylineHSA.exe` (WinUI 3).
 - **Package**: `package/leyline.cat` (Signed), `package/leyline.inf` (Registered).
+
+### Key Improvements
+- **Robustness**: `scripts/build_apo.ps1` no longer depends on fragile PowerShell module loading in the eWDK. It forces the correct include/lib paths for SDK 10.0.28000.0.

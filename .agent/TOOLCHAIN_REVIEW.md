@@ -2,7 +2,7 @@
 
 **Reviewer**: Antigravity (Gemini 3 Pro)
 **Date**: February 15, 2026
-**Status**: SESSION #18 COMPLETE
+**Status**: SESSION #19 COMPLETE
 
 ## Required Toolchain Requirements
 
@@ -15,8 +15,9 @@
 ### 2. Audio Processing Object (C++)
 - **Compiler**: `cl.exe` (via eWDK / VC Tools)
 - **Make Tool**: `nmake.exe`
-- **Environment**: Must be initialized via `vcvarsall.bat x64` to set `INCLUDE` and `LIB` paths for User Mode headers (`windows.h`, `audioenginebaseapo.h`).
-- **Verified Path**: `D:\eWDK_28000\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat`
+- **Environment**: 
+    - **Preferred**: `vcvarsall.bat x64`
+    - **Fallback**: Manual `INCLUDE` and `LIB` paths for SDK 10.0.28000.0 and MSVC 14.44.35207 (Implemented in `build_apo.ps1`).
 
 ### 3. Build Automation
 - **Master Script**: `scripts/LaunchBuildEnv.ps1` (Kernel Env)

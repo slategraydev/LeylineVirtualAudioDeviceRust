@@ -59,22 +59,26 @@ AddInterface = %KSCATEGORY_AUDIO%, "WaveCapture", Leyline_CaptureInterface
 AddInterface = %KSCATEGORY_CAPTURE%, "WaveCapture", Leyline_CaptureInterface
 
 [Leyline_RenderInterface]
-AddReg = Leyline_AudioInterface.AddReg
+AddReg = Leyline_RenderInterface.AddReg
 
 [Leyline_CaptureInterface]
-AddReg = Leyline_AudioInterface.AddReg
+AddReg = Leyline_CaptureInterface.AddReg
 
-[Leyline_AudioInterface.AddReg]
+[Leyline_RenderInterface.AddReg]
 ; Register the APOs for this interface
-; PKEY_FX_StreamEffectClsid (SFX)
 HKR,"FX\\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
-; PKEY_FX_ModeEffectClsid (MFX)
 HKR,"FX\\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
-; PKEY_FX_EndpointEffectClsid (EFX)
 HKR,"FX\\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
+; Friendly Name
+HKR,,FriendlyName,,%DeviceNameRender%
 
-; Friendly Name for the Endpoint
-HKR,,FriendlyName,,%DeviceName%
+[Leyline_CaptureInterface.AddReg]
+; Register the APOs for this interface
+HKR,"FX\\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
+HKR,"FX\\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
+HKR,"FX\\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
+; Friendly Name
+HKR,,FriendlyName,,%DeviceNameCapture%
 
 ; ==============================================================================
 ; Service Installation
@@ -94,6 +98,8 @@ ServiceBinary = %13%\leyline.sys
 ManufacturerName = "Randall Rosas (Slategray)"
 DiskName         = "Leyline Audio Installation Disk"
 DeviceName       = "Leyline Audio Virtual Adapter"
+DeviceNameRender = "Leyline Output"
+DeviceNameCapture= "Leyline Input"
 ServiceDesc      = "Leyline Audio Driver Service"
 
 ; GUIDs

@@ -410,6 +410,43 @@ unsafe extern "system" fn miniport_data_range_intersection(
     if !is_pcm && !is_float {
         return STATUS_NO_MATCH;
     }
+
+    // Cast to KSDATARANGE_AUDIO to access frequency and bit depth constraints
+    let ks_range_audio = data_range as *const KSDATARANGE_AUDIO;
+
+    // Driver Capabilities
+    let drv_min_rate = 44100;
+    let drv_max_rate = 192000;
+    let drv_min_bits = 16;
+    let drv_max_bits = 32;
+    let drv_channels = 2;
+
+    // Intersection Logic: Sample Rate
+    let req_min_rate = (*ks_range_audio).MinimumSampleFrequency;
+    let req_max_rate = (*ks_range_audio).MaximumSampleFrequency;
+    let final_min_rate = core::cmp::max(req_min_rate, drv_min_rate);
+    let final_max_rate = core::cmp::min(req_max_rate, drv_max_rate);
+
+    if final_min_rate > final_max_rate {
+        return STATUS_NO_MATCH;
+    }
+
+    // Intersection Logic: Bits Per Sample
+    let req_min_bits = (*ks_range_audio).MinimumBitsPerSample;
+    let req_max_bits = (*ks_range_audio).MaximumBitsPerSample;
+    let final_min_bits = core::cmp::max(req_min_bits, drv_min_bits);
+    let final_max_bits = core::cmp::min(req_max_bits, drv_max_bits);
+
+    if final_min_bits > final_max_bits {
+        return STATUS_NO_MATCH;
+    }
+
+    // Intersection Logic: Channels
+    let req_max_channels = (*ks_range_audio).MaximumChannels;
+    if req_max_channels < drv_channels {
+        return STATUS_NO_MATCH;
+    }
+
     let format_size = core::mem::size_of::<KSDATAFORMAT_WAVEFORMATEX>() as u32;
     if data_format_cb == 0 {
         if !actual_data_format_cb.is_null() {
@@ -420,19 +457,23 @@ unsafe extern "system" fn miniport_data_range_intersection(
     if data_format_cb < format_size {
         return STATUS_BUFFER_TOO_SMALL;
     }
+
+    // Construct the Negotiated Format (Prefer Highest Quality)
     let result = data_format as *mut KSDATAFORMAT_WAVEFORMATEX;
     (*result).DataFormat.FormatSize = format_size;
     (*result).DataFormat.MajorFormat = KSDATAFORMAT_TYPE_AUDIO;
     (*result).DataFormat.SubFormat = (*ks_range).SubFormat;
     (*result).DataFormat.Specifier = KSDATAFORMAT_SPECIFIER_WAVEFORMATEX;
+
     (*result).WaveFormatEx.wFormatTag = if is_pcm { 1 } else { 3 };
-    (*result).WaveFormatEx.nChannels = 2;
-    (*result).WaveFormatEx.nSamplesPerSec = 48000;
-    (*result).WaveFormatEx.wBitsPerSample = if is_pcm { 16 } else { 32 };
+    (*result).WaveFormatEx.nChannels = drv_channels as u16;
+    (*result).WaveFormatEx.nSamplesPerSec = final_max_rate; // Negotiate highest rate
+    (*result).WaveFormatEx.wBitsPerSample = final_max_bits as u16; // Negotiate highest bits
     (*result).WaveFormatEx.nBlockAlign =
         ((*result).WaveFormatEx.nChannels * (*result).WaveFormatEx.wBitsPerSample) / 8;
     (*result).WaveFormatEx.nAvgBytesPerSec =
         (*result).WaveFormatEx.nSamplesPerSec * (*result).WaveFormatEx.nBlockAlign as u32;
+
     if !actual_data_format_cb.is_null() {
         *actual_data_format_cb = format_size;
     }

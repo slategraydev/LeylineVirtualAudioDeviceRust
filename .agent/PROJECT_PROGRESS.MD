@@ -99,11 +99,6 @@
     - Build: `LeylineHSA` Success (0 warnings).
     - Tests: `leyline-shared` Passed (4 tests).
 
-## PROJECT TODO (Next Session: #17)
-- **[ ] HSA Real-Time Monitoring**: Implement the `DriverBridge` connection in `MainWindow.xaml.cs` to visualize the shared buffer data.
-- **[ ] APO Integration**: Wire the C++ APO into the INF and verify that the audio engine loads it for the Leyline endpoints.
-- **[ ] Dynamic Formats**: Implement dynamic format negotiation in `DataRangeIntersection` to allow applications to request arbitrary sample rates.
-
 ### Session #17: HSA Bridge & Visualization
 - **Date**: February 15, 2026
 - **Reviewer**: Antigravity (Gemini 3 Pro)
@@ -133,7 +128,19 @@
     - Build: `LeylineAPO` Success (0 warnings).
     - Package: `leyline.inf` correctly references `LeylineAPO.dll` and registers `{C8D3E4F5...}`.
 
-## PROJECT TODO (Next Session: #19)
-- **[ ] Dynamic Formats**: Implement dynamic format negotiation in `DataRangeIntersection` to support arbitrary sample rates (currently hardcoded to 48kHz).
+### Session #19: Dynamic Formats & Endpoint Naming
+- **Date**: February 15, 2026
+- **Reviewer**: Antigravity (Gemini 3 Pro)
+- **Summary**: Implemented true dynamic format negotiation in the kernel and distinct endpoint naming in the INF.
+- **Key Changes**:
+    - **Dynamic Formats**: Refactored `miniport_data_range_intersection` to intersect requested ranges with driver capabilities (44.1k-192k, 16/24/32-bit). It now prefers the highest quality supported.
+    - **Endpoint Naming**: Updated `leyline.inx` to split registry keys, assigning "Leyline Output" to the Render interface and "Leyline Input" to the Capture interface.
+    - **Toolchain Hardening**: Updated `scripts/build_apo.ps1` to manually enforce eWDK SDK/MSVC paths, bypassing `vcvarsall.bat` fragility.
+- **Verification**: 
+    - Build: Full Package Success (0 warnings in Kernel/HSA/APO/Inf2Cat).
+    - INF: Verified distinct `FriendlyName` registry keys for Render/Capture.
+
+## PROJECT TODO (Next Session: #20)
 - **[ ] Driver Installation**: Perform a full test installation on a target machine to verify APO loading and end-to-end audio flow.
-- **[ ] Unique Endpoint Names**: Differentiate "Leyline Output" and "Leyline Input" friendly names in the INF.
+- **[ ] Feature**: Implement `GetPosition` and `GetHWLatency` with high-precision QPC logic to support the new dynamic rates.
+- **[ ] Feature**: Implement `SetState` transitions properly (currently stubs) to handle Pause/Run correctly.

@@ -2,7 +2,7 @@
 
 **Reviewer**: Antigravity (Gemini 3 Pro)
 **Date**: February 15, 2026
-**Status**: SESSION #18 COMPLETE
+**Status**: SESSION #19 COMPLETE
 
 ## Test Coverage Summary
 
@@ -12,12 +12,14 @@
 | **`leyline-kernel`** | Build | ✅ | SUCCESS (0 Warnings). |
 | **`LeylineHSA`** | Build | ✅ | SUCCESS (0 Warnings). |
 | **`LeylineAPO`** | Build | ✅ | SUCCESS (0 Warnings). |
-| **`System Loop`** | Manual | ⚠️ | Full package integration pending runtime verification on target machine. |
+| **`Inf2Cat`** | Static | ✅ | Valid (0 Errors, 0 Warnings). |
 
 ## Verification Progress
-- **APO Build**: C++ project builds with correct environment variables and zero warnings.
-- **INF Registration**: Manual audit confirms CLSID registration matches APO binary.
+- **Dynamic Formats**: Implementation validated via compilation. Runtime verification (installing on a machine and changing sample rates) is the next step.
+- **APO Build**: Hardened script ensures reliable builds even in restricted environments.
 
 ## Testing Gaps & Priorities
-1.  **Runtime Integration**: Install the driver on a test machine (Test Mode ON) and verify that the Audio Engine loads `LeylineAPO.dll` for the endpoints. Use `audiodg.exe` logging or debugger to confirm.
-2.  **Format Negotiation**: Test with different sample rates (44.1kHz, 96kHz) once dynamic negotiation is implemented.
+1.  **Runtime Integration**: Use `devcon` or `pnputil` to install on a VM/Test PC. Open "Sound Settings" and verify:
+    -   Two distinct devices: "Leyline Output" and "Leyline Input".
+    -   Properties -> Advanced -> Default Format: Verify dropdown shows 44.1kHz, 48kHz, 96kHz, 192kHz options.
+2.  **Audio Flow**: Play audio at 44.1kHz and 96kHz. Verify the HSA visualizer updates correctly (checks shared buffer sync).
