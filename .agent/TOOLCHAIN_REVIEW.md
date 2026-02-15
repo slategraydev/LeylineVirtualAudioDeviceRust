@@ -1,36 +1,31 @@
 # Toolchain Review: Leyline Audio Driver
 
 **Date**: February 14, 2026
-**Status**: ACTIVE MANAGEMENT
+**Status**: SESSION #10 COMPLETE
 **Reviewer**: Antigravity (Gemini 3 Pro (High))
 
 ## Required Toolchain Requirements
 
 ### 1. Kernel Driver (Rust)
-- **Mandatory Tool**: `cargo-wdk` (version 0.2.0+)
-- **LLVM Version**: 17.0.6
-- **Environment Variable**: `LIBCLANG_PATH` = `C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin`
+- **Mandatory Tool**: `cargo-wdk` (version 0.1.1+)
+- **LLVM Version**: 17.0.6 (Mandatory for `bindgen`)
+- **Environment Variable**: `LIBCLANG_PATH` (Set via `scripts/LaunchBuildEnv.ps1`)
+- **Environment Variable**: `WDK_ROOT` (Set via `scripts/LaunchBuildEnv.ps1`)
 
-### 2. Hardware Support App (WinUI 3 / C#)
-- **Mandatory Framework**: .NET 8.0 SDK
+### 2. Build Automation
+- **Master Script**: `scripts/LaunchBuildEnv.ps1` (Locked to `D:\eWDK_28000`)
+- **Package Script**: `scripts/package_driver.ps1`
 
-### 3. APO Component (C++)
-- **Mandatory Toolchain**: Visual Studio 2022 C++ Build Tools (cl.exe, nmake)
-
-### 4. Driver Packaging & Deployment
-- **Scripts**: `scripts/package_driver.ps1`, `scripts/install_driver.ps1`, `scripts/uninstall_driver.ps1`.
-- **Mandatory Tools**: `inf2cat.exe`, `signtool.exe`, `certutil.exe`, `pnputil.exe`.
-- **Status**: Verified fully functional.
+### 3. Verification Tools
+- **PE Audit**: Built-in verification in `package_driver.ps1` to ensure Subsystem 1 (Native).
 
 ---
 
 ## Required Environment Variables & PATHs
 
 ```powershell
-# Verification Script
-$env:LIBCLANG_PATH = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin"
-Write-Host "Verifying Toolchains..."
-# [Output from Session #09: ✅ Cargo: Found, ✅ .NET: Found, ✅ Inf2Cat: Found, ✅ SignTool: Found]
+# Centralized Setup
+& ".\scripts\LaunchBuildEnv.ps1"
 ```
 
 ---

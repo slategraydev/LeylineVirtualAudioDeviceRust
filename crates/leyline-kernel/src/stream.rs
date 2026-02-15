@@ -90,6 +90,17 @@ impl TimeSource for KernelTimeSource {
     }
 }
 
+#[cfg(test)]
+impl TimeSource for KernelTimeSource {
+    fn query_time(&self) -> i64 {
+        0
+    }
+
+    fn query_frequency(&self) -> i64 {
+        10_000_000
+    }
+}
+
 // ============================================================================
 // WaveRT Stream Structure
 // ============================================================================

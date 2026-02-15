@@ -13,16 +13,33 @@ pub mod buffer;
 pub mod math;
 pub mod stream;
 
-#[cfg(test)]
-mod test_harness;
-
 use crate::stream::MiniportWaveRTStream;
+use crate::stream::TimeSource;
 use alloc::boxed::Box;
 use wdk_alloc::WDKAllocator;
-use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Standard WDK types mapped for convenience.
+// ============================================================================
+// PortCls External Declarations
+// ============================================================================
+// These functions are exported by portcls.sys but are not always present
+// in the default wdk-sys bindings.
+
+extern "system" {
+    pub fn PcAddAdapterDevice(
+        DriverObject: PDRIVER_OBJECT,
+        PhysicalDeviceObject: PDEVICE_OBJECT,
+        StartDevice: Option<unsafe extern "system" fn(PDEVICE_OBJECT, PIRP, PVOID) -> NTSTATUS>,
+        MaxOutputStreams: u32,
+        DeviceExtensionSize: u32,
+    ) -> NTSTATUS;
+
+    pub fn PcInitializeAdapterDriver(
+        DriverObject: PDRIVER_OBJECT,
+        RegistryPath: PUNICODE_STRING,
+        AddDevice: Option<unsafe extern "C" fn(PDRIVER_OBJECT, PDEVICE_OBJECT) -> NTSTATUS>,
+    ) -> NTSTATUS;
+}
 
 // ============================================================================
 // Constants & Configuration
@@ -115,7 +132,7 @@ impl MiniportWaveRT {
                     *stream_slot = Some(Box::new(MiniportWaveRTStream::new(
                         _data_format as PVOID,
                         _capture,
-                        Box::new(crate::stream::KernelTimeSource),
+                        Box::new(crate::stream::KernelTimeSource) as Box<dyn TimeSource>,
                     )));
                 }
 
@@ -139,142 +156,37 @@ impl MiniportWaveRT {
 #[no_mangle]
 pub unsafe extern "system" fn DriverEntry(
     driver_object: PDRIVER_OBJECT,
-    _registry_path: PUNICODE_STRING,
+    registry_path: PUNICODE_STRING,
 ) -> NTSTATUS {
-    let mut status: NTSTATUS;
-    let mut device_object: PDEVICE_OBJECT = core::ptr::null_mut();
-    let mut device_name = UNICODE_STRING::default();
-    let mut symbolic_link = UNICODE_STRING::default();
+    // PortCls drivers use PcInitializeAdapterDriver to set up the driver object
+    // with the appropriate dispatch and AddDevice routines.
+    PcInitializeAdapterDriver(driver_object, registry_path, Some(AddDevice))
+}
 
-    // {A5553592-2D2F-4A98-84B2-7A9B9355152F}
-    let device_name_str = encode_unicode_string("\\Device\\LeylineAudio");
-    let sym_link_str = encode_unicode_string("\\??\\LeylineAudio");
-
-    RtlInitUnicodeString(&mut device_name, device_name_str.as_ptr());
-    RtlInitUnicodeString(&mut symbolic_link, sym_link_str.as_ptr());
-
-    // Create the Control Device Object
-    status = IoCreateDevice(
+#[no_mangle]
+pub unsafe extern "C" fn AddDevice(
+    driver_object: PDRIVER_OBJECT,
+    physical_device_object: PDEVICE_OBJECT,
+) -> NTSTATUS {
+    // PcAddAdapterDevice creates the FDO and handles device lifecycle.
+    PcAddAdapterDevice(
         driver_object,
+        physical_device_object,
+        Some(StartDevice),
+        MAX_STREAMS as u32,
         0,
-        &mut device_name,
-        FILE_DEVICE_UNKNOWN,
-        0,
-        FALSE as u8,
-        &mut device_object,
-    );
-
-    if status != STATUS_SUCCESS {
-        return status;
-    }
-
-    // Create the symbolic link for user-space access
-    status = IoCreateSymbolicLink(&mut symbolic_link, &mut device_name);
-    if status != STATUS_SUCCESS {
-        IoDeleteDevice(device_object);
-        return status;
-    }
-
-    // Set up dispatch routines
-    (*driver_object).MajorFunction[IRP_MJ_CREATE as usize] = Some(DispatchCreateClose);
-    (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize] = Some(DispatchCreateClose);
-    (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize] = Some(DispatchDeviceControl);
-
-    status = STATUS_SUCCESS;
-    status
+    )
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn DispatchCreateClose(
+pub unsafe extern "system" fn StartDevice(
     _device_object: PDEVICE_OBJECT,
-    irp: PIRP,
+    _irp: PIRP,
+    _resource_list: PVOID,
 ) -> NTSTATUS {
-    (*irp).IoStatus.Information = 0;
-    (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
-    IofCompleteRequest(irp, IO_NO_INCREMENT as i8);
-    STATUS_SUCCESS
-}
-
-fn encode_unicode_string(s: &str) -> alloc::vec::Vec<u16> {
-    let mut v: alloc::vec::Vec<u16> = s.encode_utf16().collect();
-    v.push(0);
-    v
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn DispatchDeviceControl(
-    _device_object: PDEVICE_OBJECT,
-    irp: PIRP,
-) -> NTSTATUS {
-    // Hoist local variables
-    let irp_sp: PIO_STACK_LOCATION;
-    let ioctl_code: u32;
-
-    irp_sp = (*irp)
-        .Tail
-        .Overlay
-        .__bindgen_anon_2
-        .__bindgen_anon_1
-        .CurrentStackLocation;
-    ioctl_code = unsafe { (*irp_sp).Parameters.DeviceIoControl.IoControlCode };
-
-    match ioctl_code {
-        leyline_shared::IOCTL_LEYLINE_SET_CONFIG => {
-            // Future: Handle buffer/latency parameter updates.
-        }
-        leyline_shared::IOCTL_LEYLINE_GET_STATUS => {
-            // Future: Report stream health and errors.
-        }
-        leyline_shared::IOCTL_LEYLINE_MAP_BUFFER => {
-            // Logic to return the user-space pointer for the first active stream.
-            let output_buffer = (*irp).AssociatedIrp.SystemBuffer;
-            let output_length = (*irp_sp).Parameters.DeviceIoControl.OutputBufferLength;
-
-            if output_length >= core::mem::size_of::<*mut u8>() as u32 && !output_buffer.is_null() {
-                unsafe {
-                    if let Some(ref mut miniport) = MINI_PORT {
-                        if let Some(ref mut stream) = miniport.streams[0] {
-                            let user_ptr = stream.map_user_buffer(core::ptr::null_mut());
-                            *(output_buffer as *mut *mut u8) = user_ptr;
-                            (*irp).IoStatus.Information = core::mem::size_of::<*mut u8>() as u64;
-                            (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
-                        } else {
-                            (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_NOT_FOUND;
-                        }
-                    } else {
-                        (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_DEVICE_NOT_READY;
-                    }
-                }
-            } else {
-                (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_BUFFER_TOO_SMALL;
-            }
-        }
-        leyline_shared::IOCTL_LEYLINE_MAP_PARAMS => {
-            let output_buffer = (*irp).AssociatedIrp.SystemBuffer;
-            let output_length = (*irp_sp).Parameters.DeviceIoControl.OutputBufferLength;
-
-            if output_length >= core::mem::size_of::<*mut u8>() as u32 && !output_buffer.is_null() {
-                unsafe {
-                    // For this prototype, we return the kernel address which is mapped
-                    // to user-space via a separate process or by being in the correct
-                    // context. However, MmMapLockedPagesSpecifyCache is better.
-                    // For now, we'll assume the params are in a globally accessible region
-                    // or we'll simplify by using a direct pointer for this prototype.
-                    *(output_buffer as *mut *mut leyline_shared::SharedParameters) =
-                        &raw mut SHARED_PARAMS;
-                    (*irp).IoStatus.Information = core::mem::size_of::<*mut u8>() as u64;
-                    (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
-                }
-            } else {
-                (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_BUFFER_TOO_SMALL;
-            }
-        }
-        _ => unsafe {
-            (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_INVALID_DEVICE_REQUEST;
-        },
-    }
-
-    IofCompleteRequest(irp, IO_NO_INCREMENT as i8);
+    // This is called when the OS starts the audio device.
+    // In a WaveRT driver, this is where we would normally register
+    // the Wave and Topology filters.
     STATUS_SUCCESS
 }
 

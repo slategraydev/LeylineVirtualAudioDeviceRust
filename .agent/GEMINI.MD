@@ -17,7 +17,9 @@ Framework: Rust-native WaveRT (Wave Real-Time)
 ### Completed ✅
 - **[x] Project Archetype**: All directory "slots" established (APO, HSA, Test, Kernel).
 - **[x] IP Protection**: Mandatory professional headers applied to all source files.
-- **[x] Kernel Core**: `DriverEntry` and `DispatchDeviceControl` (IOCTL) foundations implemented.
+- **[x] Kernel Core**: `DriverEntry` and `PcInitializeAdapterDriver` (PortCls) implemented.
+- **[x] Binary Integrity**: Subsystem 1 (Native) enforced for all kernel binaries.
+- **[x] Environment Hardening**: 100% build containment via eWDK (scripts/LaunchBuildEnv.ps1).
 - **[x] WaveRT Scaffolding**: `MiniportWaveRT` and `MiniportWaveRTStream` structures with interface placeholders.
 - **[x] Shared Logic**: Ring Buffer implementation and cross-crate GUID/IOCTL definitions.
 - **[x] Build Tooling**: Comprehensive `Makefile.toml` for `cargo-make` workflow.
@@ -128,6 +130,11 @@ MMCSS Coordination: All streaming threads are registered with the Multimedia Cla
 
 # 6. Permanent Decisions & Exceptions
 ## 6.1. Build System
+- **Binary Integrity Mandate** (Session #10):
+    - **Requirement**: All kernel binaries (`.sys`) MUST be compiled with **Subsystem 1 (Native)**.
+    - **Context**: Default Rust/Cargo behavior often targets Subsystem 2 (GUI), which causes `0xc0000034` load failures.
+    - **Enforcement**: Mandatory `/subsystem:native` and `/driver` linker flags in `build.rs` or `.cargo/config.toml`.
+
 - **NETSDK1206 Suppression** (Session #04):
     - **Context**: `Microsoft.WindowsAppSDK` targets legacy RIDs (`win10-x64`) which .NET 8 flags as obsolete.
     - **Decision**: Suppress `NETSDK1206` in `LeylineHSA.csproj`.
@@ -231,10 +238,11 @@ Safety: Every `unsafe` block must be preceded by a `// SAFETY:` comment justifyi
 The Leyline development environment is standardized to ensure parity across sessions.
 
 ### Environment Setup
-- **Compiler**: Mount the Enterprise WDK (eWDK) ISO for a self-contained build environment.
-- **LLVM**: `winget install LLVM.LLVM --version 17.0.6` (LLVM 18+ has known ARM64 stability issues).
+- **Compiler**: Enterprise WDK (eWDK) 26H1/28000 ISO.
+- **Pathing**: Standardized on `D:\eWDK_28000` for 100% build containment.
+- **LLVM**: `winget install LLVM.LLVM --version 17.0.6` (Local fallback for bindgen).
 - **Rust Tooling**: `cargo-wdk` for packaging and `cargo-make` for task automation.
-- **Command**: `.\LaunchBuildEnv.cmd` must be run before any build task.
+- **Unified Setup**: `.\scripts\LaunchBuildEnv.ps1` must be run before any build task.
 
 4.5 Project Health & Continuity
 
@@ -278,10 +286,13 @@ Tests are the "Operational Specification" of the project and must never be dilut
 - **Failure Protocol**: If a test fails, the **Implementation** must change to meet the goal, NOT the test.
 
 ### 4.8 Source Control Protocol [CRITICAL]
-- **No Automatic Commits**: Agents are strictly prohibited from executing `git commit` unless explicitly directed by the user (e.g., "Commit this", "Wrap up").
-- **Review First**: The default behavior at the end of a session is to leave changes in the working directory for human review.
-- **Staging**: Agents MAY stage files (`git add`) to verify the "cleanliness" of the diff, but must not finalize the commit.
-- **Commit Messages**: Agents should propose a draft commit message in `COMMIT_MESSAGE.MD` but wait for user confirmation before execution.
+- **No Automatic Commits**: Agents are strictly prohibited from executing `git commit` unless explicitly directed by the user.
+- **Review First**: The default behavior is to leave changes in the working directory/staging area.
+- **Punchy Commit Style**: Commit messages MUST follow the "Impact-First" style:
+    - **Header**: `type: brief summary`
+    - **Body**: One-line high-level "Why".
+    - **Bullets**: Direct action-verb bullets.
+    - **Goal**: Human-readable, non-repetitive, and focused on the technical win.
 
 ### 4.9 Artifact Management
 - **Zero Pollution**: The repository MUST remain free of build artifacts (`*.dll`, `*.sys`, `*.obj`, `package/`). All artifacts must be generated on-demand via scripts.

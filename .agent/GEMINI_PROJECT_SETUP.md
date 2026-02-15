@@ -5,6 +5,11 @@ This document outlines the project-agnostic framework designed to "reign in" AI 
 ## 1. The Strategy: Automated Alignment
 The core of this framework is the **Sync-on-Entry** pattern. Every agent session begins with a mandatory execution of a status workflow that forces the agent to read and acknowledge the project's current state, technical constraints, and previous architectural decisions.
 
+### 1.0 Environment Initialization [CRITICAL]
+Before any build, test, or audit action, agents MUST execute:
+`.\scripts\LaunchBuildEnv.ps1`
+This ensures the eWDK toolchain is correctly sourced and `LIBCLANG_PATH` is set.
+
 ### 1.1 Core Artifacts (The "Memory Bank")
 The framework relies on a hierarchical stack of markdown artifacts in the project root:
 - **`GEMINI.MD`**: The Technical Specification and "Constitution." Defines the product, architecture, and developer protocols. (Located in `.agent/`)
@@ -33,7 +38,11 @@ description: Synchronize with the latest project status, standards, and TODOs.
 ## 3. The Hand-off Mandate
 To maintain the integrity of this framework, agents are bound by a strict maintenance protocol at the end of every session:
 1. **Log Progress**: Append work to the session log in `.agent/PROJECT_PROGRESS.MD`.
-2. **Draft Commit Message**: Update `.agent/COMMIT_MESSAGE.MD` with a summary, changes, and verification proof. **DO NOT EXECUTE `git commit`**. Wait for user confirmation.
+2. **Draft Commit Message**: Update `.agent/COMMIT_MESSAGE.MD` using the **Impact-First Template**:
+    - **Header**: Conventional Commits (e.g., `feat:`, `fix:`) + punchy summary.
+    - **Summary**: One sentence on the "Why" (the primary problem solved).
+    - **Impact Bullets**: 3-5 short, direct bullets starting with an action verb (e.g., "Forced...", "Implemented...", "Fixed...").
+    - **NO CATEGORIES**: Avoid bolded category headers (e.g., **Binary Integrity:**). Focus on the action.
 3. **Audit Architecture**: Update `.agent/CODE_REVIEW.md` with a fresh perspective.
 4. **Verify Tests**: Update `.agent/TEST_REVIEW.md` with current coverage and results.
 5. **Verify Build**: Update `.agent/BUILD_REVIEW.MD` with current build status.

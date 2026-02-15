@@ -1,32 +1,26 @@
 # Professional Test Review: Leyline Audio Driver
 
 **Date**: February 14, 2026
-**Status**: SESSION #09 AUDIT COMPLETE
+**Status**: SESSION #10 COMPLETE
 **Reviewer**: Antigravity (Gemini 3 Pro (High))
 
 ## Test Coverage Summary
-Current testing coverage and verification status for all project components.
 
 | Component | Test Type | Status | Results |
 | :--- | :--- | :---: | :--- |
-| **`leyline-kernel`** | Unit | ✅ | Full build: SUCCESS (0 Warnings). |
-| **Scripts** | Functional | ✅ | `install_driver.ps1` and `uninstall_driver.ps1` syntax and logic verified. |
-| **Integration** | Physical | ⏳ | **BLOCKER**: Requires `testsigning on` and system reboot. |
-| **`src/HSA`** | Functional | ✅ | UI verified via build. |
+| **`leyline-kernel`** | Build | ✅ | Release build: SUCCESS (0 Warnings). |
+| **`leyline-kernel`** | Binary Audit | ✅ | **Subsystem 1 (Native)** verified. |
+| **Environment** | Functional | ✅ | eWDK 26H1 (D:\eWDK_28000) sourcing verified. |
+| **Installation** | Physical | ✅ | Service is **Running**; Device status is **Degraded** (CM_PROB_NONE). |
 
 ## Verification Status
--   **Scripts**: Verified (PowerShell logic for `certutil` and `pnputil` confirmed).
--   **GUID Sync**: Verified (Manual audit of CLSID across 4 files: PASSED).
--   **INF**: Verified (`Inf2Cat` results from previous session remain valid).
-
-## Coverage
--   **Kernel**: 30% (Math isolated, IOCTL/DriverEntry needs physical test)
--   **Automation**: 80% (Install/Uninstall/Package scripts complete)
--   **HSA**: 45% (UI established, Mock data flow verified)
+-   **Linker**: Verified (Successful linkage against eWDK 26H1 `portcls.lib`).
+-   **Service**: Verified (`sc.exe query Leyline` returns "RUNNING").
+-   **Device Node**: Verified (Single node `ROOT\MEDIA\0005` active).
 
 ## Testing Gaps & Priorities
-1.  **Deployment Verification**: Once the system is rebooted into testsigning mode, the primary test is the success of `cargo make install`.
-2.  **Sound Graph Verification**: Verify that the HSA polyline correctly renders real-time data from the shared parameter block once the driver is running.
+1.  **Endpoint Visibility**: Verify that Input/Output endpoints appear in `mmsys.cpl` once filter registration is implemented in Session #11.
+2.  **Audio Streaming**: Verify buffer allocation and position reporting once the filters are active.
 
 ---
 *Last Updated: February 14, 2026*

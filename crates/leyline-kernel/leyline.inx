@@ -31,7 +31,7 @@ DefaultDestDir = 13 ; Driver Store
 ; Device Installation
 ; ==============================================================================
 
-[Leyline_Device.NT]
+[Leyline_Device.NTamd64]
 CopyFiles = Leyline_Device.CopyFiles
 AddReg    = Leyline_Device.AddReg
 
@@ -73,7 +73,7 @@ HKR,,FriendlyName,,%DeviceName%
 ; Service Installation
 ; ==============================================================================
 
-[Leyline_Device.NT.Services]
+[Leyline_Device.NTamd64.Services]
 AddService = Leyline, 0x00000002, Leyline_Service_Inst
 
 [Leyline_Service_Inst]
