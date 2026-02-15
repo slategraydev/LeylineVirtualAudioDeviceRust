@@ -50,11 +50,18 @@ HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,ThreadingModel,,Both
 ; ==============================================================================
 
 [Leyline_Device.NT.Interfaces]
-AddInterface = %KSCATEGORY_AUDIO%, %KSNAME_Wave%, Leyline_AudioInterface
-AddInterface = %KSCATEGORY_RENDER%, %KSNAME_Wave%, Leyline_AudioInterface
-AddInterface = %KSCATEGORY_CAPTURE%, %KSNAME_Wave%, Leyline_AudioInterface
+; Render Interfaces (WaveRender)
+AddInterface = %KSCATEGORY_AUDIO%, "WaveRender", Leyline_RenderInterface
+AddInterface = %KSCATEGORY_RENDER%, "WaveRender", Leyline_RenderInterface
 
-[Leyline_AudioInterface]
+; Capture Interfaces (WaveCapture)
+AddInterface = %KSCATEGORY_AUDIO%, "WaveCapture", Leyline_CaptureInterface
+AddInterface = %KSCATEGORY_CAPTURE%, "WaveCapture", Leyline_CaptureInterface
+
+[Leyline_RenderInterface]
+AddReg = Leyline_AudioInterface.AddReg
+
+[Leyline_CaptureInterface]
 AddReg = Leyline_AudioInterface.AddReg
 
 [Leyline_AudioInterface.AddReg]

@@ -119,7 +119,21 @@
     - Build: `LeylineHSA` Success (0 warnings).
     - Integration: Validated `SharedParameters` struct alignment and IOCTL values.
 
-## PROJECT TODO (Next Session: #18)
-- **[ ] APO Integration**: Wire the C++ APO into the INF and verify that the audio engine loads it for the Leyline endpoints.
-- **[ ] Dynamic Formats**: Implement dynamic format negotiation in `DataRangeIntersection` to allow applications to request arbitrary sample rates.
-- **[ ] Driver Installation**: Perform a full test installation (disable Secure Boot) to verify the visualization on actual audio.
+### Session #18: APO Integration & INF Wiring
+- **Date**: February 15, 2026
+- **Reviewer**: Antigravity (Gemini 3 Pro)
+- **Summary**: Successfully integrated the C++ Audio Processing Object (APO) into the build pipeline and registered it in the INF for both Render and Capture endpoints.
+- **Key Changes**:
+    - Created `scripts/build_apo.ps1` to robustly build the C++ APO in the eWDK environment (using `vcvarsall.bat` for x64).
+    - Updated `package_driver.ps1` to use the new build script.
+    - Updated `leyline.inx` to register the APO CLSID for "WaveRender" and "WaveCapture" interfaces (correcting reference strings).
+    - Fixed `C4100` warnings in `dllmain.cpp` (unreferenced parameters).
+    - Verified full package build (Kernel + APO + HSA) with **Zero Warnings**.
+- **Verification**: 
+    - Build: `LeylineAPO` Success (0 warnings).
+    - Package: `leyline.inf` correctly references `LeylineAPO.dll` and registers `{C8D3E4F5...}`.
+
+## PROJECT TODO (Next Session: #19)
+- **[ ] Dynamic Formats**: Implement dynamic format negotiation in `DataRangeIntersection` to support arbitrary sample rates (currently hardcoded to 48kHz).
+- **[ ] Driver Installation**: Perform a full test installation on a target machine to verify APO loading and end-to-end audio flow.
+- **[ ] Unique Endpoint Names**: Differentiate "Leyline Output" and "Leyline Input" friendly names in the INF.

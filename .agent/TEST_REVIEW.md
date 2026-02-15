@@ -2,7 +2,7 @@
 
 **Reviewer**: Antigravity (Gemini 3 Pro)
 **Date**: February 15, 2026
-**Status**: SESSION #17 COMPLETE
+**Status**: SESSION #18 COMPLETE
 
 ## Test Coverage Summary
 
@@ -11,12 +11,13 @@
 | **`leyline-shared`** | Unit | ✅ | 4 Tests Passed. |
 | **`leyline-kernel`** | Build | ✅ | SUCCESS (0 Warnings). |
 | **`LeylineHSA`** | Build | ✅ | SUCCESS (0 Warnings). |
-| **`System Loop`** | Manual | ⚠️ | Visualization Logic implemented but pending runtime verification on target machine. |
+| **`LeylineAPO`** | Build | ✅ | SUCCESS (0 Warnings). |
+| **`System Loop`** | Manual | ⚠️ | Full package integration pending runtime verification on target machine. |
 
 ## Verification Progress
-- **HSA Connection**: Logic verified (IOCTL codes match).
-- **Buffer Mapping**: Logic verified (Kernel mapping & HSA pointer access).
-- **Oscilloscope**: Logic verified (QPC sync & index calculation).
+- **APO Build**: C++ project builds with correct environment variables and zero warnings.
+- **INF Registration**: Manual audit confirms CLSID registration matches APO binary.
 
 ## Testing Gaps & Priorities
-1.  **Runtime Integration**: The ultimate test is installing the driver and running the HSA. The next session should prioritize generating a signed package and testing on a VM or test machine.
+1.  **Runtime Integration**: Install the driver on a test machine (Test Mode ON) and verify that the Audio Engine loads `LeylineAPO.dll` for the endpoints. Use `audiodg.exe` logging or debugger to confirm.
+2.  **Format Negotiation**: Test with different sample rates (44.1kHz, 96kHz) once dynamic negotiation is implemented.

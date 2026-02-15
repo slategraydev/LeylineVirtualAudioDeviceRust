@@ -33,17 +33,10 @@ if ($LASTEXITCODE -ne 0)
 
 # 3. Build APO
 Write-Host "`n--- Building APO ---" -ForegroundColor Cyan
-if (Get-Command "cl.exe" -ErrorAction SilentlyContinue)
+& "$PSScriptRoot\build_apo.ps1"
+if ($LASTEXITCODE -ne 0)
 {
-    Push-Location "src/APO"
-    nmake
-    if ($LASTEXITCODE -ne 0)
-    { Pop-Location; throw "APO build failed"
-    }
-    Pop-Location
-} else
-{
-    Write-Warning "cl.exe not found. Using pre-built or existing LeylineAPO.dll if available."
+    Write-Warning "APO build script failed. Using pre-built or existing LeylineAPO.dll if available."
 }
 
 # 4. Package

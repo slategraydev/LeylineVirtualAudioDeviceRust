@@ -1,13 +1,16 @@
-feat: Implement HSA Bridge and Real-Time Visualization
+feat: Integrate APO pipeline and register endpoints
 
-Implemented the zero-copy communication channel between the kernel driver and the Hardware Support App (HSA).
+- Created `scripts/build_apo.ps1` to robustly build the C++ APO (using `vcvarsall.bat` and `nmake`).
+- Updated `leyline.inx` to register the APO CLSID for "WaveRender" and "WaveCapture" interfaces.
+- Corrected INF reference strings to match `PcRegisterSubdevice` names.
+- Resolved all C++ warnings (`C4100`) in `dllmain.cpp`.
+- Verified full package build (Kernel, HSA, APO) with zero warnings.
 
-*   **Bridge**: Implemented `IOCTL_LEYLINE_MAP_BUFFER` to map kernel loopback pages to user-mode.
-*   **Sync**: Added QPC (QueryPerformanceCounter) timing and buffer metadata to `SharedParameters`.
-*   **HSA**: Implemented `DriverBridge` and `MainWindow` oscilloscope using direct memory access.
-*   **Cleanup**: Added automatic unmapping logic in `dispatch_close` to prevent memory leaks.
-*   **Fix**: Standardized IOCTL codes using `CTL_CODE` macro logic.
+```text
+feat: Integrate APO pipeline and register endpoints
 
-**Verification:**
-*   `leyline-kernel`: Build Success (0 warnings).
-*   `LeylineHSA`: Build Success (0 warnings).
+- Created `scripts/build_apo.ps1` to robustly build the C++ APO.
+- Updated `leyline.inx` to register the APO CLSID for "WaveRender" and "WaveCapture".
+- Resolved all C++ warnings in `dllmain.cpp`.
+- Verified full package build with zero warnings.
+```

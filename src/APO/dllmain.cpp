@@ -47,7 +47,11 @@ public:
         return hr;
     }
 
-    STDMETHODIMP LockServer(BOOL fLock) { return S_OK; }
+    STDMETHODIMP LockServer(BOOL fLock) 
+    { 
+        (void)fLock;
+        return S_OK; 
+    }
 
 private:
     LONG m_cRef;
@@ -59,6 +63,7 @@ private:
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 {
+    (void)lpReserved;
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
