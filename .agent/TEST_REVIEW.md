@@ -12,14 +12,12 @@
 | **`leyline-kernel`** | Build | ✅ | SUCCESS (0 Warnings). |
 | **`LeylineHSA`** | Build | ✅ | SUCCESS (0 Warnings). |
 | **`LeylineAPO`** | Build | ✅ | SUCCESS (0 Warnings). |
-| **`Inf2Cat`** | Static | ✅ | Valid (0 Errors, 0 Warnings). |
+| **`Runtime`** | Manual | ❌ | FAILED. HSA fails to launch; Duplicate devices created. |
 
 ## Verification Progress
-- **Dynamic Formats**: Implementation validated via compilation. Runtime verification (installing on a machine and changing sample rates) is the next step.
-- **APO Build**: Hardened script ensures reliable builds even in restricted environments.
+- **Dynamic Formats**: Implemented but pending full runtime verification due to HSA crash.
+- **Installation**: `devcon` command works but creates duplicates.
 
 ## Testing Gaps & Priorities
-1.  **Runtime Integration**: Use `devcon` or `pnputil` to install on a VM/Test PC. Open "Sound Settings" and verify:
-    -   Two distinct devices: "Leyline Output" and "Leyline Input".
-    -   Properties -> Advanced -> Default Format: Verify dropdown shows 44.1kHz, 48kHz, 96kHz, 192kHz options.
-2.  **Audio Flow**: Play audio at 44.1kHz and 96kHz. Verify the HSA visualizer updates correctly (checks shared buffer sync).
+1.  **HSA Crash**: Must reproduce and fix the silent crash. Suspect missing Windows App SDK runtime or unhandled exception during `CreateFile`.
+2.  **Clean Install**: Validate a script that reliably gives a *single* device instance.

@@ -128,19 +128,23 @@
     - Build: `LeylineAPO` Success (0 warnings).
     - Package: `leyline.inf` correctly references `LeylineAPO.dll` and registers `{C8D3E4F5...}`.
 
-### Session #19: Dynamic Formats & Endpoint Naming
+### Session #19: Dynamic Formats, Endpoint UX & Install Fixes
 - **Date**: February 15, 2026
 - **Reviewer**: Antigravity (Gemini 3 Pro)
-- **Summary**: Implemented true dynamic format negotiation in the kernel and distinct endpoint naming in the INF.
+- **Summary**: Implemented format negotiation, improved INF naming, and fixed installation logic for virtual devices.
 - **Key Changes**:
-    - **Dynamic Formats**: Refactored `miniport_data_range_intersection` to intersect requested ranges with driver capabilities (44.1k-192k, 16/24/32-bit). It now prefers the highest quality supported.
-    - **Endpoint Naming**: Updated `leyline.inx` to split registry keys, assigning "Leyline Output" to the Render interface and "Leyline Input" to the Capture interface.
-    - **Toolchain Hardening**: Updated `scripts/build_apo.ps1` to manually enforce eWDK SDK/MSVC paths, bypassing `vcvarsall.bat` fragility.
+    - **Dynamic Formats**: Refactored `miniport_data_range_intersection` to intersect requested ranges with driver capabilities (44.1k-192k).
+    - **Endpoint Naming**: Updated `leyline.inx` to name endpoints "Leyline Output" and "Leyline Input".
+    - **Installation Script**: Updated `scripts/install_driver.ps1` to use `devcon install` instead of `pnputil`, fixing the missing device node issue.
+    - **Toolchain**: Hardened `build_apo.ps1` with manual eWDK paths.
 - **Verification**: 
-    - Build: Full Package Success (0 warnings in Kernel/HSA/APO/Inf2Cat).
-    - INF: Verified distinct `FriendlyName` registry keys for Render/Capture.
+    - Build: Full Package Success (0 warnings).
+    - **Field Issue**: User reported duplicate device nodes and HSA silent failure. `devcon install` creates a new node every time it's run. HSA likely crashing due to missing device or dependencies.
 
 ## PROJECT TODO (Next Session: #20)
-- **[ ] Driver Installation**: Perform a full test installation on a target machine to verify APO loading and end-to-end audio flow.
-- **[ ] Feature**: Implement `GetPosition` and `GetHWLatency` with high-precision QPC logic to support the new dynamic rates.
-- **[ ] Feature**: Implement `SetState` transitions properly (currently stubs) to handle Pause/Run correctly.
+- **[ ] HSA Debugging**: Investigate HSA silent failure.
+    - Check Event Viewer for `.NET Runtime` errors.
+    - Add explicit error logging to `App.xaml.cs` startup.
+    - Verify `WindowsAppSDK` runtime presence on target.
+- **[ ] Installer Idempotency**: Update `install_driver.ps1` to check for existing nodes before calling `devcon install` to prevent duplicates.
+- **[ ] Feature**: Implement `GetPosition` and `GetHWLatency` with high-precision QPC logic.

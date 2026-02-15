@@ -12,10 +12,11 @@
 | **`scripts/Update-Version.ps1`** | Automated INF version stamping. | PowerShell 7+ | None |
 | **`scripts/build_apo.ps1`** | Robust C++ APO build (Manual Paths). | PowerShell 7+ | eWDK + VC Tools |
 | **`scripts/package_driver.ps1`** | Full pipeline: Build, Package, Sign. | PowerShell 7+ | `cargo-wdk`, `dotnet`, `build_apo.ps1` |
+| **`scripts/install_driver.ps1`** | **[UPDATED]** Installation via `devcon`. | PowerShell 7+ | eWDK (`devcon.exe`) |
 
 ## Automation Logic Audit
-- **APO Hardening**: `build_apo.ps1` was refactored to explicitly set `INCLUDE` and `LIB` environment variables for the eWDK (SDK 10.0.28000.0). This bypasses issues where `vcvarsall.bat` fails due to PowerShell `Import-Module` restrictions on the mounted ISO.
-- **Pipeline**: `package_driver.ps1` remains the single source of truth for generating a signed release candidate.
+- **install_driver.ps1**: Updated to use `devcon.exe` (hardcoded eWDK path) to ensure virtual device creation.
+    - **Issue**: `devcon install` is not idempotent. Repeated runs create duplicate devices. Future update should use `devcon update` or `remove` first.
 
 ---
 *Last Updated: February 15, 2026*

@@ -33,10 +33,10 @@ function Install-Driver
     certutil -addstore -f "Root" $certPath
     certutil -addstore -f "TrustedPublisher" $certPath
 
-    Write-Host "--- Installing Driver via PnPUtil ---" -ForegroundColor Cyan
-    # /add-driver: Adds the driver to the store
-    # /install: Installs it on any matching devices
-    pnputil /add-driver $infPath /install
+    Write-Host "--- Creating Virtual Device via DevCon ---" -ForegroundColor Cyan
+    # pnputil only stages the driver. We need devcon to create the Root device node.
+    $devcon = "D:\eWDK_28000\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64\devcon.exe"
+    & $devcon install $infPath Root\LeylineAudio
 
     Write-Host "`nInstallation attempt complete." -ForegroundColor Green
     Write-Host "Note: Ensure 'bcdedit /set testsigning on' has been run and the system was rebooted." -ForegroundColor Yellow

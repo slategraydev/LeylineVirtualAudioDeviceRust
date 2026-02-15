@@ -2,21 +2,19 @@
 
 **Reviewer**: Antigravity (Gemini 3 Pro)
 **Date**: February 15, 2026
-**Status**: SESSION #19 COMPLETE - BUILD SUCCESS (ZERO WARNINGS)
+**Status**: SESSION #19 COMPLETE
 
 ## Project Sanity Check (Session #19)
 
 ### Findings & Observations
-1.  **Format Negotiation**: [RESOLVED] The `DataRangeIntersection` logic is now robust. It correctly handles the `KSDATARANGE_AUDIO` struct and negotiates the best common format between the OS request and the driver's capabilities (44.1kHz - 192kHz).
-2.  **UX Improvement**: [IMPLEMENTED] The INF now explicitly names the endpoints "Leyline Output" and "Leyline Input". This will significantly help users distinguish the devices in Sound Settings.
-3.  **Toolchain Resilience**: [HARDENED] The C++ APO build script (`build_apo.ps1`) was failing due to environmental issues with `vcvarsall.bat`. It has been hardened with a manual fallback that explicitly defines the eWDK's INCLUDE/LIB paths, ensuring reliability.
+1.  **Format Negotiation**: [RESOLVED] The `DataRangeIntersection` logic is now robust and supports 44.1kHz - 192kHz.
+2.  **Installation UX**: [FLAWED] The use of `devcon install` in the script is not idempotent; running it multiple times creates duplicate "Leyline Audio Virtual Adapter" nodes (#1, #2, etc.). This confuses the OS and potentially the HSA.
+3.  **HSA Resilience**: [CRITICAL] The HSA (`LeylineHSA.exe`) fails silently if the driver environment is not perfect. It lacks robust startup error handling or device enumeration logging.
 
 ### Architectural Health
-The system is architecturally complete for a "v1.0" functional prototype:
--   **Kernel**: WaveRT + Topology + Dynamic Formats + Shared Memory.
--   **APO**: Registered and Building.
--   **HSA**: Visualizing.
+-   **Kernel**: Healthy.
+-   **HSA**: Fragile. Needs a "Connect to Driver" button or retry logic instead of crashing on startup if the device handle is invalid.
 
 ## Suggestions for Next Session (Session #20)
-1.  **Clocking Precision**: With dynamic rates (e.g., 44.1kHz vs 48kHz), the `GetPosition` logic must be careful about integer math. Use QPC (QueryPerformanceCounter) with 128-bit math or high-precision scalers to prevent drift.
-2.  **State Management**: The `SetState` (Run/Pause/Stop) implementation is currently minimal. Ensure it correctly resets the position counters and buffer pointers to prevent glitches on stream restart.
+1.  **Installer Logic**: Refactor `install_driver.ps1` to `devcon remove` old nodes before installing, or use `devcon update`.
+2.  **HSA Diagnostics**: Wrap the `DriverBridge` connection in a `try-catch` block and display a `MessageBox` or log to a file if connection fails.
