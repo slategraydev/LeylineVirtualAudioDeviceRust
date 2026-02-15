@@ -1,32 +1,25 @@
 # Toolchain Review: Leyline Audio Driver
 
-**Date**: February 14, 2026
-**Status**: SESSION #10 COMPLETE
-**Reviewer**: Antigravity (Gemini 3 Pro (High))
+**Date**: February 15, 2026
+**Status**: SESSION #11 COMPLETE
+**Reviewer**: Antigravity (Gemini 3 Pro)
 
 ## Required Toolchain Requirements
 
 ### 1. Kernel Driver (Rust)
 - **Mandatory Tool**: `cargo-wdk` (version 0.1.1+)
-- **LLVM Version**: 17.0.6 (Mandatory for `bindgen`)
-- **Environment Variable**: `LIBCLANG_PATH` (Set via `scripts/LaunchBuildEnv.ps1`)
-- **Environment Variable**: `WDK_ROOT` (Set via `scripts/LaunchBuildEnv.ps1`)
+- **LLVM Version**: 17.0.6 (Contained in `D:\eWDK_28000\LLVM`)
+- **Environment Variable**: `LIBCLANG_PATH` (Set to `D:\eWDK_28000\LLVM\bin`)
+- **Environment Variable**: `WDK_ROOT` (Set via eWDK)
 
 ### 2. Build Automation
-- **Master Script**: `scripts/LaunchBuildEnv.ps1` (Locked to `D:\eWDK_28000`)
-- **Package Script**: `scripts/package_driver.ps1`
-
-### 3. Verification Tools
-- **PE Audit**: Built-in verification in `package_driver.ps1` to ensure Subsystem 1 (Native).
+- **Master Script**: `scripts/LaunchBuildEnv.ps1` (Self-contained on Drive D:)
 
 ---
 
 ## Required Environment Variables & PATHs
-
-```powershell
-# Centralized Setup
-& ".\scripts\LaunchBuildEnv.ps1"
-```
+- **eWDK Root**: `D:\eWDK_28000`
+- **LLVM Bin**: `D:\eWDK_28000\LLVM\bin`
 
 ---
-*Last Updated: February 14, 2026*
+*Last Updated: February 15, 2026*

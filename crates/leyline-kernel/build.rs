@@ -16,16 +16,18 @@ fn main() {
         wdk_version.trim_end_matches('\\')
     );
 
-    // Mandatory Kernel Linker Flags
-    println!("cargo:rustc-link-arg=/subsystem:native");
-    println!("cargo:rustc-link-arg=/driver");
-    println!("cargo:rustc-link-arg=/entry:DriverEntry");
+    // Mandatory Kernel Linker Flags (Skip if testing in user-space)
+    if std::env::var("CARGO_CFG_TEST").is_err() {
+        println!("cargo:rustc-link-arg=/subsystem:native");
+        println!("cargo:rustc-link-arg=/driver");
+        println!("cargo:rustc-link-arg=/entry:DriverEntry");
 
-    // Core Kernel Libraries
-    println!("cargo:rustc-link-lib=ntoskrnl");
-    println!("cargo:rustc-link-lib=hal");
-    println!("cargo:rustc-link-lib=wmilib");
-    println!("cargo:rustc-link-lib=portcls");
+        // Core Kernel Libraries
+        println!("cargo:rustc-link-lib=ntoskrnl");
+        println!("cargo:rustc-link-lib=hal");
+        println!("cargo:rustc-link-lib=wmilib");
+        println!("cargo:rustc-link-lib=portcls");
+    }
 
     // Re-run if environment changes
     println!("cargo:rerun-if-env-changed=WDKContentRoot");

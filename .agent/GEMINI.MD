@@ -21,17 +21,20 @@ Framework: Rust-native WaveRT (Wave Real-Time)
 - **[x] Binary Integrity**: Subsystem 1 (Native) enforced for all kernel binaries.
 - **[x] Environment Hardening**: 100% build containment via eWDK (scripts/LaunchBuildEnv.ps1).
 - **[x] WaveRT Scaffolding**: `MiniportWaveRT` and `MiniportWaveRTStream` structures with interface placeholders.
+- **[x] WaveRT Filter Registration**: `StartDevice` logic for registering the streaming filter is implemented.
+- **[x] COM Compatibility**: Manual VTable implementations for PortCls DDIs.
 - **[x] Shared Logic**: Ring Buffer implementation and cross-crate GUID/IOCTL definitions.
 - **[x] Build Tooling**: Comprehensive `Makefile.toml` for `cargo-make` workflow.
 
 ### In Progress 🏗️
 - **[/] Trait Implementation**: Mapping foundational structures to `wdk` traits.
+- **[/] Topology Definition**: Planning the internal filter topology and bridge pins.
 - **[/] Shared Constants**: Expanding `leyline-shared` with driver-specific GUIDs.
 
 ### Upcoming 📅
+- **[ ] Topology Implementation**: Registering the Topology port and defining internal routing.
 - **[ ] APO Component**: Implementation of C++ Audio Processing Objects for effects.
 - **[ ] HSA Integration**: Development of the WinUI 3 Hardware Support App.
-- **[ ] Advanced WaveRT**: MMCSS coordination and low-latency periodicity tuning.
 
 1. Professional Licensing & README Standards
 

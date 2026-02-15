@@ -83,21 +83,48 @@ foreach ($line in $envVars)
     }
 }
 
-# 3. Hardware-Lock LIBCLANG_PATH (Local fallback since eWDK 26H1 Llvm is 'lite')
-$llvmPath = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin"
-if (-not (Test-Path $llvmPath))
+# 3. Hardware-Lock LIBCLANG_PATH
+$llvmPath = $null
+
+# Priority 1: Check self-contained LLVM in eWDK root (User Preference)
+if ($env:eWDK_ROOT_DIR)
 {
-    $llvmPath = "C:\Program Files\LLVM\bin"
+    $ewdkRootLlvm = Join-Path $env:eWDK_ROOT_DIR "LLVM\bin"
+    if (Test-Path (Join-Path $ewdkRootLlvm "libclang.dll"))
+    {
+        $llvmPath = $ewdkRootLlvm
+        Write-Host "[✓] eWDK-root LLVM detected." -ForegroundColor Green
+    }
 }
 
-if (Test-Path $llvmPath)
+# Priority 2: Check known location on C: (Visual Studio Professional)
+if ($null -eq $llvmPath)
+{
+    $vsLlvm = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin"
+    if (Test-Path (Join-Path $vsLlvm "libclang.dll"))
+    {
+        $llvmPath = $vsLlvm
+    }
+}
+
+# Priority 3: Standard LLVM installation
+if ($null -eq $llvmPath)
+{
+    $stdLlvm = "C:\Program Files\LLVM\bin"
+    if (Test-Path (Join-Path $stdLlvm "libclang.dll"))
+    {
+        $llvmPath = $stdLlvm
+    }
+}
+
+if ($llvmPath -and (Test-Path $llvmPath))
 {
     $env:LIBCLANG_PATH = $llvmPath
     $env:PATH = "$llvmPath;" + $env:PATH
     Write-Host "[✓] LIBCLANG_PATH set to: $env:LIBCLANG_PATH"
 } else
 {
-    Write-Warning "LLVM not found. bindgen will fail."
+    Write-Warning "libclang.dll not found. bindgen will fail."
 }
 
 # 4. Success Output

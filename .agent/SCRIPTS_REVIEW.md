@@ -1,27 +1,21 @@
 # Professional Script Review: Leyline Audio Driver
 
-**Date**: February 14, 2026
-**Status**: SESSION #10 COMPLETE
-**Reviewer**: Antigravity (Gemini 3 Pro (High))
+**Date**: February 15, 2026
+**Status**: SESSION #11 COMPLETE
+**Reviewer**: Antigravity (Gemini 3 Pro)
 
 ## Script Inventory
 
 | Script | Purpose | Language | Dependency |
 | :--- | :--- | :--- | :--- |
-| **`scripts/LaunchBuildEnv.ps1`** | Unified eWDK/LLVM environment setup. Supports permanent path `D:\eWDK_28000`. | PowerShell 7+ | Drive D: (eWDK) |
-| **`scripts/package_driver.ps1`** | Full pipeline: Build (Kernel, HSA, APO), Package, Inf2Cat, Sign. | PowerShell 7+ | `cargo-wdk`, `dotnet`, `signtool` |
-| **`scripts/install_driver.ps1`** | Installs certificate and driver package. | PowerShell 7+ | `certutil`, `pnputil` |
-| **`scripts/uninstall_driver.ps1`** | Uninstalls driver and cleans up device nodes. | PowerShell 7+ | `devcon`, `pnputil` |
+| **`scripts/LaunchBuildEnv.ps1`** | Updated to prioritize self-contained LLVM at `D:\eWDK_28000\LLVM`. | PowerShell 7+ | Drive D: (eWDK) |
+| **`scripts/package_driver.ps1`** | Full pipeline: Build, Package, Sign. | PowerShell 7+ | `cargo-wdk`, `dotnet` |
 
 ## Automation Logic Audit
 
 ### `LaunchBuildEnv.ps1`
--   **Discovery**: Automatically detects eWDK on `D:\eWDK_28000` or mounted drives.
--   **Capture**: Dynamically sources environment variables from the eWDK's internal CMD setup.
-
-### `package_driver.ps1`
--   **Integrity**: Includes a binary subsystem check to prevent invalid driver compilation.
--   **Cleanliness**: Performs a full build of both Kernel and HSA components in Release mode.
+-   **Discovery**: Now automatically detects LLVM in the eWDK root. This ensures the entire toolchain is portable and contained on the D: drive.
+-   **Robustness**: Improved variable capture and path verification.
 
 ---
-*Last Updated: February 14, 2026*
+*Last Updated: February 15, 2026*
