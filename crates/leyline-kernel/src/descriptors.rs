@@ -7,10 +7,10 @@
 
 use crate::constants::*;
 use crate::stream::{
-    audio_types, KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCCONNECTION,
+    KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCCONNECTION,
     PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR,
 };
-use wdk_sys::{GUID, ULONG};
+use wdk_sys::GUID;
 
 #[repr(transparent)]
 pub struct SyncPtr<T>(pub *const T);
@@ -99,7 +99,8 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: KSPIN_COMMUNICATION_SINK as i32,
             Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
+            Reserved: 0,
+            Reserved2: 0,
         },
     },
     PCPIN_DESCRIPTOR {
@@ -118,7 +119,8 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
             Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
+            Reserved: 0,
+            Reserved2: 0,
         },
     },
 ];
@@ -141,7 +143,8 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: KSPIN_COMMUNICATION_SOURCE as i32,
             Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
+            Reserved: 0,
+            Reserved2: 0,
         },
     },
     PCPIN_DESCRIPTOR {
@@ -160,7 +163,8 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
             Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
+            Reserved: 0,
+            Reserved2: 0,
         },
     },
 ];
@@ -183,7 +187,8 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
             Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
+            Reserved: 0,
+            Reserved2: 0,
         },
     },
     PCPIN_DESCRIPTOR {
@@ -202,7 +207,8 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: KSPIN_COMMUNICATION_NONE as i32,
             Category: &KSNODETYPE_SPEAKER as *const GUID,
             Name: core::ptr::null(),
-            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
+            Reserved: 0,
+            Reserved2: 0,
         },
     },
 ];
@@ -225,7 +231,8 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: KSPIN_COMMUNICATION_NONE as i32,
             Category: &KSNODETYPE_MICROPHONE as *const GUID,
             Name: core::ptr::null(),
-            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
+            Reserved: 0,
+            Reserved2: 0,
         },
     },
     PCPIN_DESCRIPTOR {
@@ -244,7 +251,8 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
             Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
+            Reserved: 0,
+            Reserved2: 0,
         },
     },
 ];

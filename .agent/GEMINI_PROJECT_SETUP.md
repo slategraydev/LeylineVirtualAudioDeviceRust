@@ -45,6 +45,7 @@ description: Synchronize with the latest project status, standards, and TODOs.
 To maintain the integrity of this framework, agents are bound by a strict maintenance protocol at the end of every session:
 1. **Log Progress**: Append work to the session log in `.agent/PROJECT_PROGRESS.MD`.
 2. **Draft Commit Message**: Update `.agent/COMMIT_MESSAGE.MD` using the **Impact-First Template**:
+    - **Plain Text Block**: MUST include a `## Plain Text Commit Message [COPY-PASTE]` section with the raw, non-stylized message. [NEW]
     - **Header**: Conventional Commits (e.g., `feat:`, `fix:`) + punchy summary.
     - **Summary**: One sentence on the "Why" (the primary problem solved).
     - **Impact Bullets**: 3-5 short, direct bullets starting with an action verb (e.g., "Forced...", "Implemented...", "Fixed...").

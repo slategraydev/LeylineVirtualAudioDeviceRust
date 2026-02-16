@@ -5,23 +5,22 @@
 
 ## Critical Findings & Resolutions
 
-### 1. GUID Type Parity (RESOLVED)
-- **Finding**: Mismatch between `audio::GUID` and `wdk_sys::GUID` was the primary build blocker.
-- **Resolution**: Successfully forced bindgen to use `wdk_sys::GUID` by blocking internal definitions and injecting the external type. This eliminated dozens of type-casting errors.
+### 1. Descriptor Hardening (RESOLVED)
+- **Finding**: Bindgen's union helper types were incompatible with Rust's `static` initializer requirements for driver descriptors, specifically `KSPIN_DESCRIPTOR`.
+- **Resolution**: Successfully applied the "Block & Manual Define" strategy in `build.rs` for `KSPIN_DESCRIPTOR`. This maintains 100% binary compatibility while allowing clean, idiomatic static descriptors in `descriptors.rs`. This completes the structural hardening of the PortCls descriptors.
 
-### 2. Static Initialization Friction (IN PROGRESS)
-- **Finding**: Bindgen's union helper types (`__BindgenUnionField`) are incompatible with Rust's `static` initializer requirements for driver descriptors.
-- **Resolution**: Implemented a "Block & Manual Define" strategy for `KSDATAFORMAT` and `PCCONNECTION_DESCRIPTOR`. This maintains 100% binary compatibility while allowing clean, idiomatic static descriptors.
-- **Next Step**: Apply this same strategy to `KSPIN_DESCRIPTOR`.
+### 2. Zero-Warning Baseline (RESOLVED)
+- **Finding**: The horizontal refactor introduced several `unused_import` and naming convention warnings.
+- **Resolution**: Performed a comprehensive warning sweep. Suppressed `non_camel_case_types` on PortCls re-exports and `non_snake_case` on DDI entry points (`AddDevice`, `StartDevice`). Achievement of 0 warnings ensures a stable foundation for the next phase.
 
-### 3. PortCls Naming Consistency (RESOLVED)
-- **Finding**: Use of non-standard `PCCONNECTION` instead of `PCCONNECTION_DESCRIPTOR`.
-- **Resolution**: Standardized all references to match the official PortCls DDI.
+### 3. Binding Pipeline Integrity (RESOLVED)
+- **Finding**: Namespace ambiguity and type parity issues between `audio_bindings.rs` and `wdk_sys`.
+- **Resolution**: Refined the binding pipeline to inject `wdk_sys::GUID` and manually define core types, ensuring 100% type parity across the modularized crate.
 
 ## Safety & Type Audit
-- **Subsystem Native**: Verified that `build.rs` continues to enforce `/subsystem:native` for binary integrity.
-- **Memory Sections**: All static descriptors remain correctly assigned to `.rdata` to prevent page faults at `DISPATCH_LEVEL`.
+- **Subsystem Native**: Verified that `/subsystem:native` is correctly applied during the `release` build.
+- **Memory Sections**: Verified that all static descriptors remain correctly assigned to `.rdata`.
 
-## Recommendations for Session #32
-1. **Finalize Descriptors**: Manually define `KSPIN_DESCRIPTOR` in the binding pipeline to resolve the final initialization errors.
-2. **Warning Sweep**: Remove the `unused_import` warnings that appeared during the refactor.
+## Recommendations for Session #33
+1. **Runtime Verification**: Prioritize the baseline load test to ensure the modularized driver loads without `0xC0000034` or `0xC00002B9` errors.
+2. **IOCTL Hardening**: Review `dispatch.rs` for compatibility with the new modular structure before expanding the HSA communication bridge.

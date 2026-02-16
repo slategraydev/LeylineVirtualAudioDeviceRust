@@ -7,11 +7,11 @@
 
 | Script | Purpose | Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **`Install.ps1`** | Build + Install Pipeline | ✅ | Requires Admin. Verified path logic. |
-| **`Uninstall.ps1`** | System Purge | ✅ | Requires Admin. |
-| **`LaunchBuildEnv.ps1`** | Env Setup Only | ✅ | Sourced eWDK 28000 successfully. |
-| **`Install-VM.ps1`** | Remote Install | ✅ | Ready for deployment test. |
-| **`Uninstall-VM.ps1`** | Remote Cleanup | ✅ | Functional. |
+| **`Install.ps1`** | Build + Install Pipeline | ✅ | Ready for deployment. |
+| **`Uninstall.ps1`** | System Purge | ✅ | Ready for deployment. |
+| **`LaunchBuildEnv.ps1`** | Env Setup Only | ✅ | Verified eWDK 28000 integration. |
+| **`Install-VM.ps1`** | Remote Install | ✅ | Ready for VM testing. |
+| **`Uninstall-VM.ps1`** | Remote Cleanup | ✅ | Ready for VM testing. |
 
 ## Observations
-- No changes required to scripts this session.
+- Automation pipeline is ready for the Phase 1 Baseline Load Test.

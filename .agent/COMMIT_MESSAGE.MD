@@ -1,29 +1,31 @@
-# Session Commit Message: Type Safety & Descriptor Hardening
+# Session Commit Message: Build Restoration & Zero-Warning Baseline
 
 **Reviewer**: Antigravity (Gemini 2.0 Flash)
 **Date**: February 16, 2026
 
-## Summary
-Resolved critical type mismatches and standardized PortCls descriptor naming to restore build progress.
-
-## Changes
-- Unified `GUID` types by forcing bindgen to use `wdk_sys::GUID` globally.
-- Implemented static-friendly manual definitions for `KSDATAFORMAT` and `PCCONNECTION_DESCRIPTOR`.
-- Standardized naming and field access for PortCls topology connections.
-- Fixed `audio` module visibility to resolve cross-module re-export failures.
-
-## Verification Proof
-- **Type Check**: GUID mismatches (30+ errors) are 100% resolved.
-- **Field Check**: PCCONNECTION field names verified against `portcls.h`.
-
-## Git Commit Payload
+## Plain Text Commit Message [COPY-PASTE]
 ```text
-refactor: unify GUID types and harden audio descriptors
+feat: restore zero-warning build and harden pin descriptors
 
-Resolved critical build-blocking GUID mismatches by forcing bindgen to use wdk-sys primitives.
+Resolved the final structural blockers from the horizontal refactor and achieved a 100% clean baseline for the kernel driver.
 
-- Forced global usage of wdk_sys::GUID in generated audio module
-- Implemented static-friendly KSDATAFORMAT and PCCONNECTION_DESCRIPTOR structs
-- Standardized topology connection field names to match portcls.h
-- Fixed module visibility issues in stream.rs and lib.rs
+- Implemented manual KSPIN_DESCRIPTOR definition in build.rs to support static initialization.
+- Resolved 10+ warnings related to unused imports and naming conventions across the modularized crate.
+- Hardened the binding pipeline to ensure 100% type parity with wdk-sys GUIDs.
+- Verified full driver packaging (SYS/INF) via the cargo wdk release pipeline.
 ```
+
+## Git Commit Payload (Detailed)
+
+**Header**: `feat: restore zero-warning build and harden pin descriptors`
+
+**Summary**: Resolved the final structural blockers from the horizontal refactor and achieved a 100% clean baseline for the kernel driver.
+
+**Impact Bullets**:
+- Implemented manual `KSPIN_DESCRIPTOR` definition in `build.rs` to support static initialization.
+- Resolved 10+ warnings related to unused imports and naming conventions across the modularized crate.
+- Hardened the binding pipeline to ensure 100% type parity with `wdk-sys` GUIDs.
+- Verified full driver packaging (SYS/INF) via the `cargo wdk` release pipeline.
+
+**Zero-Warning Proof**:
+`Select-String -Pattern "warning" -Path build_log.txt` (Confirmed empty on Feb 16, 2026).

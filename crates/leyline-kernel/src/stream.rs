@@ -6,7 +6,6 @@
 // See LICENSE file in the project root for full terms.
 
 use crate::adapter::DeviceExtension;
-use crate::constants::*;
 
 // Include generated bindings in a private module.
 #[allow(non_upper_case_globals)]
@@ -19,23 +18,26 @@ pub mod audio {
 }
 
 // Explicitly re-export only what we need from audio.
+#[allow(non_camel_case_types)]
 pub type PCFILTER_DESCRIPTOR = audio::PCFILTER_DESCRIPTOR;
+#[allow(non_camel_case_types)]
 pub type PCPIN_DESCRIPTOR = audio::PCPIN_DESCRIPTOR;
+#[allow(non_camel_case_types)]
 pub type WAVEFORMATEX = audio::WAVEFORMATEX;
+#[allow(non_camel_case_types)]
 pub type KSPIN_DESCRIPTOR = audio::KSPIN_DESCRIPTOR;
+#[allow(non_camel_case_types)]
 pub type KSDATAFORMAT = audio::KSDATAFORMAT;
+#[allow(non_camel_case_types)]
 pub type KSDATARANGE = audio::KSDATARANGE;
+#[allow(non_camel_case_types)]
 pub type PKSDATARANGE = audio::PKSDATARANGE;
+#[allow(non_camel_case_types)]
 pub type PCCONNECTION = audio::PCCONNECTION_DESCRIPTOR;
-
-// Helper module for nested union field names (exported for descriptors.rs)
-pub mod audio_types {
-    pub use super::audio::KSPIN_DESCRIPTOR__bindgen_ty_1;
-}
 
 // Import all standard kernel types and constants from official wdk-sys
 use wdk_sys::ntddk::*;
-use wdk_sys::{GUID, LARGE_INTEGER, NTSTATUS, PHYSICAL_ADDRESS, PMDL, PVOID, ULONG, USHORT};
+use wdk_sys::{LARGE_INTEGER, NTSTATUS, PHYSICAL_ADDRESS, PMDL, PVOID, ULONG};
 // Standard Constants
 pub use wdk_sys::{MM_ALLOCATE_FULLY_REQUIRED, _MEMORY_CACHING_TYPE, _MM_PAGE_PRIORITY};
 pub use wdk_sys::{STATUS_ALREADY_COMMITTED, STATUS_INSUFFICIENT_RESOURCES, STATUS_SUCCESS};

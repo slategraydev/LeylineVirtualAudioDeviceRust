@@ -10,7 +10,6 @@ use crate::descriptors::*;
 use crate::stream::PCFILTER_DESCRIPTOR;
 use crate::vtables::*;
 use alloc::boxed::Box;
-use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
 pub struct MiniportTopology {

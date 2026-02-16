@@ -93,6 +93,7 @@ extern "C" {
     ) -> NTSTATUS;
 }
 
+#[allow(non_snake_case)]
 pub unsafe extern "C" fn AddDevice(
     driver_object: PDRIVER_OBJECT,
     physical_device_object: PDEVICE_OBJECT,
@@ -111,6 +112,7 @@ pub unsafe extern "C" fn AddDevice(
     )
 }
 
+#[allow(non_snake_case)]
 pub unsafe extern "C" fn StartDevice(
     device_object: PDEVICE_OBJECT,
     _irp: PIRP,

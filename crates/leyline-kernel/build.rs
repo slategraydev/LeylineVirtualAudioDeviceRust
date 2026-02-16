@@ -51,7 +51,8 @@ fn main() {
         .raw_line("pub type KSDATARANGE = KSDATAFORMAT;")
         .raw_line("pub type PKSDATARANGE = *mut KSDATAFORMAT;")
         .raw_line("#[repr(C)] #[derive(Copy, Clone)] pub struct PCCONNECTION_DESCRIPTOR { pub FromNode: ULONG, pub FromNodePin: ULONG, pub ToNode: ULONG, pub ToNodePin: ULONG, }")
-        .raw_line("pub type PPCCONNECTION_DESCRIPTOR = *mut PCCONNECTION_DESCRIPTOR;");
+        .raw_line("pub type PPCCONNECTION_DESCRIPTOR = *mut PCCONNECTION_DESCRIPTOR;")
+        .raw_line("#[repr(C)] #[derive(Copy, Clone)] pub struct KSPIN_DESCRIPTOR { pub InterfacesCount: ULONG, pub Interfaces: *const core::ffi::c_void, pub MediumsCount: ULONG, pub Mediums: *const core::ffi::c_void, pub DataRangesCount: ULONG, pub DataRanges: *const *mut KSDATAFORMAT, pub DataFlow: i32, pub Communication: i32, pub Category: *const GUID, pub Name: *const GUID, pub Reserved: LONGLONG, pub Reserved2: LONGLONG, }");
 
     let s_km = inc_km.to_str().unwrap();
     let s_shared = inc_shared.to_str().unwrap();
@@ -73,6 +74,8 @@ fn main() {
         .blocklist_type("KSTOPOLOGY_CONNECTION")
         .blocklist_type("PCCONNECTION_DESCRIPTOR")
         .blocklist_type("PPCCONNECTION_DESCRIPTOR")
+        .blocklist_type("KSPIN_DESCRIPTOR")
+        .blocklist_type("_KSPIN_DESCRIPTOR")
         .allowlist_var("KSSTATE_.*")
         .allowlist_var("KSDATAFORMAT_.*")
         .generate()

@@ -260,7 +260,9 @@ Continuity of project standards, architectural integrity, and the development ro
 Every agent participating in this project MUST adhere to the following maintenance routine:
 1. **Session Start**: Execute the `/status` workflow (`.agent/workflows/status.md`) immediately.
 2. **PROJECT_PROGRESS.MD**: Append a new Session Log with work completed and architectural suggestions.
-3. **COMMIT_MESSAGE.MD**: Update with session summary, changes, zero-warning verification proof, and a compressed "Git Commit Payload" section (Header MUST use Conventional Commits: `feat:`, `fix:`, etc.). [NEW]
+3. **COMMIT_MESSAGE.MD**: Update with session summary, changes, zero-warning verification proof, and a compressed "Git Commit Payload" section.
+    - **Header**: MUST use Conventional Commits format (e.g., `feat:`, `fix:`, `chore:`, `docs:`).
+    - **Plain Text Mandate**: MUST include a `## Plain Text Commit Message [COPY-PASTE]` block containing the raw commit text for immediate use. [NEW]
 4. **CODE_REVIEW.md**: Overwrite with a fresh technical audit of the current state.
 5. **TEST_REVIEW.md**: Update with verification and test coverage status.
 6. **BUILD_REVIEW.MD**: Update with current build health and warnings.

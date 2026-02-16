@@ -12,5 +12,5 @@
 | **LLVM** | 17.0.6 | 17.0.6 (eWDK) | ✅ |
 
 ## Refactoring Constraints
-- **Binding Layouts**: `wdk-sys` v0.2.0 uses specific naming for raw bindings (e.g., `_KSDATAFORMAT`). The new modular structure requires these to be correctly mapped and exported from `stream.rs` or `lib.rs` to maintain consistency.
-- **Sectioning**: The `#[link_section]` attribute is now critical for stability and must be maintained across all modules defining static driver data.
+- **Binding Layouts**: Bindgen pipeline now supports manual overrides for `KSDATAFORMAT`, `PCCONNECTION_DESCRIPTOR`, and `KSPIN_DESCRIPTOR` to ensure binary compatibility with PortCls while enabling Rust static initialization.
+- **Sectioning**: Verified that `#[link_section = ".rdata"]` is correctly applied across the modularized `descriptors.rs`.

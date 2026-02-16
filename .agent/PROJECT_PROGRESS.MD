@@ -53,8 +53,21 @@
     - **KSPIN_DESCRIPTOR Union**: Final remaining errors relate to initializing the `KSPIN_DESCRIPTOR` union in `descriptors.rs`.
 - **Status**: Near-compiling (Surgical fix phase).
 
-## PROJECT TODO (Next Session: #32)
-- [ ] **KSPIN_DESCRIPTOR Fix**: Align `descriptors.rs` with the `KSPIN_DESCRIPTOR` union layout or block/manually define it.
-- [ ] **Zero-Warning Proof**: Achieve 100% clean build.
-- [ ] **Baseline Load Test**: Verify driver stability on a test target.
+### Session #32: Build Restoration & Zero-Warning Baseline
+- **Date**: February 16, 2026
+- **Reviewer**: Antigravity (Gemini 2.0 Flash)
+- **Summary**: Successfully restored the build after the horizontal refactor and achieved a 100% clean baseline.
+- **Key Changes**:
+    - **KSPIN_DESCRIPTOR Fix**: Implemented a manual, static-initialization-friendly definition of `KSPIN_DESCRIPTOR` in `build.rs` to bypass bindgen's anonymous union friction.
+    - **Warning Sweep**: Resolved 10+ warnings related to `unused_imports`, `non_camel_case_types`, and `non_snake_case`.
+    - **Type Visibility**: Refined re-exports in `stream.rs` and hardened the binding pipeline to ensure type parity with `wdk-sys`.
+    - **Binary Integrity**: Verified full driver packaging via `cargo wdk build`.
+- **Current Problems**:
+    - None (Compilable Baseline Achieved).
+- **Status**: Compilable & Warning-Free.
+
+## PROJECT TODO (Next Session: #33)
+- [ ] **Baseline Load Test**: Deploy the compiled `.sys` and `.inf` to a test target to verify stability.
+- [ ] **Topology Validation**: Re-enable and verify the Topology registration logic.
+- [ ] **HSA Communication**: Begin implementing the IOCTL bridge for the WinUI 3 app.
 
