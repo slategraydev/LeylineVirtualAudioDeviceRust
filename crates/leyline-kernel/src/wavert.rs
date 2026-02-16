@@ -102,9 +102,9 @@ pub unsafe extern "system" fn miniport_query_interface(
     if iid.is_null() || out.is_null() {
         return STATUS_INVALID_PARAMETER;
     }
-    if crate::lib::is_equal_guid(iid, &IID_IMiniportWaveRT)
-        || crate::lib::is_equal_guid(iid, &IID_IUnknown)
-        || crate::lib::is_equal_guid(iid, &IID_IMiniport)
+    if crate::is_equal_guid(iid, &IID_IMiniportWaveRT)
+        || crate::is_equal_guid(iid, &IID_IUnknown)
+        || crate::is_equal_guid(iid, &IID_IMiniport)
     {
         (*com_obj).ref_count += 1;
         *out = this;
@@ -162,45 +162,54 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
         return STATUS_INVALID_PARAMETER;
     }
     let ks_range = data_range as *const KSDATARANGE;
-    if !crate::lib::is_equal_guid(&(*ks_range).MajorFormat, &KSDATAFORMAT_TYPE_AUDIO) {
-        return STATUS_NO_MATCH;
-    }
-    if !crate::lib::is_equal_guid(&(*ks_range).Specifier, &KSDATAFORMAT_SPECIFIER_WAVEFORMATEX) {
-        return STATUS_NO_MATCH;
-    }
-    let is_pcm = crate::lib::is_equal_guid(&(*ks_range).SubFormat, &KSDATAFORMAT_SUBTYPE_PCM);
-    let is_float =
-        crate::lib::is_equal_guid(&(*ks_range).SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
-    if !is_pcm && !is_float {
-        return STATUS_NO_MATCH;
-    }
+    unsafe {
+        if !crate::is_equal_guid(
+            &(*ks_range).__bindgen_anon_1.MajorFormat,
+            &KSDATAFORMAT_TYPE_AUDIO,
+        ) {
+            return STATUS_NO_MATCH;
+        }
+        if !crate::is_equal_guid(
+            &(*ks_range).__bindgen_anon_1.Specifier,
+            &KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
+        ) {
+            return STATUS_NO_MATCH;
+        }
+        let is_pcm = crate::is_equal_guid(
+            &(*ks_range).__bindgen_anon_1.SubFormat,
+            &KSDATAFORMAT_SUBTYPE_PCM,
+        );
+        let is_float = crate::is_equal_guid(
+            &(*ks_range).__bindgen_anon_1.SubFormat,
+            &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
+        );
+        if !is_pcm && !is_float {
+            return STATUS_NO_MATCH;
+        }
 
-    let format_size = core::mem::size_of::<crate::stream::KSDATAFORMAT_WAVEFORMATEX>() as u32;
-    if data_format_cb == 0 {
-        if !actual_data_format_cb.is_null() {
-            unsafe {
+        let format_size = core::mem::size_of::<crate::stream::KSDATAFORMAT_WAVEFORMATEX>() as u32;
+        if data_format_cb == 0 {
+            if !actual_data_format_cb.is_null() {
                 *actual_data_format_cb = format_size;
             }
+            return STATUS_BUFFER_OVERFLOW;
         }
-        return STATUS_BUFFER_OVERFLOW;
-    }
-    if data_format_cb < format_size {
-        return STATUS_BUFFER_TOO_SMALL;
-    }
+        if data_format_cb < format_size {
+            return STATUS_BUFFER_TOO_SMALL;
+        }
 
-    let result = data_format as *mut crate::stream::KSDATAFORMAT_WAVEFORMATEX;
-    unsafe {
-        (*result).DataFormat.FormatSize = format_size;
-        (*result).DataFormat.MajorFormat = KSDATAFORMAT_TYPE_AUDIO;
-        (*result).DataFormat.SubFormat = (*ks_range).SubFormat;
-        (*result).DataFormat.Specifier = KSDATAFORMAT_SPECIFIER_WAVEFORMATEX;
+        let result = data_format as *mut crate::stream::KSDATAFORMAT_WAVEFORMATEX;
+        (*result).DataFormat.__bindgen_anon_1.FormatSize = format_size;
+        (*result).DataFormat.__bindgen_anon_1.MajorFormat = KSDATAFORMAT_TYPE_AUDIO;
+        (*result).DataFormat.__bindgen_anon_1.SubFormat = (*ks_range).__bindgen_anon_1.SubFormat;
+        (*result).DataFormat.__bindgen_anon_1.Specifier = KSDATAFORMAT_SPECIFIER_WAVEFORMATEX;
 
         (*result).WaveFormatEx.wFormatTag = if is_pcm { 1 } else { 3 };
         (*result).WaveFormatEx.nChannels = 2;
         (*result).WaveFormatEx.nSamplesPerSec = 48000;
         (*result).WaveFormatEx.wBitsPerSample = if is_pcm { 16 } else { 32 };
         (*result).WaveFormatEx.nBlockAlign =
-            ((*result).WaveFormatEx.nChannels * (*result).WaveFormatEx.wBitsPerSample) / 8;
+            ((*result).WaveFormatEx.nChannels * (*result).WaveFormatEx.wBitsPerSample / 8) as u16;
         (*result).WaveFormatEx.nAvgBytesPerSec =
             (*result).WaveFormatEx.nSamplesPerSec * (*result).WaveFormatEx.nBlockAlign as u32;
         (*result).WaveFormatEx.cbSize = 0;

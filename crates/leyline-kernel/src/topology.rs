@@ -54,9 +54,9 @@ pub unsafe extern "system" fn topology_query_interface(
     out: *mut *mut u8,
 ) -> NTSTATUS {
     let com_obj = this as *mut MiniportTopologyCom;
-    if is_equal_guid(iid, &IID_IMiniportTopology)
-        || is_equal_guid(iid, &IID_IUnknown)
-        || is_equal_guid(iid, &IID_IMiniport)
+    if crate::is_equal_guid(iid, &IID_IMiniportTopology)
+        || crate::is_equal_guid(iid, &IID_IUnknown)
+        || crate::is_equal_guid(iid, &IID_IMiniport)
     {
         (*com_obj).ref_count += 1;
         *out = this;
@@ -130,12 +130,3 @@ pub static TOPOLOGY_VTABLE: IMiniportTopologyVTable = IMiniportTopologyVTable {
     DataRangeIntersection: topology_data_range_intersection,
     Init: topology_init,
 };
-
-fn is_equal_guid(a: *const GUID, b: &GUID) -> bool {
-    unsafe {
-        (*a).Data1 == b.Data1
-            && (*a).Data2 == b.Data2
-            && (*a).Data3 == b.Data3
-            && (*a).Data4 == b.Data4
-    }
-}

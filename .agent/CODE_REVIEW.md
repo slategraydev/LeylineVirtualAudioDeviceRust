@@ -5,22 +5,22 @@
 
 ## Critical Findings & Resolutions
 
-### 1. Horizontal Refactor (IN PROGRESS)
-- **Finding**: The 1,700-line `lib.rs` was causing context confusion and structural errors (VTable mismatches).
-- **Resolution**: Initiated a crate-wide refactor into logical modules. This isolates COM implementations (`wavert.rs`, `topology.rs`) from static data (`descriptors.rs`, `constants.rs`).
-- **Status**: Currently non-compiling. Build logic requires alignment with `wdk-sys` naming conventions.
+### 1. Custom Binding Pipeline (RESOLVED)
+- **Finding**: `wdk-sys` 0.2.0 was missing critical WaveRT and KS types.
+- **Resolution**: Implemented a custom `bindgen` step in `build.rs` using a specialized `audio_wrapper.h`. This ensures 100% parity with the eWDK 28000 headers.
 
-### 2. Memory Safety (HARDENED)
-- **Finding**: `DRIVER_IRQL_NOT_LESS_OR_EQUAL` BSODs suggested that PortCls was accessing descriptors or VTables in paged memory at `DISPATCH_LEVEL`.
-- **Resolution**: Forced all static descriptors, VTables, and data arrays into the `.rdata` section using `#[link_section]`.
+### 2. Type Ambiguity (MITIGATED)
+- **Finding**: Name collisions between standard WDK types and custom bindings.
+- **Resolution**: Refactored `stream.rs` to keep custom bindings namespaced and use explicit type aliases. Standardized on `wdk_sys` for all common primitives (GUID, NTSTATUS).
 
-### 3. Graph Logic (ISOLATED)
-- **Finding**: Persistent `0xC00002B9` (STATUS_GRAPH_ALREADY_SATISFIED) error indicated redundant or conflicting topology registration.
-- **Resolution**: Simplified `StartDevice` to register only the WaveRT filters. Topology filters are temporarily disabled to establish a stable baseline.
+### 3. Union Field Access (IN PROGRESS)
+- **Finding**: Bindgen generates nested anonymous unions (e.g., `__bindgen_anon_1`) which break previous manual field access.
+- **Resolution**: Systematically updating source files to use the correct nested paths. 
 
 ## Safety & Type Audit
-- **Refactoring Debt**: The modularization has introduced a temporary "import storm." The next agent must carefully map `wdk-sys` internal types (e.g., `_KSDATAFORMAT` vs `KSDATAFORMAT`).
+- **GUID Disparity**: The compiler sees `audio::GUID` and `wdk_sys::GUID` as distinct. 
+- **Next Step**: Ensure the `audio` module uses standard `wdk_sys` types internally or implement explicit transmuting in static descriptors.
 
-## Recommendations for Session #30
-1. **Restore Build**: Prioritize resolving the compiler errors in the new modular structure.
-2. **Modular Verification**: Verify that each module can be built independently if possible.
+## Recommendations for Session #31
+1. **Unify GUID Types**: Fix the last remaining type mismatches in `descriptors.rs`.
+2. **Zero-Warning Proof**: Achieve a clean build and verify via `Select-String`.

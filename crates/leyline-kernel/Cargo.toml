@@ -13,3 +13,6 @@ wdk = "0.2"
 wdk-sys = "0.2"
 wdk-alloc = "0.2"
 leyline-shared = { path = "../leyline-shared" }
+
+[build-dependencies]
+bindgen = "0.69"

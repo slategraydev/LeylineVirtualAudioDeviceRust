@@ -18,6 +18,8 @@ pub mod topology;
 pub mod vtables;
 pub mod wavert;
 
+pub use stream::audio;
+
 use crate::adapter::{AddDevice, MiniportWaveRTStreamCom};
 use crate::constants::*;
 use crate::dispatch::*;

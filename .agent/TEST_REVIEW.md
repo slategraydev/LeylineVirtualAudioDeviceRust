@@ -2,20 +2,20 @@
 
 **Reviewer**: Antigravity (Gemini 2.0 Flash)
 **Date**: February 16, 2026
-**Status**: SESSION #29 COMPLETE (Refactor in Progress)
+**Status**: SESSION #30 COMPLETE (Near-compiling)
 
 ## Test Coverage Summary
 
 | Component | Test Type | Status | Results |
 | :--- | :--- | :---: | :--- |
-| **`leyline-kernel`** | Build | ❌ | FAILED (Refactoring imports). |
+| **`leyline-kernel`** | Build | 🏗️ | IN PROGRESS (Type unification). |
 | **`Baseline`** | Load | ⏳ | PENDING (Requires successful build). |
 | **`Topology`** | Static | ⏳ | PENDING (Currently disabled). |
 
 ## Verification Progress
-- **Structural Verification**: Verified that all critical VTables and Descriptors are in `.rdata` sections.
-- **Horizontal Refactor**: All new modules created; imports are the remaining blocker.
+- **Structural Verification**: Descriptors and VTables correctly use `.rdata` sections.
+- **Custom Bindings**: Verified that `build.rs` correctly invokes `bindgen` and produces `audio_bindings.rs`.
 
 ## Testing Gaps & Priorities
-1. **Build Restoration**: The primary priority is achieving a clean build again.
-2. **BSOD Isolation**: Once built, verify if the `.rdata` hardening resolves the BSOD on load.
+1. **Type Unification**: Resolve the GUID mismatches to achieve a build.
+2. **BSOD Isolation**: Confirm that the refactor and `.rdata` placement fix the previous load-time BSOD.

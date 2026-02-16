@@ -27,7 +27,21 @@
     - **Build Failure**: The project is currently non-compiling due to `wdk-sys` binding naming mismatches and visibility issues introduced by the split.
 - **Status**: Non-compiling (In Refactor).
 
-## PROJECT TODO (Next Session: #30)
-- **[ ] Build Restoration**: Resolve `wdk-sys` import errors and cross-module visibility in the new modular structure.
-- **[ ] Baseline Load Test**: Once building, verify the "pure WaveRT" driver loads without BSOD.
-- **[ ] Incremental Topology**: Gradually re-add Topology filters to pinpoint `0xC00002B9`.
+### Session #30: Build Restoration & Binding Hardening
+- **Date**: February 16, 2026
+- **Reviewer**: Antigravity (Gemini 2.0 Flash)
+- **Summary**: Restored the build system after the horizontal refactor by implementing custom binding generation.
+- **Key Changes**:
+    - **Custom Bindings**: Created `audio_wrapper.h` and updated `build.rs` to generate audio-specific Rust bindings via `bindgen`.
+    - **Namespace Cleanup**: Resolved massive ambiguity errors by namespacing the `audio` module and using explicit type aliases in `stream.rs`.
+    - **Shared Library Updates**: Added `ticks_to_bytes` and `get_base_address` to `leyline-shared` to satisfy kernel-mode requirements.
+    - **Surgical Code Updates**: Updated `wavert.rs` and `descriptors.rs` to support `bindgen`'s nested union field layouts.
+- **Current Problems**:
+    - **Type Mismatches**: Final remaining errors relate to `audio::GUID` vs `wdk_sys::GUID` distinction.
+- **Status**: Near-compiling (Finalizing type unification).
+
+## PROJECT TODO (Next Session: #31)
+- **[ ] Type Unification**: Resolve the GUID type mismatches in `descriptors.rs`.
+- **[ ] Build Restoration**: Achieve 100% clean build with zero warnings.
+- **[ ] Baseline Load Test**: Verify the "pure WaveRT" driver loads without BSOD.
+

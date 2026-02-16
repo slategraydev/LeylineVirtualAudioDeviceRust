@@ -24,6 +24,13 @@ impl WaveRTMath {
 
         position
     }
+
+    pub fn ticks_to_bytes(elapsed_ticks: i64, byte_rate: u32, frequency: i64) -> u64 {
+        if frequency <= 0 {
+            return 0;
+        }
+        ((elapsed_ticks as u128 * byte_rate as u128) / (frequency as u128)) as u64
+    }
 }
 
 #[cfg(test)]

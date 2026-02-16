@@ -7,10 +7,10 @@
 
 use crate::constants::*;
 use crate::stream::{
-    KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCCONNECTION, PCFILTER_DESCRIPTOR,
-    PCPIN_DESCRIPTOR,
+    audio_types, KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCCONNECTION,
+    PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR,
 };
-use wdk_sys::GUID;
+use wdk_sys::{GUID, ULONG};
 
 #[repr(transparent)]
 pub struct SyncPtr<T>(pub *const T);
@@ -23,13 +23,15 @@ unsafe impl<T> Sync for SyncPtr<T> {}
 #[link_section = ".rdata"]
 pub static PCM_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
     DataRange: KSDATARANGE {
-        FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
-        Flags: 0,
-        SampleSize: 0,
-        Reserved: 0,
-        MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-        SubFormat: KSDATAFORMAT_SUBTYPE_PCM,
-        Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
+        __bindgen_anon_1: audio_types::KSDATAFORMAT__bindgen_ty_1 {
+            FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
+            Flags: 0,
+            SampleSize: 0,
+            Reserved: 0,
+            MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
+            SubFormat: KSDATAFORMAT_SUBTYPE_PCM,
+            Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
+        },
     },
     MaximumChannels: 2,
     MinimumBitsPerSample: 16,
@@ -41,13 +43,15 @@ pub static PCM_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
 #[link_section = ".rdata"]
 pub static FLOAT_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
     DataRange: KSDATARANGE {
-        FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
-        Flags: 0,
-        SampleSize: 0,
-        Reserved: 0,
-        MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-        SubFormat: KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
-        Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
+        __bindgen_anon_1: audio_types::KSDATAFORMAT__bindgen_ty_1 {
+            FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
+            Flags: 0,
+            SampleSize: 0,
+            Reserved: 0,
+            MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
+            SubFormat: KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
+            Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
+        },
     },
     MaximumChannels: 2,
     MinimumBitsPerSample: 32,
@@ -58,13 +62,15 @@ pub static FLOAT_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
 
 #[link_section = ".rdata"]
 pub static BRIDGE_DATARANGE: KSDATARANGE = KSDATARANGE {
-    FormatSize: core::mem::size_of::<KSDATARANGE>() as u32,
-    Flags: 0,
-    SampleSize: 0,
-    Reserved: 0,
-    MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-    SubFormat: KSDATAFORMAT_SUBTYPE_ANALOG,
-    Specifier: KSDATAFORMAT_SPECIFIER_NONE_GUID,
+    __bindgen_anon_1: audio_types::KSDATAFORMAT__bindgen_ty_1 {
+        FormatSize: core::mem::size_of::<KSDATARANGE>() as u32,
+        Flags: 0,
+        SampleSize: 0,
+        Reserved: 0,
+        MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
+        SubFormat: KSDATAFORMAT_SUBTYPE_ANALOG,
+        Specifier: KSDATAFORMAT_SPECIFIER_NONE_GUID,
+    },
 };
 
 #[link_section = ".rdata"]
@@ -84,7 +90,7 @@ pub static BRIDGE_DATARANGES: [SyncPtr<KSDATARANGE>; 1] =
 #[link_section = ".rdata"]
 pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
     PCPIN_DESCRIPTOR {
-        MaxGlobalInstanceCount: 4, // MAX_STREAMS
+        MaxGlobalInstanceCount: 4,
         MaxFilterInstanceCount: 4,
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
@@ -94,12 +100,12 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 2,
-            DataRanges: WAVE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: KSPIN_DATAFLOW_IN,
-            Communication: KSPIN_COMMUNICATION_SINK,
-            Category: &KSCATEGORY_AUDIO_GUID,
+            DataRanges: WAVE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
+            DataFlow: KSPIN_DATAFLOW_IN as i32,
+            Communication: KSPIN_COMMUNICATION_SINK as i32,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            Reserved: core::ptr::null_mut(),
+            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
         },
     },
     PCPIN_DESCRIPTOR {
@@ -113,12 +119,12 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
-            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: KSPIN_DATAFLOW_OUT,
-            Communication: KSPIN_COMMUNICATION_BRIDGE,
-            Category: &KSCATEGORY_AUDIO_GUID,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
+            DataFlow: KSPIN_DATAFLOW_OUT as i32,
+            Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            Reserved: core::ptr::null_mut(),
+            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
         },
     },
 ];
@@ -126,7 +132,7 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
 #[link_section = ".rdata"]
 pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
     PCPIN_DESCRIPTOR {
-        MaxGlobalInstanceCount: 4, // MAX_STREAMS
+        MaxGlobalInstanceCount: 4,
         MaxFilterInstanceCount: 4,
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
@@ -136,12 +142,12 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 2,
-            DataRanges: WAVE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: KSPIN_DATAFLOW_OUT,
-            Communication: KSPIN_COMMUNICATION_SOURCE,
-            Category: &KSCATEGORY_AUDIO_GUID,
+            DataRanges: WAVE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
+            DataFlow: KSPIN_DATAFLOW_OUT as i32,
+            Communication: KSPIN_COMMUNICATION_SOURCE as i32,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            Reserved: core::ptr::null_mut(),
+            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
         },
     },
     PCPIN_DESCRIPTOR {
@@ -155,12 +161,12 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
-            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: KSPIN_DATAFLOW_IN,
-            Communication: KSPIN_COMMUNICATION_BRIDGE,
-            Category: &KSCATEGORY_AUDIO_GUID,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
+            DataFlow: KSPIN_DATAFLOW_IN as i32,
+            Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            Reserved: core::ptr::null_mut(),
+            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
         },
     },
 ];
@@ -178,12 +184,12 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
-            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: KSPIN_DATAFLOW_IN,
-            Communication: KSPIN_COMMUNICATION_BRIDGE,
-            Category: &KSCATEGORY_AUDIO_GUID,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
+            DataFlow: KSPIN_DATAFLOW_IN as i32,
+            Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            Reserved: core::ptr::null_mut(),
+            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
         },
     },
     PCPIN_DESCRIPTOR {
@@ -197,12 +203,12 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
-            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: KSPIN_DATAFLOW_OUT,
-            Communication: KSPIN_COMMUNICATION_NONE,
-            Category: &KSNODETYPE_SPEAKER,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
+            DataFlow: KSPIN_DATAFLOW_OUT as i32,
+            Communication: KSPIN_COMMUNICATION_NONE as i32,
+            Category: &KSNODETYPE_SPEAKER as *const GUID,
             Name: core::ptr::null(),
-            Reserved: core::ptr::null_mut(),
+            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
         },
     },
 ];
@@ -220,12 +226,12 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
-            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: KSPIN_DATAFLOW_IN,
-            Communication: KSPIN_COMMUNICATION_NONE,
-            Category: &KSNODETYPE_MICROPHONE,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
+            DataFlow: KSPIN_DATAFLOW_IN as i32,
+            Communication: KSPIN_COMMUNICATION_NONE as i32,
+            Category: &KSNODETYPE_MICROPHONE as *const GUID,
             Name: core::ptr::null(),
-            Reserved: core::ptr::null_mut(),
+            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
         },
     },
     PCPIN_DESCRIPTOR {
@@ -239,12 +245,12 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
-            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: KSPIN_DATAFLOW_OUT,
-            Communication: KSPIN_COMMUNICATION_BRIDGE,
-            Category: &KSCATEGORY_AUDIO_GUID,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
+            DataFlow: KSPIN_DATAFLOW_OUT as i32,
+            Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
-            Reserved: core::ptr::null_mut(),
+            __bindgen_anon_1: audio_types::KSPIN_DESCRIPTOR__bindgen_ty_1 { Reserved: 0 },
         },
     },
 ];

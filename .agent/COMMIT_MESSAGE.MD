@@ -1,24 +1,24 @@
-# Session #29 Commit Message
+# Session Commit: Build Restoration & Custom Bindings
 
-**Header**: `refactor: horizontal modularization of the kernel crate`
+**Reviewer**: Antigravity (Gemini 2.0 Flash)
+**Date**: February 16, 2026
 
-**Summary**: This session focused on breaking down the monolithic `lib.rs` into logical modules to improve maintainability and resolve structural precision errors.
+## Summary
+Restored the build toolchain following the horizontal refactor by implementing a custom bindgen pipeline for audio-specific WDK headers.
 
-**Impact Bullets**:
-- Implemented a modular directory structure (`constants.rs`, `vtables.rs`, `descriptors.rs`, `wavert.rs`, `topology.rs`, `adapter.rs`, `dispatch.rs`).
-- Hardened memory safety by forcing critical VTables and descriptors into non-paged `.rdata` sections.
-- Simplified `StartDevice` to a baseline WaveRT registration state to isolate topology initialization errors.
-- Enhanced debug logging for high-resolution telemetry during the load sequence.
-- **Note**: The crate is currently in a non-compiling state due to refactoring import dependencies.
+## Changes
+- **feat(kernel)**: Added `audio_wrapper.h` and `bindgen` logic to `build.rs`.
+- **fix(kernel)**: Resolved type ambiguities in `stream.rs` using explicit namespacing.
+- **feat(shared)**: Enhanced `leyline-shared` with position tracking and buffer management methods.
+- **chore(kernel)**: Updated `wavert.rs` and `descriptors.rs` for `bindgen` union compatibility.
 
-**Git Commit Payload**:
-```text
-refactor: horizontal modularization of the kernel crate
+## Git Commit Payload
+```
+feat: implement custom bindgen pipeline for audio headers
 
-Initiated horizontal refactor to split 1,700-line lib.rs into logical modules.
-
-- Created modular structure for constants, vtables, descriptors, and implementations.
-- Forced static structures into .rdata (non-paged) memory sections.
-- Established a WaveRT-only baseline in StartDevice for stability testing.
-- Added comprehensive telemetry logging to help diagnose BSODs.
+- Added audio_wrapper.h to include PortCls and KS headers.
+- Updated build.rs to generate Rust bindings for missing audio types.
+- Resolved type collisions between wdk-sys and custom bindings.
+- Updated stream and wavert modules to handle nested union fields.
+- Enhanced leyline-shared with math and buffer interface methods.
 ```

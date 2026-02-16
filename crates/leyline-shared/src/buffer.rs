@@ -17,6 +17,10 @@ impl RingBuffer {
         self.buffer
     }
 
+    pub fn get_base_address(&self) -> *mut u8 {
+        self.buffer
+    }
+
     pub fn get_size(&self) -> usize {
         self.size
     }

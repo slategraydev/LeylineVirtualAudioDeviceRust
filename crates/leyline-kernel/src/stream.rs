@@ -5,17 +5,44 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
-#![no_std]
-
 use crate::adapter::DeviceExtension;
-use wdk_sys::ntddk::*;
-use wdk_sys::*;
+use crate::constants::*;
 
-// Correct bindings for wdk-sys
-pub type KSDATAFORMAT = wdk_sys::_KSDATAFORMAT;
-pub type WAVEFORMATEX = wdk_sys::tWAVEFORMATEX;
-pub type KSDATARANGE = wdk_sys::_KSDATARANGE;
-pub type KSPIN_DESCRIPTOR = wdk_sys::_KSPIN_DESCRIPTOR;
+// Include generated bindings in a private module.
+#[allow(non_upper_case_globals)]
+#[allow(non_camel_case_types)]
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+#[allow(unnecessary_transmutes)]
+mod audio {
+    include!(concat!(env!("OUT_DIR"), "/audio_bindings.rs"));
+}
+
+// Explicitly re-export only what we need from audio.
+pub type KSDATAFORMAT = audio::KSDATAFORMAT;
+pub type KSDATARANGE = audio::KSDATARANGE;
+pub type KSPIN_DESCRIPTOR = audio::KSPIN_DESCRIPTOR;
+pub type PCFILTER_DESCRIPTOR = audio::PCFILTER_DESCRIPTOR;
+pub type PCPIN_DESCRIPTOR = audio::PCPIN_DESCRIPTOR;
+pub type PCCONNECTION = audio::PCCONNECTION;
+pub type WAVEFORMATEX = audio::WAVEFORMATEX;
+
+// Helper module for nested union field names (exported for descriptors.rs)
+pub mod audio_types {
+    pub use super::audio::KSDATAFORMAT__bindgen_ty_1;
+    pub use super::audio::KSPIN_DESCRIPTOR__bindgen_ty_1;
+}
+
+// Import all standard kernel types and constants from official wdk-sys
+use wdk_sys::ntddk::*;
+use wdk_sys::{GUID, LARGE_INTEGER, NTSTATUS, PHYSICAL_ADDRESS, PMDL, PVOID, ULONG, USHORT};
+// Standard Constants
+pub use wdk_sys::{MM_ALLOCATE_FULLY_REQUIRED, _MEMORY_CACHING_TYPE, _MM_PAGE_PRIORITY};
+pub use wdk_sys::{STATUS_ALREADY_COMMITTED, STATUS_INSUFFICIENT_RESOURCES, STATUS_SUCCESS};
+
+// WaveRT Constants
+pub const KSSTATE_RUN: i32 = audio::KSSTATE_KSSTATE_RUN as i32;
+pub const KSSTATE_STOP: i32 = audio::KSSTATE_KSSTATE_STOP as i32;
 
 // ============================================================================
 // WaveRT Struct Definitions
@@ -37,42 +64,6 @@ pub struct KSDATARANGE_AUDIO {
     pub MaximumBitsPerSample: ULONG,
     pub MinimumSampleFrequency: ULONG,
     pub MaximumSampleFrequency: ULONG,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct PCCONNECTION {
-    pub FromNode: ULONG,
-    pub FromPin: ULONG,
-    pub ToNode: ULONG,
-    pub ToPin: ULONG,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct PCPIN_DESCRIPTOR {
-    pub MaxGlobalInstanceCount: ULONG,
-    pub MaxFilterInstanceCount: ULONG,
-    pub MinFilterInstanceCount: ULONG,
-    pub AutomationTable: *const u8,
-    pub KsPinDescriptor: KSPIN_DESCRIPTOR,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct PCFILTER_DESCRIPTOR {
-    pub Version: ULONG,
-    pub AutomationTable: *const u8,
-    pub PinSize: ULONG,
-    pub PinCount: ULONG,
-    pub Pins: *const PCPIN_DESCRIPTOR,
-    pub NodeSize: ULONG,
-    pub NodeCount: ULONG,
-    pub Nodes: *const u8,
-    pub ConnectionCount: ULONG,
-    pub Connections: *const PCCONNECTION,
-    pub CategoryCount: ULONG,
-    pub Categories: *const GUID,
 }
 
 unsafe impl Sync for KSDATARANGE_AUDIO {}
@@ -132,7 +123,7 @@ impl MiniportWaveRTStream {
         }
         Self {
             buffer: leyline_shared::buffer::RingBuffer::new(core::ptr::null_mut(), 0),
-            state: _KSSTATE::KSSTATE_STOP as i32,
+            state: KSSTATE_STOP,
             _format: format,
             mdl: core::ptr::null_mut(),
             mapping: core::ptr::null_mut(),
@@ -148,16 +139,16 @@ impl MiniportWaveRTStream {
 
     pub fn set_state(&mut self, state: i32) -> NTSTATUS {
         self.state = state;
-        if state == _KSSTATE::KSSTATE_STOP as i32 {
+        if state == KSSTATE_STOP {
             self.start_time = 0;
-        } else if state == _KSSTATE::KSSTATE_RUN as i32 {
+        } else if state == KSSTATE_RUN {
             self.start_time = self.time_source.query_time();
         }
         STATUS_SUCCESS
     }
 
     pub fn get_position(&mut self, position: *mut u64) -> NTSTATUS {
-        if self.state != _KSSTATE::KSSTATE_RUN as i32 || self.start_time == 0 {
+        if self.state != KSSTATE_RUN || self.start_time == 0 {
             unsafe {
                 if !position.is_null() {
                     *position = 0;
