@@ -21,6 +21,7 @@ use crate::stream::MiniportWaveRTStream;
 use crate::topology::MiniportTopologyCom;
 use crate::vtables::*;
 use crate::wavert::MiniportWaveRTCom;
+// use crate::PcRegisterPhysicalConnection;
 
 const _POOL_TAG: u32 = u32::from_be_bytes(*b"LLAD");
 const PORT_CLASS_DEVICE_EXTENSION_SIZE: usize = 64 * size_of::<usize>();
@@ -260,9 +261,100 @@ pub unsafe extern "C" fn StartDevice(
         0x0000,
     ];
     status = PcRegisterSubdevice(device_object, wave_capture_name.as_ptr(), capture_port);
+    if status != STATUS_SUCCESS {
+        DbgPrint(c"Leyline: PcRegisterSubdevice(WaveCapture) Failed\n".as_ptr());
+        return status;
+    }
+
+    // --- Topology Registration (Render Only for Diagnosis) ---
+    DbgPrint(c"Leyline: Registering TopologyRender Port\n".as_ptr());
+    DbgPrint(c"Leyline: About to call PcNewPort with CLSID_PortTopology\n".as_ptr());
+    let mut render_topo_port: *mut u8 = null_mut();
+    status = PcNewPort(&mut render_topo_port, &CLSID_PortTopology);
+    if status != STATUS_SUCCESS {
+        DbgPrint(c"Leyline: PcNewPort(TopologyRender) FAILED\n".as_ptr());
+        // Status 0xC00002B9 = STATUS_REQUEST_NOT_ACCEPTED
+        // This typically means PortCls rejected the creation request
+        if status == 0xC00002B9u32 as i32 {
+            DbgPrint(c"Leyline: ERROR - STATUS_REQUEST_NOT_ACCEPTED (0xC00002B9)\n".as_ptr());
+            DbgPrint(c"Leyline: Possible causes:\n".as_ptr());
+            DbgPrint(c"Leyline:   - Invalid/malformed miniport descriptor\n".as_ptr());
+            DbgPrint(c"Leyline:   - Missing interface support in miniport\n".as_ptr());
+            DbgPrint(c"Leyline:   - PortCls unable to initialize topology port\n".as_ptr());
+        }
+        return status;
+    }
+    DbgPrint(c"Leyline: PcNewPort(TopologyRender) SUCCESS\n".as_ptr());
+
+    let topo_miniport_com = MiniportTopologyCom::new(false); // false = Render
+    let topo_miniport_ptr = Box::into_raw(topo_miniport_com) as *mut u8;
+    (*dev_ext).render_topo_miniport = topo_miniport_ptr as *mut MiniportTopologyCom;
+
+    let vtable = *(render_topo_port as *const *const *const u8);
+    // IPortTopology inherits IPort. IPort inherits IUnknown. Init is index 3.
+    let init_ptr = *vtable.add(3);
+    let init_fn: PortInitFn = core::mem::transmute(init_ptr);
+
+    DbgPrint(c"Leyline: Calling TopologyRender::Init\n".as_ptr());
+    DbgPrint(c"Leyline: Init function pointer acquired from vtable[3]\n".as_ptr());
+
+    // Validate miniport pointer before passing
+    if topo_miniport_ptr.is_null() {
+        DbgPrint(c"Leyline: ERROR - topo_miniport_ptr is NULL!\n".as_ptr());
+        return STATUS_INVALID_PARAMETER;
+    }
+    DbgPrint(c"Leyline: Miniport pointer is valid\n".as_ptr());
+
+    status = init_fn(
+        render_topo_port,
+        device_object,
+        _irp,
+        topo_miniport_ptr,
+        null_mut(),
+        null_mut(), // Topology doesn't need hardware resources
+    );
+    if status != STATUS_SUCCESS {
+        DbgPrint(c"Leyline: TopologyRender::Init FAILED\n".as_ptr());
+        if status == 0xC00002B9u32 as i32 {
+            DbgPrint(c"Leyline: ERROR - STATUS_REQUEST_NOT_ACCEPTED during Init\n".as_ptr());
+            DbgPrint(c"Leyline: The miniport rejected the initialization request\n".as_ptr());
+            DbgPrint(c"Leyline: Check DbgPrint output from topology miniport above\n".as_ptr());
+        }
+        return status;
+    }
+    DbgPrint(c"Leyline: TopologyRender::Init SUCCESS\n".as_ptr());
+
+    let topo_render_name: [u16; 15] = [
+        0x0054, 0x006F, 0x0070, 0x006F, 0x006C, 0x006F, 0x0067, 0x0079, 0x0052, 0x0065, 0x006E,
+        0x0064, 0x0065, 0x0072, 0x0000, // "TopologyRender"
+    ];
+    DbgPrint(c"Leyline: Registering TopologyRender Subdevice\n".as_ptr());
+    status = PcRegisterSubdevice(device_object, topo_render_name.as_ptr(), render_topo_port);
+    if status != STATUS_SUCCESS {
+        DbgPrint(c"Leyline: PcRegisterSubdevice(TopologyRender) Failed\n".as_ptr());
+        return status;
+    }
+
+    // --- Physical Connection: WaveRender (Pin 1) -> TopologyRender (Pin 0) ---
+    DbgPrint(c"Leyline: Registering Physical Connection (Wave -> Topo)\n".as_ptr());
+    // KSPIN_WAVE_BRIDGE = 1
+    // KSPIN_TOPO_BRIDGE = 0
+    /*
+    status = PcRegisterPhysicalConnection(
+        device_object,
+        render_port as *mut _,
+        1,
+        render_topo_port as *mut _,
+        0,
+    );
+    if status != STATUS_SUCCESS {
+        DbgPrint(c"Leyline: PcRegisterPhysicalConnection Failed\n".as_ptr());
+        return status;
+    }
+    */
 
     if status == STATUS_SUCCESS {
-        DbgPrint(c"Leyline: StartDevice COMPLETED SUCCESSFULLY (Baseline)\n".as_ptr());
+        DbgPrint(c"Leyline: StartDevice COMPLETED SUCCESSFULLY (With Topology)\n".as_ptr());
     }
     status
 }

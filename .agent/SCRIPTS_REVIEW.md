@@ -7,11 +7,9 @@
 
 | Script | Purpose | Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **`Install.ps1`** | Build + Install Pipeline | ✅ | Hardened APO build command. |
-| **`Uninstall.ps1`** | System Purge | ✅ | Updated for Leyline naming. |
-| **`LaunchBuildEnv.ps1`** | Env Setup Only | ✅ | Verified eWDK 28000 integration. |
-| **`Install-VM.ps1`** | Remote Install | ✅ | Hardened DevGen search. |
-| **`Uninstall-VM.ps1`** | Remote Cleanup | ✅ | Added registry/APO cleanup. |
+| **`Install.ps1`** | Build + Install Pipeline | ✅ | FIXED: Uses `Set-Location $initialDir` for guaranteed return. |
+| **`Uninstall.ps1`** | Clean Uninstall | ✅ | FIXED: Uses `Set-Location $initialDir`. |
+| **`Install-VM.ps1`** | Remote Install | ✅ | FIXED: Uses `Set-Location $initialDir`. |
 
 ## Observations
-- Automation pipeline is now fully compatible with the horizontal project structure and correctly handles all build artifacts (Kernel, HSA, APO).
+- All scripts now adhere to the robust `try...finally { Set-Location $initialDir }` pattern. This prevents "directory drift" when users or developers run scripts from arbitrary locations (e.g., `.\scripts\Install.ps1` vs `cd scripts; .\Install.ps1`).

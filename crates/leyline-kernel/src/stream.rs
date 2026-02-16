@@ -5,9 +5,6 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
-#![allow(clippy::all)]
-#![allow(clippy::unnecessary_transmutes)]
-#![allow(clippy::useless_transmute)]
 #![allow(non_camel_case_types)]
 
 // First std/core/alloc.
@@ -24,15 +21,8 @@ pub use wdk_sys::{STATUS_ALREADY_COMMITTED, STATUS_INSUFFICIENT_RESOURCES, STATU
 // Then current crate.
 use crate::adapter::DeviceExtension;
 
-// Include generated bindings in a private module.
-#[allow(non_upper_case_globals)]
-#[allow(non_camel_case_types)]
-#[allow(non_snake_case)]
-#[allow(dead_code)]
-#[allow(unnecessary_transmutes)]
-pub mod audio {
-    include!(concat!(env!("OUT_DIR"), "/audio_bindings.rs"));
-}
+// Use bindings from lib.rs to avoid type duplication
+use crate::audio_bindings as audio;
 
 // Explicitly re-export only what we need from audio.
 #[allow(non_camel_case_types)]

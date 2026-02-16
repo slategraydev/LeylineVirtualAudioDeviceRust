@@ -15,6 +15,32 @@ use crate::stream::{
     PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR,
 };
 
+#[repr(C)]
+#[derive(Copy, Clone)]
+#[allow(non_snake_case)]
+pub struct KSINTERFACE_STANDARD {
+    pub InterfaceId: GUID,
+    pub Reserved: u32,
+    pub Version: u32,
+}
+
+// Simplified: Just use the GUID for now and a raw pointer if needed, or implement the struct.
+// KSPIN_INTERFACE is usually just a KSIDENTIFIER.
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSIDENTIFIER {
+    pub Set: GUID,
+    pub Id: u32,
+    pub Flags: u32,
+}
+
+#[link_section = ".rdata"]
+pub static KSINTERFACES: [KSIDENTIFIER; 1] = [KSIDENTIFIER {
+    Set: KSINTERFACESETID_STANDARD,
+    Id: 0, // KSINTERFACE_STANDARD_STREAMING
+    Flags: 0,
+}];
+
 #[repr(transparent)]
 pub struct SyncPtr<T>(pub *const T);
 unsafe impl<T> Sync for SyncPtr<T> {}
@@ -92,8 +118,8 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 0,
-            Interfaces: core::ptr::null(),
+            InterfacesCount: 1,
+            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 2,
@@ -112,8 +138,8 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 0,
-            Interfaces: core::ptr::null(),
+            InterfacesCount: 1,
+            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
@@ -136,8 +162,8 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 0,
-            Interfaces: core::ptr::null(),
+            InterfacesCount: 1,
+            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 2,
@@ -156,8 +182,8 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 0,
-            Interfaces: core::ptr::null(),
+            InterfacesCount: 1,
+            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
@@ -180,8 +206,8 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 0,
-            Interfaces: core::ptr::null(),
+            InterfacesCount: 1,
+            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
@@ -200,8 +226,8 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 0,
-            Interfaces: core::ptr::null(),
+            InterfacesCount: 1,
+            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
@@ -224,8 +250,8 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 0,
-            Interfaces: core::ptr::null(),
+            InterfacesCount: 1,
+            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
@@ -244,8 +270,8 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 0,
-            Interfaces: core::ptr::null(),
+            InterfacesCount: 1,
+            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,

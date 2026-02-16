@@ -1,41 +1,23 @@
-# Session Commit Message: Leyline Audio Driver
+feat: add comprehensive topology initialization diagnostics for 0xC00002B9 error
 
-**Reviewer**: Antigravity (Gemini 2.0 Flash)
-**Date**: February 16, 2026
-
-## Summary
-Hardened deployment automation, implemented project-wide styling standards (Rust/C++), and established a mandatory Clippy verification protocol to ensure 100% codebase integrity.
-
-## Key Changes
-- **Deployment Hardening**: Updated all installation and uninstallation scripts (`Install.ps1`, `Install-VM.ps1`, etc.) to correctly handle modular artifacts and full system cleanup.
-- **Styling Mandate**: Integrated `rust-analyzer` and Google C++ Style Guides into the project constitution and setup artifacts.
-- **Styling Alignment**: Executed a comprehensive pass across all source files to align imports, naming, and comment formatting with the new standards.
-- **Clippy Protocol**: Resolved all linting issues in manually written code and implemented robust suppressions for generated bindings. Mandated Clippy checks for all future sessions.
-- **Build Integrity**: Stabilized the APO build environment within automated scripts by sourcing the eWDK directly.
-
-## Zero-Warning Proof
-- **Build**: `cargo wdk build` -> 0 Warnings.
-- **Clippy**: `cargo clippy --workspace --all-targets` -> 0 Errors/Warnings (Manual code).
-- **APO**: `nmake /f Makefile` (eWDK) -> 0 Warnings.
-
-## Git Commit Payload [COMPRESSED]
-```text
-feat: harden deployment scripts and implement project-wide styling mandate
-
-- Update Install.ps1, Install-VM.ps1, and Uninstall.ps1 for horizontal structure
-- Integrate rust-analyzer and Google C++ Style Guides into .agent artifacts
-- Align all source files with established Rust and C++ styling standards
-- Resolve all clippy warnings in source code and isolate binding warnings
-- Stabilize APO build environment via direct eWDK sourcing
-- Mandate clippy verification for all development sessions
-```
+- Added extensive DbgPrint instrumentation to topology miniport:
+  - topology_query_interface: Logs all interface queries (IID_IMiniportTopology, IID_IUnknown, IID_IMiniport, IID_IPortTopology, IID_IPort)
+  - topology_get_description: Added parameter validation and logging
+  - topology_init: Added entry/exit logging with status tracking
+- Enhanced adapter.rs diagnostics:
+  - Detailed logging around PcNewPort(CLSID_PortTopology)
+  - Specific detection and logging of 0xC00002B9 (STATUS_REQUEST_NOT_ACCEPTED)
+  - Enhanced error messages with potential causes
+  - Step-by-step topology initialization tracking
+- Added IID_IPort GUID to constants.rs for complete interface diagnostics
+- Fixed NTSTATUS literal type issues (0xC00002B9u32 as i32) for proper comparison
+- Fixed unused variable warnings in topology.rs
 
 ## Plain Text Commit Message [COPY-PASTE]
-feat: harden deployment scripts and implement project-wide styling mandate
+feat: add comprehensive topology initialization diagnostics for 0xC00002B9 error
 
-- Update Install.ps1, Install-VM.ps1, and Uninstall.ps1 for horizontal structure
-- Integrate rust-analyzer and Google C++ Style Guides into .agent artifacts
-- Align all source files with established Rust and C++ styling standards
-- Resolve all clippy warnings in source code and isolate binding warnings
-- Stabilize APO build environment via direct eWDK sourcing
-- Mandate clippy verification for all development sessions
+- Added extensive DbgPrint instrumentation to topology miniport (QueryInterface, GetDescription, Init)
+- Enhanced adapter.rs with detailed topology initialization logging
+- Added IID_IPort GUID for complete interface diagnostic support
+- Fixed NTSTATUS type issues for proper error code comparison
+- Build: 0 warnings, 0 errors - ready for VM diagnostic testing

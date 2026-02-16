@@ -7,10 +7,12 @@
 
 param (
     [string]$VMName = "LeylineTestVM",
-    [string]$UserName = "USER"
+    [string]$UserName = "USER",
+    [switch]$clean
 )
 
 $ErrorActionPreference = "Stop"
+$initialDir = Get-Location
 $ProjectRoot = Resolve-Path "$PSScriptRoot\.."
 
 # Create credential object for blank password
@@ -18,10 +20,11 @@ $secPassword = ConvertTo-SecureString "REDACTED_VM_PASS" -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential ($UserName, $secPassword)
 
 $vmsess = $null
-Push-Location $ProjectRoot
 
 try
 {
+    Push-Location $ProjectRoot
+
     # 1. Check VM Status
     Write-Host "[*] Checking VM: $VMName..." -ForegroundColor Cyan
     $vm = Get-VM -Name $VMName -ErrorAction SilentlyContinue
@@ -37,7 +40,7 @@ try
 
     # 2. Build on Host
     Write-Host "--- [1/3] Building Driver Package on Host ---" -ForegroundColor Cyan
-    & "$PSScriptRoot\Install.ps1" -build -package -install:$false
+    & "$PSScriptRoot\Install.ps1" -clean:$clean -build -package -install:$false
 
 
     if (-not (Test-Path "package"))
@@ -53,7 +56,7 @@ try
         {
             $found = Get-ChildItem -Path $p -Filter "devgen.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1
             if ($found)
-            { $devgenHost = $found; break 
+            { $devgenHost = $found; break
             }
         }
     }
@@ -91,6 +94,13 @@ try
         Write-Host "[VM] Enabling Testsigning..."
         bcdedit /set testsigning on | Out-Null
 
+        Write-Host "[VM] Enabling Kernel Debug Prints (DbgPrint)..."
+        $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Debug Print Filter"
+        if (-not (Test-Path $regPath))
+        { New-Item -Path $regPath -Force | Out-Null
+        }
+        New-ItemProperty -Path $regPath -Name "DEFAULT" -Value 0xF -PropertyType DWORD -Force | Out-Null
+
         Write-Host "[VM] Installing Certificates (Root and TrustedPublisher)..."
         # Using -f to force and -user for current user if machine store is restrictive
         certutil -addstore -f root leyline.cer | Out-Null
@@ -125,5 +135,5 @@ try
     if ($vmsess)
     { Remove-PSSession $vmsess
     }
-    Pop-Location
+    Set-Location $initialDir
 }

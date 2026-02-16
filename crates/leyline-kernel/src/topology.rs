@@ -10,6 +10,7 @@ use alloc::boxed::Box;
 use core::ptr::null_mut;
 
 // Second, external crates.
+use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
 // Then current crate.
@@ -19,15 +20,17 @@ use crate::stream::PCFILTER_DESCRIPTOR;
 use crate::vtables::*;
 
 pub struct MiniportTopology {
-    pub is_initialized: bool,
-    pub is_capture: bool,
+    pub is_initialized: u32,
+    pub is_capture: u32,
+    pub port: PVOID,
 }
 
 impl MiniportTopology {
     pub fn new(is_capture: bool) -> Self {
         Self {
-            is_initialized: false,
-            is_capture,
+            is_initialized: 0,
+            is_capture: is_capture as u32,
+            port: core::ptr::null_mut(),
         }
     }
 
@@ -35,9 +38,10 @@ impl MiniportTopology {
         &mut self,
         _unknown_adapter: PVOID,
         _resource_list: PVOID,
-        _port: PVOID,
+        port: PVOID,
     ) -> NTSTATUS {
-        self.is_initialized = true;
+        self.port = port;
+        self.is_initialized = 1;
         STATUS_SUCCESS
     }
 }
@@ -80,6 +84,35 @@ pub unsafe extern "system" fn topology_query_interface(
     iid: *const GUID,
     out: *mut *mut u8,
 ) -> NTSTATUS {
+    // Validate parameters
+    if this.is_null() || iid.is_null() || out.is_null() {
+        DbgPrint(c"LeylineTopo: QueryInterface - NULL parameter\n".as_ptr());
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    // Log the requested interface GUID
+    DbgPrint(c"LeylineTopo: QueryInterface called\n".as_ptr());
+    let guid = &*iid;
+    let _data4_slice = &guid.Data4;
+
+    // Check for known interfaces and log
+    if crate::is_equal_guid(iid, &IID_IMiniportTopology) {
+        DbgPrint(c"LeylineTopo: QueryInterface -> IID_IMiniportTopology (ACCEPTED)\n".as_ptr());
+    } else if crate::is_equal_guid(iid, &IID_IUnknown) {
+        DbgPrint(c"LeylineTopo: QueryInterface -> IID_IUnknown (ACCEPTED)\n".as_ptr());
+    } else if crate::is_equal_guid(iid, &IID_IMiniport) {
+        DbgPrint(c"LeylineTopo: QueryInterface -> IID_IMiniport (ACCEPTED)\n".as_ptr());
+    } else if crate::is_equal_guid(iid, &IID_IPortTopology) {
+        DbgPrint(
+            c"LeylineTopo: QueryInterface -> IID_IPortTopology (REJECTED - not supported)\n"
+                .as_ptr(),
+        );
+    } else if crate::is_equal_guid(iid, &IID_IPort) {
+        DbgPrint(c"LeylineTopo: QueryInterface -> IID_IPort (REJECTED - not supported)\n".as_ptr());
+    } else {
+        DbgPrint(c"LeylineTopo: QueryInterface -> Unknown IID (REJECTED)\n".as_ptr());
+    }
+
     let com_obj = this as *mut MiniportTopologyCom;
     if crate::is_equal_guid(iid, &IID_IMiniportTopology)
         || crate::is_equal_guid(iid, &IID_IUnknown)
@@ -126,13 +159,28 @@ pub unsafe extern "system" fn topology_get_description(
     this: *mut u8,
     out_description: *mut u8,
 ) -> NTSTATUS {
+    DbgPrint(c"LeylineTopo: GetDescription called\n".as_ptr());
+
+    if this.is_null() || out_description.is_null() {
+        DbgPrint(c"LeylineTopo: GetDescription - NULL parameter\n".as_ptr());
+        return STATUS_INVALID_PARAMETER;
+    }
+
     let com_obj = this as *mut MiniportTopologyCom;
     let description = out_description as *mut *const PCFILTER_DESCRIPTOR;
-    if (*com_obj).inner.is_capture {
-        *description = &TOPO_CAPTURE_FILTER_DESCRIPTOR;
+
+    // Validate the descriptor before returning
+    let descriptor_ptr = if (*com_obj).inner.is_capture != 0 {
+        &TOPO_CAPTURE_FILTER_DESCRIPTOR
     } else {
-        *description = &TOPO_RENDER_FILTER_DESCRIPTOR;
-    }
+        &TOPO_RENDER_FILTER_DESCRIPTOR
+    };
+
+    // Log descriptor info
+    DbgPrint(c"LeylineTopo: Returning descriptor\n".as_ptr());
+
+    *description = descriptor_ptr;
+    DbgPrint(c"LeylineTopo: GetDescription SUCCESS\n".as_ptr());
     STATUS_SUCCESS
 }
 
@@ -142,14 +190,66 @@ pub unsafe extern "system" fn topology_get_description(
 /// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn topology_data_range_intersection(
     _this: *mut u8,
-    _pin_id: u32,
-    _data_range: *mut u8,
-    _matching_data_range: *mut u8,
-    _data_format_cb: u32,
-    _data_format: *mut u8,
-    _actual_data_format_cb: *mut u32,
+    pin_id: u32,
+    data_range: *mut u8,
+    matching_data_range: *mut u8,
+    data_format_cb: u32,
+    data_format: *mut u8,
+    actual_data_format_cb: *mut u32,
 ) -> NTSTATUS {
-    STATUS_NOT_IMPLEMENTED
+    // Topology filters have 2 pins: bridge (0) and lineout/mic (1)
+    if pin_id > 1 {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    // Check if data_range is valid
+    if data_range.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    // For topology analog bridge pins, we accept any analog data range
+    // Use the bridge data range from descriptors
+    let bridge_range = &crate::descriptors::BRIDGE_DATARANGE as *const crate::stream::KSDATARANGE;
+
+    // If matching_data_range is requested, copy the bridge data range
+    if !matching_data_range.is_null() {
+        let src = bridge_range as *const u8;
+        let dst = matching_data_range;
+        let size = core::mem::size_of::<crate::stream::KSDATARANGE>();
+        if size <= core::mem::size_of_val(&(*data_range)) {
+            core::ptr::copy_nonoverlapping(src, dst, size);
+        }
+    }
+
+    // If data format is requested, create a minimal data format
+    if !data_format.is_null()
+        && data_format_cb >= core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32
+    {
+        let format = data_format as *mut crate::stream::KSDATAFORMAT;
+        *format = crate::stream::KSDATAFORMAT {
+            FormatSize: core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32,
+            Flags: 0,
+            SampleSize: 0,
+            Reserved: 0,
+            MajorFormat: crate::constants::KSDATAFORMAT_TYPE_AUDIO,
+            SubFormat: crate::constants::KSDATAFORMAT_SUBTYPE_ANALOG,
+            Specifier: crate::constants::KSDATAFORMAT_SPECIFIER_NONE_GUID,
+        };
+
+        if !actual_data_format_cb.is_null() {
+            *actual_data_format_cb = core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32;
+        }
+
+        return STATUS_SUCCESS;
+    } else if !data_format.is_null() {
+        // Buffer too small
+        if !actual_data_format_cb.is_null() {
+            *actual_data_format_cb = core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32;
+        }
+        return STATUS_BUFFER_TOO_SMALL;
+    }
+
+    STATUS_SUCCESS
 }
 
 /// Init callback for Topology miniport.
@@ -162,10 +262,27 @@ pub unsafe extern "system" fn topology_init(
     resource_list: *mut u8,
     port: *mut u8,
 ) -> NTSTATUS {
+    DbgPrint(c"LeylineTopo: Init called\n".as_ptr());
+
+    if this.is_null() {
+        DbgPrint(c"LeylineTopo: Init - this is NULL\n".as_ptr());
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    DbgPrint(c"LeylineTopo: Init parameters validated\n".as_ptr());
+
     let com_obj = this as *mut MiniportTopologyCom;
-    (*com_obj).inner.init(
+    let status = (*com_obj).inner.init(
         unknown_adapter as PVOID,
         resource_list as PVOID,
         port as PVOID,
-    )
+    );
+
+    if status == STATUS_SUCCESS {
+        DbgPrint(c"LeylineTopo: Init SUCCESS\n".as_ptr());
+    } else {
+        DbgPrint(c"LeylineTopo: Init FAILED\n".as_ptr());
+    }
+
+    status
 }

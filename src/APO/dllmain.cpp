@@ -13,6 +13,8 @@ namespace audio_apo {
 
 HMODULE g_hModule = nullptr;
 
+}  // namespace audio_apo
+
 // {C8D3E4F5-B6A7-4A2D-A1A3-1A2B3C4D5E6F}
 DEFINE_GUID(CLSID_LeylineAPO, 0xc8d3e4f5, 0xb6a7, 0x4a2d, 0xa1, 0xa3, 0x1a,
             0x2b, 0x3c, 0x4d, 0x5e, 0x6f);
@@ -20,6 +22,7 @@ DEFINE_GUID(CLSID_LeylineAPO, 0xc8d3e4f5, 0xb6a7, 0x4a2d, 0xa1, 0xa3, 0x1a,
 // ============================================================================
 // CAPOClassFactory
 // ============================================================================
+namespace audio_apo {
 class CAPOClassFactory : public IClassFactory {
  public:
   CAPOClassFactory() : m_cRef(1) {}

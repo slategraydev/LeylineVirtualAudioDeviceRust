@@ -25,6 +25,10 @@ use core::ptr::null_mut;
 use wdk_alloc::WDKAllocator;
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
+// PUNKNOWN is often in wdk_sys directly or one of its modules.
+// Bindgen usually generates it as *mut c_void or IUnknown.
+// wdk_sys should have PUNKNOWN if we use it.
+// Checking previous imports.
 
 // Then current crate.
 use crate::constants::*;
@@ -40,6 +44,7 @@ use crate::dispatch::*;
 #[allow(clippy::unnecessary_cast)]
 #[allow(clippy::useless_transmute)]
 #[allow(clippy::too_many_arguments)]
+#[allow(unnecessary_transmutes)]
 pub mod audio {
     include!(concat!(env!("OUT_DIR"), "/audio_bindings.rs"));
 }
@@ -95,6 +100,14 @@ extern "C" {
         StartDevice: Option<unsafe extern "C" fn(PDEVICE_OBJECT, PIRP, PVOID) -> NTSTATUS>,
         MaxObjects: u32,
         DeviceExtensionSize: u32,
+    ) -> NTSTATUS;
+
+    pub fn PcRegisterPhysicalConnection(
+        DeviceObject: PDEVICE_OBJECT,
+        FromUnknown: PVOID,
+        FromPin: u32,
+        ToUnknown: PVOID,
+        ToPin: u32,
     ) -> NTSTATUS;
 }
 

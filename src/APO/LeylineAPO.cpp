@@ -201,7 +201,7 @@ STDMETHODIMP CLeylineAPO::Initialize(UINT32 cbDataSize, BYTE* pbyData) {
   UNREFERENCED_PARAMETER(pbyData);
 
   // Open the driver for real-time communication.
-  m_hDriver = CreateFile(L"\\.\LeylineAudio", GENERIC_READ | GENERIC_WRITE,
+  m_hDriver = CreateFile(L"\\\\.\\LeylineAudio", GENERIC_READ | GENERIC_WRITE,
                          0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 
   if (m_hDriver != INVALID_HANDLE_VALUE) {

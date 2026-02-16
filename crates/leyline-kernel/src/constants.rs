@@ -69,8 +69,24 @@ pub const IID_IMiniportTopology: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
+pub const IID_IPortTopology: GUID = GUID {
+    Data1: 0xB4C90A30,
+    Data2: 0x5791,
+    Data3: 0x11D0,
+    Data4: [0x86, 0xF9, 0x00, 0xA0, 0xC9, 0x11, 0xB5, 0x44],
+};
+
+#[allow(non_upper_case_globals)]
 pub const IID_IMiniport: GUID = GUID {
     Data1: 0xB4C90A24,
+    Data2: 0x5791,
+    Data3: 0x11D0,
+    Data4: [0x86, 0xF9, 0x00, 0xA0, 0xC9, 0x11, 0xB5, 0x44],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IPort: GUID = GUID {
+    Data1: 0xB4C90A25,
     Data2: 0x5791,
     Data3: 0x11D0,
     Data4: [0x86, 0xF9, 0x00, 0xA0, 0xC9, 0x11, 0xB5, 0x44],
@@ -82,6 +98,14 @@ pub const IID_IUnknown: GUID = GUID {
     Data2: 0x0000,
     Data3: 0x0000,
     Data4: [0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46],
+};
+
+#[allow(non_upper_case_globals)]
+pub const GUID_NULL: GUID = GUID {
+    Data1: 0x00000000,
+    Data2: 0x0000,
+    Data3: 0x0000,
+    Data4: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
 };
 
 // ============================================================================
@@ -169,6 +193,34 @@ pub const KSCATEGORY_TOPOLOGY_GUID: GUID = GUID {
     Data2: 0x1E4C,
     Data3: 0x11D1,
     Data4: [0xA0, 0x50, 0x40, 0x57, 0x05, 0xC1, 0x00, 0x00],
+};
+
+// ============================================================================
+// KS Interface & Property Sets
+// ============================================================================
+
+#[allow(non_upper_case_globals)]
+pub const KSINTERFACESETID_STANDARD: GUID = GUID {
+    Data1: 0x1A8766A0,
+    Data2: 0x62D0,
+    Data3: 0x11CF,
+    Data4: [0xA5, 0xD6, 0x28, 0xDB, 0x04, 0xC1, 0x00, 0x00],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSPROPSETID_PIN: GUID = GUID {
+    Data1: 0x8A134D40,
+    Data2: 0x0A96,
+    Data3: 0x11D0,
+    Data4: [0xAB, 0x31, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSPROPSETID_CONNECTION: GUID = GUID {
+    Data1: 0x1D58C920,
+    Data2: 0xAC9B,
+    Data3: 0x11CF,
+    Data4: [0xA5, 0xD6, 0x28, 0xDB, 0x04, 0xC1, 0x00, 0x00],
 };
 
 #[allow(non_upper_case_globals)]
