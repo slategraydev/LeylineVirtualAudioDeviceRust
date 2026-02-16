@@ -91,7 +91,7 @@ pub struct KSPIN_DESCRIPTOR {
     pub Communication: ULONG,
     pub Category: *const GUID,
     pub Name: *const GUID,
-    pub Reserved: ULONG,
+    pub Reserved: PVOID,
 }
 
 #[repr(C)]
@@ -100,10 +100,10 @@ pub struct PCFILTER_DESCRIPTOR {
     pub Version: ULONG,
     pub AutomationTable: *const u8,
     pub PinSize: ULONG,
-    pub PinDescriptorSize: ULONG,
+    pub PinCount: ULONG,
     pub Pins: *const PCPIN_DESCRIPTOR,
     pub NodeSize: ULONG,
-    pub NodeDescriptorSize: ULONG,
+    pub NodeCount: ULONG,
     pub Nodes: *const u8,
     pub ConnectionCount: ULONG,
     pub Connections: *const u8,
@@ -152,6 +152,7 @@ pub struct MiniportWaveRTStream {
     frequency: i64,
     time_source: alloc::boxed::Box<dyn TimeSource>,
     pub device_extension: *mut u8,
+    owns_mdl: bool,
 }
 
 impl MiniportWaveRTStream {
@@ -179,6 +180,7 @@ impl MiniportWaveRTStream {
             frequency,
             time_source,
             device_extension,
+            owns_mdl: false,
         }
     }
 
@@ -217,6 +219,15 @@ impl MiniportWaveRTStream {
         if position.is_null() {
             return STATUS_INVALID_PARAMETER;
         }
+
+        // KSAUDIO_POSITION structure has two u64 fields: PlayOffset and WriteOffset.
+        // We must ensure we don't cause an alignment or bounds issue.
+        #[repr(C)]
+        struct KsAudioPosition {
+            play_offset: u64,
+            write_offset: u64,
+        }
+
         let mut calculated_position: u64 = 0;
         if self.state == KSSTATE_RUN {
             let current_time = self.time_source.query_time();
@@ -228,8 +239,14 @@ impl MiniportWaveRTStream {
                 self.buffer.get_size(),
             );
         }
+
         unsafe {
-            *position = calculated_position;
+            let pos_ptr = position as *mut KsAudioPosition;
+            // SAFETY: The caller (PortCls) provides the buffer for GetPosition.
+            // In a real driver, we might use MmProbeAndLockPages if we were
+            // accessing user memory, but PortCls handles the system-side mapping.
+            (*pos_ptr).play_offset = calculated_position;
+            (*pos_ptr).write_offset = calculated_position;
         }
         STATUS_SUCCESS
     }
@@ -245,6 +262,7 @@ impl MiniportWaveRTStream {
                     self.mdl = (*dev_ext).loopback_mdl;
                     self.mapping = (*dev_ext).loopback_buffer as PVOID;
                     self.buffer.rebase(self.mapping as *mut u8, req_size);
+                    self.owns_mdl = false;
                     *audio_mdl = self.mdl;
                     return STATUS_SUCCESS;
                 }
@@ -283,6 +301,7 @@ impl MiniportWaveRTStream {
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
             self.buffer.rebase(self.mapping as *mut u8, req_size);
+            self.owns_mdl = true;
             *audio_mdl = self.mdl;
         }
         STATUS_SUCCESS
@@ -299,24 +318,13 @@ impl MiniportWaveRTStream {
 
 impl Drop for MiniportWaveRTStream {
     fn drop(&mut self) {
-        if !self.mdl.is_null() {
-            let mut is_shared = false;
-            if !self.device_extension.is_null() {
-                let dev_ext = self.device_extension as *mut crate::DeviceExtension;
-                unsafe {
-                    if self.mdl == (*dev_ext).loopback_mdl {
-                        is_shared = true;
-                    }
+        if !self.mdl.is_null() && self.owns_mdl {
+            unsafe {
+                if !self.mapping.is_null() {
+                    MmUnmapLockedPages(self.mapping, self.mdl);
                 }
-            }
-            if !is_shared {
-                unsafe {
-                    if !self.mapping.is_null() {
-                        MmUnmapLockedPages(self.mapping, self.mdl);
-                    }
-                    MmFreePagesFromMdl(self.mdl);
-                    IoFreeMdl(self.mdl);
-                }
+                MmFreePagesFromMdl(self.mdl);
+                IoFreeMdl(self.mdl);
             }
         }
     }

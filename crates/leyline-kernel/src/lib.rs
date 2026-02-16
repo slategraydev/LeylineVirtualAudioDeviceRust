@@ -21,7 +21,6 @@ use crate::stream::*;
 use alloc::boxed::Box;
 use wdk_alloc::WDKAllocator;
 use wdk_sys::ntddk::*;
-use wdk_sys::_MODE;
 use wdk_sys::*;
 
 // ============================================================================
@@ -75,42 +74,90 @@ extern "C" {
 
 #[allow(non_upper_case_globals)]
 pub const CLSID_PortWaveRT: GUID = GUID {
-    Data1: 0xB4C1147F,
-    Data2: 0x810A,
-    Data3: 0x443B,
-    Data4: [0x99, 0x88, 0x51, 0xB4, 0xCD, 0x8A, 0x85, 0x4C],
+    Data1: 0xCC9BE57A,
+    Data2: 0xEB9E,
+    Data3: 0x42B4,
+    Data4: [0x94, 0xFC, 0x0C, 0xAD, 0x3D, 0xBC, 0xE7, 0xFA],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IPortWaveRT: GUID = GUID {
+    Data1: 0x339FF909,
+    Data2: 0x68A9,
+    Data3: 0x4310,
+    Data4: [0xB0, 0x9B, 0x27, 0x4E, 0x96, 0xEE, 0x4C, 0xBD],
 };
 
 #[allow(non_upper_case_globals)]
 pub const IID_IMiniportWaveRT: GUID = GUID {
-    Data1: 0xF6647993,
-    Data2: 0xBA13,
-    Data3: 0x4081,
-    Data4: [0x9F, 0xB2, 0xCC, 0xF7, 0x39, 0xF7, 0x9C, 0x6A],
+    Data1: 0x0F9FC4D6,
+    Data2: 0x6061,
+    Data3: 0x4F3C,
+    Data4: [0xB1, 0xFC, 0x07, 0x5E, 0x35, 0xF7, 0x96, 0x0A],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IPortWaveRTStream: GUID = GUID {
+    Data1: 0x1809CE5A,
+    Data2: 0x64BC,
+    Data3: 0x4E62,
+    Data4: [0xBD, 0x7D, 0x95, 0xBC, 0xE4, 0x3D, 0xE3, 0x93],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IMiniportWaveRTStream: GUID = GUID {
+    Data1: 0x000AC9AB,
+    Data2: 0xFAAB,
+    Data3: 0x4F3D,
+    Data4: [0x94, 0x55, 0x6F, 0xF8, 0x30, 0x6A, 0x74, 0xA0],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IMiniportWaveRTStreamNotification: GUID = GUID {
+    Data1: 0x23759128,
+    Data2: 0x96F1,
+    Data3: 0x423B,
+    Data4: [0xAB, 0x4D, 0x81, 0x63, 0x5B, 0xCF, 0x8C, 0xA1],
 };
 
 #[allow(non_upper_case_globals)]
 pub const CLSID_PortTopology: GUID = GUID {
-    Data1: 0xB4C11471,
-    Data2: 0x810A,
-    Data3: 0x443B,
-    Data4: [0x99, 0x88, 0x51, 0xB4, 0xCD, 0x8A, 0x85, 0x4C],
+    Data1: 0xB4C90A32,
+    Data2: 0x5791,
+    Data3: 0x11D0,
+    Data4: [0x86, 0xF9, 0x00, 0xA0, 0xC9, 0x11, 0xB5, 0x44],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IPortTopology: GUID = GUID {
+    Data1: 0xB4C90A30,
+    Data2: 0x5791,
+    Data3: 0x11D0,
+    Data4: [0x86, 0xF9, 0x00, 0xA0, 0xC9, 0x11, 0xB5, 0x44],
 };
 
 #[allow(non_upper_case_globals)]
 pub const IID_IMiniportTopology: GUID = GUID {
-    Data1: 0xB4C11479,
-    Data2: 0x810A,
-    Data3: 0x443B,
-    Data4: [0x99, 0x88, 0x51, 0xB4, 0xCD, 0x8A, 0x85, 0x4C],
+    Data1: 0xB4C90A31,
+    Data2: 0x5791,
+    Data3: 0x11D0,
+    Data4: [0x86, 0xF9, 0x00, 0xA0, 0xC9, 0x11, 0xB5, 0x44],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IPort: GUID = GUID {
+    Data1: 0xB4C90A25,
+    Data2: 0x5791,
+    Data3: 0x11D0,
+    Data4: [0x86, 0xF9, 0x00, 0xA0, 0xC9, 0x11, 0xB5, 0x44],
 };
 
 #[allow(non_upper_case_globals)]
 pub const IID_IMiniport: GUID = GUID {
-    Data1: 0xB4C11470,
-    Data2: 0x810A,
-    Data3: 0x443B,
-    Data4: [0x99, 0x88, 0x51, 0xB4, 0xCD, 0x8A, 0x85, 0x4C],
+    Data1: 0xB4C90A24,
+    Data2: 0x5791,
+    Data3: 0x11D0,
+    Data4: [0x86, 0xF9, 0x00, 0xA0, 0xC9, 0x11, 0xB5, 0x44],
 };
 
 #[allow(non_upper_case_globals)]
@@ -146,11 +193,75 @@ pub const KSDATAFORMAT_SUBTYPE_IEEE_FLOAT: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
+pub const KSDATAFORMAT_SUBTYPE_ANALOG: GUID = GUID {
+    Data1: 0x6DBA3190,
+    Data2: 0x67BD,
+    Data3: 0x11CF,
+    Data4: [0xA0, 0xF7, 0x00, 0x20, 0xAF, 0xD1, 0x56, 0xE4],
+};
+
+#[allow(non_upper_case_globals)]
 pub const KSDATAFORMAT_SPECIFIER_WAVEFORMATEX: GUID = GUID {
     Data1: 0x05589F81,
     Data2: 0xC356,
     Data3: 0x11CE,
     Data4: [0xBF, 0x01, 0x00, 0xAA, 0x00, 0x55, 0x59, 0x5A],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSCATEGORY_AUDIO_GUID: GUID = GUID {
+    Data1: 0x6994AD04,
+    Data2: 0x93EF,
+    Data3: 0x11D0,
+    Data4: [0xA3, 0xCC, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSCATEGORY_RENDER_GUID: GUID = GUID {
+    Data1: 0x65E8773E,
+    Data2: 0x8F56,
+    Data3: 0x11D0,
+    Data4: [0xA3, 0xB9, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSCATEGORY_CAPTURE_GUID: GUID = GUID {
+    Data1: 0x65E8773D,
+    Data2: 0x8F56,
+    Data3: 0x11D0,
+    Data4: [0xA3, 0xB9, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSCATEGORY_TOPOLOGY_GUID: GUID = GUID {
+    Data1: 0xDDA54A40,
+    Data2: 0x1E4C,
+    Data3: 0x11D1,
+    Data4: [0xA0, 0x50, 0x40, 0x57, 0x05, 0xC1, 0x00, 0x00],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSCATEGORY_REALTIME_GUID: GUID = GUID {
+    Data1: 0xEB115AD5,
+    Data2: 0x9118,
+    Data3: 0x4FA0,
+    Data4: [0xBD, 0x83, 0xED, 0x35, 0x22, 0x15, 0xDF, 0x43],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSNODETYPE_SPEAKER: GUID = GUID {
+    Data1: 0xDFF21CE1,
+    Data2: 0xF30F,
+    Data3: 0x11D0,
+    Data4: [0xA9, 0x71, 0x00, 0xAA, 0x00, 0x61, 0x52, 0x93],
+};
+
+#[allow(non_upper_case_globals)]
+pub const KSNODETYPE_MICROPHONE: GUID = GUID {
+    Data1: 0xDFF21BE1,
+    Data2: 0xF30F,
+    Data3: 0x11D0,
+    Data4: [0xA9, 0x71, 0x00, 0xAA, 0x00, 0x61, 0x52, 0x93],
 };
 
 // ============================================================================
@@ -210,8 +321,6 @@ pub struct IMiniportWaveRTVTable {
         resource_list: *mut u8,
         port: *mut u8,
     ) -> NTSTATUS,
-    pub GetDeviceDescription:
-        unsafe extern "system" fn(this: *mut u8, description: *mut u8) -> NTSTATUS,
     pub NewStream: unsafe extern "system" fn(
         this: *mut u8,
         stream: *mut *mut u8,
@@ -220,12 +329,15 @@ pub struct IMiniportWaveRTVTable {
         capture: bool,
         format: *mut u8,
     ) -> NTSTATUS,
+    pub GetDeviceDescription:
+        unsafe extern "system" fn(this: *mut u8, description: *mut u8) -> NTSTATUS,
 }
 
 #[allow(non_snake_case)]
 #[repr(C)]
 pub struct IMiniportWaveRTStreamVTable {
     pub base: IUnknownVTable,
+    pub SetFormat: unsafe extern "system" fn(this: *mut u8, format: *mut u8) -> NTSTATUS,
     pub SetState: unsafe extern "system" fn(this: *mut u8, state: i32) -> NTSTATUS,
     pub GetPosition: unsafe extern "system" fn(this: *mut u8, position: *mut u64) -> NTSTATUS,
     pub AllocateAudioBuffer: unsafe extern "system" fn(
@@ -239,8 +351,10 @@ pub struct IMiniportWaveRTStreamVTable {
     pub FreeAudioBuffer:
         unsafe extern "system" fn(this: *mut u8, audio_buffer_mdl: *mut u8, buffer_size: usize),
     pub GetHWLatency: unsafe extern "system" fn(this: *mut u8, latency: *mut u32),
-    pub GetPositionRegister: unsafe extern "system" fn(this: *mut u8, position_register: *mut u8),
-    pub GetClockRegister: unsafe extern "system" fn(this: *mut u8, clock_register: *mut u8),
+    pub GetPositionRegister:
+        unsafe extern "system" fn(this: *mut u8, position_register: *mut u8) -> NTSTATUS,
+    pub GetClockRegister:
+        unsafe extern "system" fn(this: *mut u8, clock_register: *mut u8) -> NTSTATUS,
 }
 
 // ============================================================================
@@ -279,6 +393,8 @@ pub struct DeviceExtension {
     pub user_mapping: *mut u8, // Tracks user-mode mapping for cleanup
     pub render_miniport: *mut MiniportWaveRTCom,
     pub capture_miniport: *mut MiniportWaveRTCom,
+    pub render_topo_miniport: *mut MiniportTopologyCom,
+    pub capture_topo_miniport: *mut MiniportTopologyCom,
 }
 
 // ============================================================================
@@ -432,46 +548,12 @@ unsafe extern "system" fn miniport_data_range_intersection(
         return STATUS_NO_MATCH;
     }
 
-    // Cast to KSDATARANGE_AUDIO to access frequency and bit depth constraints
-    let ks_range_audio = data_range as *const KSDATARANGE_AUDIO;
-
-    // Driver Capabilities
-    let drv_min_rate = 44100;
-    let drv_max_rate = 192000;
-    let drv_min_bits = 16;
-    let drv_max_bits = 32;
-    let drv_channels = 2;
-
-    // Intersection Logic: Sample Rate
-    let req_min_rate = (*ks_range_audio).MinimumSampleFrequency;
-    let req_max_rate = (*ks_range_audio).MaximumSampleFrequency;
-    let final_min_rate = core::cmp::max(req_min_rate, drv_min_rate);
-    let final_max_rate = core::cmp::min(req_max_rate, drv_max_rate);
-
-    if final_min_rate > final_max_rate {
-        return STATUS_NO_MATCH;
-    }
-
-    // Intersection Logic: Bits Per Sample
-    let req_min_bits = (*ks_range_audio).MinimumBitsPerSample;
-    let req_max_bits = (*ks_range_audio).MaximumBitsPerSample;
-    let final_min_bits = core::cmp::max(req_min_bits, drv_min_bits);
-    let final_max_bits = core::cmp::min(req_max_bits, drv_max_bits);
-
-    if final_min_bits > final_max_bits {
-        return STATUS_NO_MATCH;
-    }
-
-    // Intersection Logic: Channels
-    let req_max_channels = (*ks_range_audio).MaximumChannels;
-    if req_max_channels < drv_channels {
-        return STATUS_NO_MATCH;
-    }
-
     let format_size = core::mem::size_of::<KSDATAFORMAT_WAVEFORMATEX>() as u32;
     if data_format_cb == 0 {
         if !actual_data_format_cb.is_null() {
-            *actual_data_format_cb = format_size;
+            unsafe {
+                *actual_data_format_cb = format_size;
+            }
         }
         return STATUS_BUFFER_OVERFLOW;
     }
@@ -479,24 +561,26 @@ unsafe extern "system" fn miniport_data_range_intersection(
         return STATUS_BUFFER_TOO_SMALL;
     }
 
-    // Construct the Negotiated Format (Prefer Highest Quality)
     let result = data_format as *mut KSDATAFORMAT_WAVEFORMATEX;
-    (*result).DataFormat.FormatSize = format_size;
-    (*result).DataFormat.MajorFormat = KSDATAFORMAT_TYPE_AUDIO;
-    (*result).DataFormat.SubFormat = (*ks_range).SubFormat;
-    (*result).DataFormat.Specifier = KSDATAFORMAT_SPECIFIER_WAVEFORMATEX;
+    unsafe {
+        (*result).DataFormat.FormatSize = format_size;
+        (*result).DataFormat.MajorFormat = KSDATAFORMAT_TYPE_AUDIO;
+        (*result).DataFormat.SubFormat = (*ks_range).SubFormat;
+        (*result).DataFormat.Specifier = KSDATAFORMAT_SPECIFIER_WAVEFORMATEX;
 
-    (*result).WaveFormatEx.wFormatTag = if is_pcm { 1 } else { 3 };
-    (*result).WaveFormatEx.nChannels = drv_channels as u16;
-    (*result).WaveFormatEx.nSamplesPerSec = final_max_rate; // Negotiate highest rate
-    (*result).WaveFormatEx.wBitsPerSample = final_max_bits as u16; // Negotiate highest bits
-    (*result).WaveFormatEx.nBlockAlign =
-        ((*result).WaveFormatEx.nChannels * (*result).WaveFormatEx.wBitsPerSample) / 8;
-    (*result).WaveFormatEx.nAvgBytesPerSec =
-        (*result).WaveFormatEx.nSamplesPerSec * (*result).WaveFormatEx.nBlockAlign as u32;
+        (*result).WaveFormatEx.wFormatTag = if is_pcm { 1 } else { 3 };
+        (*result).WaveFormatEx.nChannels = 2;
+        (*result).WaveFormatEx.nSamplesPerSec = 48000;
+        (*result).WaveFormatEx.wBitsPerSample = if is_pcm { 16 } else { 32 };
+        (*result).WaveFormatEx.nBlockAlign =
+            ((*result).WaveFormatEx.nChannels * (*result).WaveFormatEx.wBitsPerSample) / 8;
+        (*result).WaveFormatEx.nAvgBytesPerSec =
+            (*result).WaveFormatEx.nSamplesPerSec * (*result).WaveFormatEx.nBlockAlign as u32;
+        (*result).WaveFormatEx.cbSize = 0;
 
-    if !actual_data_format_cb.is_null() {
-        *actual_data_format_cb = format_size;
+        if !actual_data_format_cb.is_null() {
+            *actual_data_format_cb = format_size;
+        }
     }
     STATUS_SUCCESS
 }
@@ -681,9 +765,9 @@ static TOPOLOGY_VTABLE: IMiniportTopologyVTable = IMiniportTopologyVTable {
         AddRef: topology_add_ref,
         Release: topology_release,
     },
+    Init: topology_init,
     GetDescription: topology_get_description,
     DataRangeIntersection: topology_data_range_intersection,
-    Init: topology_init,
 };
 
 // ============================================================================
@@ -713,7 +797,7 @@ unsafe extern "system" fn stream_query_interface(
     out: *mut *mut u8,
 ) -> NTSTATUS {
     let com_obj = this as *mut MiniportWaveRTStreamCom;
-    if is_equal_guid(iid, &IID_IPortWaveRTStream) || is_equal_guid(iid, &IID_IUnknown) {
+    if is_equal_guid(iid, &IID_IMiniportWaveRTStream) || is_equal_guid(iid, &IID_IUnknown) {
         (*com_obj).ref_count += 1;
         *out = this;
         STATUS_SUCCESS
@@ -737,6 +821,10 @@ unsafe extern "system" fn stream_release(this: *mut u8) -> u32 {
         drop(Box::from_raw(com_obj));
     }
     count
+}
+
+unsafe extern "system" fn stream_set_format(_this: *mut u8, _format: *mut u8) -> NTSTATUS {
+    STATUS_SUCCESS
 }
 
 unsafe extern "system" fn stream_set_state(this: *mut u8, state: i32) -> NTSTATUS {
@@ -778,8 +866,12 @@ unsafe extern "system" fn stream_get_hw_latency(this: *mut u8, latency: *mut u32
     let com_obj = this as *mut MiniportWaveRTStreamCom;
     (*(*com_obj).stream).get_hw_latency(latency);
 }
-unsafe extern "system" fn stream_get_position_register(_this: *mut u8, _reg: *mut u8) {}
-unsafe extern "system" fn stream_get_clock_register(_this: *mut u8, _reg: *mut u8) {}
+unsafe extern "system" fn stream_get_position_register(_this: *mut u8, _reg: *mut u8) -> NTSTATUS {
+    0xC00000BBu32 as i32
+}
+unsafe extern "system" fn stream_get_clock_register(_this: *mut u8, _reg: *mut u8) -> NTSTATUS {
+    0xC00000BBu32 as i32
+}
 
 static STREAM_VTABLE: IMiniportWaveRTStreamVTable = IMiniportWaveRTStreamVTable {
     base: IUnknownVTable {
@@ -787,6 +879,7 @@ static STREAM_VTABLE: IMiniportWaveRTStreamVTable = IMiniportWaveRTStreamVTable 
         AddRef: stream_add_ref,
         Release: stream_release,
     },
+    SetFormat: stream_set_format,
     SetState: stream_set_state,
     GetPosition: stream_get_position,
     AllocateAudioBuffer: stream_allocate_audio_buffer,
@@ -794,14 +887,6 @@ static STREAM_VTABLE: IMiniportWaveRTStreamVTable = IMiniportWaveRTStreamVTable 
     GetHWLatency: stream_get_hw_latency,
     GetPositionRegister: stream_get_position_register,
     GetClockRegister: stream_get_clock_register,
-};
-
-#[allow(non_upper_case_globals)]
-pub const IID_IPortWaveRTStream: GUID = GUID {
-    Data1: 0x1070F136,
-    Data2: 0x47E2,
-    Data3: 0x4B3A,
-    Data4: [0x8B, 0x1A, 0x5C, 0xC4, 0x54, 0x15, 0x6A, 0x7F],
 };
 
 // ============================================================================
@@ -827,11 +912,13 @@ const KSPIN_TOPO_LINEOUT: u32 = 1;
 struct SyncPtr<T>(*const T);
 unsafe impl<T> Sync for SyncPtr<T> {}
 
+#[allow(dead_code)]
 static WAVE_DATARANGES: [SyncPtr<KSDATARANGE>; 2] = [
     SyncPtr(&PCM_DATARANGE.DataRange as *const KSDATARANGE),
     SyncPtr(&FLOAT_DATARANGE.DataRange as *const KSDATARANGE),
 ];
 
+#[allow(dead_code)]
 static PCM_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
     DataRange: KSDATARANGE {
         FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
@@ -849,6 +936,7 @@ static PCM_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
     MaximumSampleFrequency: 192000,
 };
 
+#[allow(dead_code)]
 static FLOAT_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
     DataRange: KSDATARANGE {
         FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
@@ -866,56 +954,20 @@ static FLOAT_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
     MaximumSampleFrequency: 192000,
 };
 
-#[allow(non_upper_case_globals)]
-pub const KSCATEGORY_AUDIO_GUID: GUID = GUID {
-    Data1: 0x6994AD04,
-    Data2: 0x93EF,
-    Data3: 0x11D0,
-    Data4: [0xA3, 0xCC, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
-};
-
-#[allow(non_upper_case_globals)]
-pub const KSCATEGORY_RENDER_GUID: GUID = GUID {
-    Data1: 0x65E8773E,
-    Data2: 0x8F56,
-    Data3: 0x11D0,
-    Data4: [0xA3, 0xB9, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
-};
-
-#[allow(non_upper_case_globals)]
-pub const KSCATEGORY_CAPTURE_GUID: GUID = GUID {
-    Data1: 0x65E8773D,
-    Data2: 0x8F56,
-    Data3: 0x11D0,
-    Data4: [0xA3, 0xB9, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
-};
-
-#[allow(non_upper_case_globals)]
-pub const KSCATEGORY_TOPOLOGY_GUID: GUID = GUID {
-    Data1: 0xDDA54A40,
-    Data2: 0x1E4C,
-    Data3: 0x11D1,
-    Data4: [0xA0, 0x50, 0x40, 0x57, 0x05, 0xC1, 0x00, 0x00],
-};
-
 static BRIDGE_DATARANGE: KSDATARANGE = KSDATARANGE {
     FormatSize: core::mem::size_of::<KSDATARANGE>() as u32,
     Flags: 0,
     SampleSize: 0,
     Reserved: 0,
     MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-    SubFormat: GUID {
-        Data1: 0,
-        Data2: 0,
-        Data3: 0,
-        Data4: [0; 8],
-    },
+    SubFormat: KSDATAFORMAT_SUBTYPE_ANALOG,
     Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
 };
 
 static BRIDGE_DATARANGES: [SyncPtr<KSDATARANGE>; 1] =
     [SyncPtr(&BRIDGE_DATARANGE as *const KSDATARANGE)];
 
+#[allow(dead_code)]
 static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
     PCPIN_DESCRIPTOR {
         MaxGlobalInstanceCount: MAX_STREAMS as u32,
@@ -933,7 +985,7 @@ static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: 3, // KSPIN_COMMUNICATION_BOTH
             Category: &KSCATEGORY_AUDIO_GUID,
             Name: core::ptr::null(),
-            Reserved: 0,
+            Reserved: core::ptr::null_mut(),
         },
     },
     PCPIN_DESCRIPTOR {
@@ -952,31 +1004,13 @@ static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: 0, // KSPIN_COMMUNICATION_NONE
             Category: &KSCATEGORY_AUDIO_GUID,
             Name: core::ptr::null(),
-            Reserved: 0,
+            Reserved: core::ptr::null_mut(),
         },
     },
 ];
 
+#[allow(dead_code)]
 static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
-    PCPIN_DESCRIPTOR {
-        MaxGlobalInstanceCount: 1,
-        MaxFilterInstanceCount: 1,
-        MinFilterInstanceCount: 1,
-        AutomationTable: core::ptr::null(),
-        KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 0,
-            Interfaces: core::ptr::null(),
-            MediumsCount: 0,
-            Mediums: core::ptr::null(),
-            DataRangesCount: 1,
-            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
-            DataFlow: 1,      // KSPIN_DATAFLOW_IN
-            Communication: 0, // KSPIN_COMMUNICATION_NONE
-            Category: &KSCATEGORY_AUDIO_GUID,
-            Name: core::ptr::null(),
-            Reserved: 0,
-        },
-    },
     PCPIN_DESCRIPTOR {
         MaxGlobalInstanceCount: MAX_STREAMS as u32,
         MaxFilterInstanceCount: MAX_STREAMS as u32,
@@ -993,11 +1027,31 @@ static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: 3, // KSPIN_COMMUNICATION_BOTH
             Category: &KSCATEGORY_AUDIO_GUID,
             Name: core::ptr::null(),
-            Reserved: 0,
+            Reserved: core::ptr::null_mut(),
+        },
+    },
+    PCPIN_DESCRIPTOR {
+        MaxGlobalInstanceCount: 1,
+        MaxFilterInstanceCount: 1,
+        MinFilterInstanceCount: 1,
+        AutomationTable: core::ptr::null(),
+        KsPinDescriptor: KSPIN_DESCRIPTOR {
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
+            MediumsCount: 0,
+            Mediums: core::ptr::null(),
+            DataRangesCount: 1,
+            DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
+            DataFlow: 1,      // KSPIN_DATAFLOW_IN
+            Communication: 0, // KSPIN_COMMUNICATION_NONE
+            Category: &KSCATEGORY_AUDIO_GUID,
+            Name: core::ptr::null(),
+            Reserved: core::ptr::null_mut(),
         },
     },
 ];
 
+#[allow(dead_code)]
 static WAVE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
     FromNode: PCFILTER_NODE,
     FromPin: KSPIN_WAVE_SINK,
@@ -1005,14 +1059,15 @@ static WAVE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
     ToPin: KSPIN_WAVE_BRIDGE,
 }];
 
+#[allow(dead_code)]
 static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
-    Version: 1,
+    Version: 0,
     AutomationTable: core::ptr::null(),
-    PinSize: 2,
-    PinDescriptorSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    PinCount: 2,
     Pins: WAVE_RENDER_PINS.as_ptr(),
     NodeSize: 0,
-    NodeDescriptorSize: 0,
+    NodeCount: 0,
     Nodes: core::ptr::null(),
     ConnectionCount: 1,
     Connections: WAVE_CONNECTIONS.as_ptr() as *const u8,
@@ -1020,14 +1075,15 @@ static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR 
     Categories: core::ptr::null(),
 };
 
+#[allow(dead_code)]
 static WAVE_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
-    Version: 1,
+    Version: 0,
     AutomationTable: core::ptr::null(),
-    PinSize: 2,
-    PinDescriptorSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    PinCount: 2,
     Pins: WAVE_CAPTURE_PINS.as_ptr(),
     NodeSize: 0,
-    NodeDescriptorSize: 0,
+    NodeCount: 0,
     Nodes: core::ptr::null(),
     ConnectionCount: 1,
     Connections: WAVE_CONNECTIONS.as_ptr() as *const u8,
@@ -1052,7 +1108,7 @@ static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: 1,
             Category: &KSCATEGORY_AUDIO_GUID,
             Name: core::ptr::null(),
-            Reserved: 0,
+            Reserved: core::ptr::null_mut(),
         },
     },
     PCPIN_DESCRIPTOR {
@@ -1069,9 +1125,9 @@ static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
             DataFlow: 2,
             Communication: 0,
-            Category: &KSCATEGORY_RENDER_GUID,
+            Category: &KSNODETYPE_SPEAKER,
             Name: core::ptr::null(),
-            Reserved: 0,
+            Reserved: core::ptr::null_mut(),
         },
     },
 ];
@@ -1091,9 +1147,9 @@ static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *const KSDATARANGE,
             DataFlow: 1,
             Communication: 0,
-            Category: &KSCATEGORY_CAPTURE_GUID,
+            Category: &KSNODETYPE_MICROPHONE,
             Name: core::ptr::null(),
-            Reserved: 0,
+            Reserved: core::ptr::null_mut(),
         },
     },
     PCPIN_DESCRIPTOR {
@@ -1112,7 +1168,7 @@ static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             Communication: 1,
             Category: &KSCATEGORY_AUDIO_GUID,
             Name: core::ptr::null(),
-            Reserved: 0,
+            Reserved: core::ptr::null_mut(),
         },
     },
 ];
@@ -1125,13 +1181,13 @@ static TOPO_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
 }];
 
 static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
-    Version: 1,
+    Version: 0,
     AutomationTable: core::ptr::null(),
-    PinSize: 2,
-    PinDescriptorSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    PinCount: 2,
     Pins: TOPO_RENDER_PINS.as_ptr(),
     NodeSize: 0,
-    NodeDescriptorSize: 0,
+    NodeCount: 0,
     Nodes: core::ptr::null(),
     ConnectionCount: 1,
     Connections: TOPO_CONNECTIONS.as_ptr() as *const u8,
@@ -1140,13 +1196,13 @@ static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR 
 };
 
 static TOPO_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
-    Version: 1,
+    Version: 0,
     AutomationTable: core::ptr::null(),
-    PinSize: 2,
-    PinDescriptorSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
+    PinCount: 2,
     Pins: TOPO_CAPTURE_PINS.as_ptr(),
     NodeSize: 0,
-    NodeDescriptorSize: 0,
+    NodeCount: 0,
     Nodes: core::ptr::null(),
     ConnectionCount: 1,
     Connections: TOPO_CONNECTIONS.as_ptr() as *const u8,
@@ -1159,9 +1215,6 @@ static TOPO_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR
 // ============================================================================
 
 static mut CONTROL_DEVICE_OBJECT: *mut DEVICE_OBJECT = core::ptr::null_mut();
-static mut ORIGINAL_DISPATCH_DEVICE_CONTROL: PDRIVER_DISPATCH = None;
-static mut ORIGINAL_DISPATCH_CREATE: PDRIVER_DISPATCH = None;
-static mut ORIGINAL_DISPATCH_CLOSE: PDRIVER_DISPATCH = None;
 
 static mut ETW_REG_HANDLE: u64 = 0;
 
@@ -1172,153 +1225,6 @@ const ETW_PROVIDER_GUID: GUID = GUID {
     Data3: 0x4B7E,
     Data4: [0x9F, 0x93, 0xA6, 0x56, 0x06, 0xE5, 0x0D, 0x64],
 };
-
-// ============================================================================
-// Dispatch Routines
-// ============================================================================
-
-unsafe fn get_current_irp_stack_location(irp: PIRP) -> PIO_STACK_LOCATION {
-    (*irp)
-        .Tail
-        .Overlay
-        .__bindgen_anon_2
-        .__bindgen_anon_1
-        .CurrentStackLocation
-}
-
-unsafe extern "C" fn dispatch_create(device_object: PDEVICE_OBJECT, irp: PIRP) -> NTSTATUS {
-    if device_object == CONTROL_DEVICE_OBJECT {
-        (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
-        (*irp).IoStatus.Information = 0;
-        IofCompleteRequest(irp, 0);
-        return STATUS_SUCCESS;
-    }
-    if let Some(original) = ORIGINAL_DISPATCH_CREATE {
-        original(device_object, irp)
-    } else {
-        STATUS_NOT_IMPLEMENTED
-    }
-}
-
-unsafe extern "C" fn dispatch_close(device_object: PDEVICE_OBJECT, irp: PIRP) -> NTSTATUS {
-    if device_object == CONTROL_DEVICE_OBJECT {
-        let cdo_ext = (*device_object).DeviceExtension as *mut usize;
-        let dev_ext = (*cdo_ext) as *mut DeviceExtension;
-        if !dev_ext.is_null() {
-            if !(*dev_ext).user_mapping.is_null() {
-                MmUnmapLockedPages((*dev_ext).user_mapping as PVOID, (*dev_ext).loopback_mdl);
-                (*dev_ext).user_mapping = core::ptr::null_mut();
-            }
-            if !(*dev_ext).shared_params_user_mapping.is_null() {
-                MmUnmapLockedPages(
-                    (*dev_ext).shared_params_user_mapping as PVOID,
-                    (*dev_ext).shared_params_mdl,
-                );
-                (*dev_ext).shared_params_user_mapping = core::ptr::null_mut();
-            }
-        }
-        (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS;
-        (*irp).IoStatus.Information = 0;
-        IofCompleteRequest(irp, 0);
-        return STATUS_SUCCESS;
-    }
-    if let Some(original) = ORIGINAL_DISPATCH_CLOSE {
-        original(device_object, irp)
-    } else {
-        STATUS_NOT_IMPLEMENTED
-    }
-}
-
-unsafe extern "C" fn dispatch_device_control(device_object: PDEVICE_OBJECT, irp: PIRP) -> NTSTATUS {
-    if device_object == CONTROL_DEVICE_OBJECT {
-        let cdo_ext = (*device_object).DeviceExtension as *mut usize;
-        let dev_ext = (*cdo_ext) as *mut DeviceExtension;
-
-        let stack = get_current_irp_stack_location(irp);
-        let ioctl = (*stack).Parameters.DeviceIoControl.IoControlCode;
-
-        let (status, info) = match ioctl {
-            leyline_shared::IOCTL_LEYLINE_GET_STATUS => (STATUS_SUCCESS, 0),
-            leyline_shared::IOCTL_LEYLINE_MAP_PARAMS => {
-                if dev_ext.is_null() || (*dev_ext).shared_params_mdl.is_null() {
-                    (STATUS_INVALID_DEVICE_STATE, 0)
-                } else {
-                    let mut mapped_ptr = (*dev_ext).shared_params_user_mapping;
-                    if mapped_ptr.is_null() {
-                        mapped_ptr = MmMapLockedPagesSpecifyCache(
-                            (*dev_ext).shared_params_mdl,
-                            _MODE::UserMode as i8,
-                            _MEMORY_CACHING_TYPE::MmCached,
-                            core::ptr::null_mut(),
-                            0,
-                            _MM_PAGE_PRIORITY::NormalPagePriority as u32,
-                        ) as *mut u8;
-                        if !mapped_ptr.is_null() {
-                            (*dev_ext).shared_params_user_mapping = mapped_ptr;
-                        }
-                    }
-
-                    if !mapped_ptr.is_null() {
-                        let out_len = (*stack).Parameters.DeviceIoControl.OutputBufferLength;
-                        if out_len < core::mem::size_of::<usize>() as u32 {
-                            (STATUS_BUFFER_TOO_SMALL, 0)
-                        } else {
-                            let sys_buffer = (*irp).AssociatedIrp.SystemBuffer as *mut usize;
-                            *sys_buffer = mapped_ptr as usize;
-                            (STATUS_SUCCESS, core::mem::size_of::<usize>())
-                        }
-                    } else {
-                        (STATUS_INSUFFICIENT_RESOURCES, 0)
-                    }
-                }
-            }
-            leyline_shared::IOCTL_LEYLINE_MAP_BUFFER => {
-                if dev_ext.is_null() || (*dev_ext).loopback_mdl.is_null() {
-                    (STATUS_INVALID_DEVICE_STATE, 0)
-                } else {
-                    let mut mapped_ptr = (*dev_ext).user_mapping;
-                    if mapped_ptr.is_null() {
-                        mapped_ptr = MmMapLockedPagesSpecifyCache(
-                            (*dev_ext).loopback_mdl,
-                            _MODE::UserMode as i8,
-                            _MEMORY_CACHING_TYPE::MmCached,
-                            core::ptr::null_mut(),
-                            0,
-                            _MM_PAGE_PRIORITY::NormalPagePriority as u32,
-                        ) as *mut u8;
-                        if !mapped_ptr.is_null() {
-                            (*dev_ext).user_mapping = mapped_ptr;
-                        }
-                    }
-
-                    if !mapped_ptr.is_null() {
-                        let out_len = (*stack).Parameters.DeviceIoControl.OutputBufferLength;
-                        if out_len < core::mem::size_of::<usize>() as u32 {
-                            (STATUS_BUFFER_TOO_SMALL, 0)
-                        } else {
-                            let sys_buffer = (*irp).AssociatedIrp.SystemBuffer as *mut usize;
-                            *sys_buffer = mapped_ptr as usize;
-                            (STATUS_SUCCESS, core::mem::size_of::<usize>())
-                        }
-                    } else {
-                        (STATUS_INSUFFICIENT_RESOURCES, 0)
-                    }
-                }
-            }
-            _ => (STATUS_INVALID_DEVICE_REQUEST, 0),
-        };
-
-        (*irp).IoStatus.__bindgen_anon_1.Status = status;
-        (*irp).IoStatus.Information = info as u64;
-        IofCompleteRequest(irp, 0);
-        return status;
-    }
-    if let Some(original) = ORIGINAL_DISPATCH_DEVICE_CONTROL {
-        original(device_object, irp)
-    } else {
-        STATUS_NOT_IMPLEMENTED
-    }
-}
 
 // ============================================================================
 // Driver Entry Point
@@ -1380,10 +1286,12 @@ pub unsafe extern "C" fn AddDevice(
 
     // PortCls requires the total size of the device extension, including its own
     // PORT_CLASS_DEVICE_EXTENSION structure at the beginning.
-    let total_extension_size = (PORT_CLASS_DEVICE_EXTENSION_SIZE + core::mem::size_of::<DeviceExtension>()) as u32;
+    let total_extension_size =
+        (PORT_CLASS_DEVICE_EXTENSION_SIZE + core::mem::size_of::<DeviceExtension>()) as u32;
 
     DbgPrint(
-        "Leyline: Calling PcAddAdapterDevice with DriverObject=%p, PDO=%p, TotalExtSize=%u\n\0".as_ptr(),
+        "Leyline: Calling PcAddAdapterDevice with DriverObject=%p, PDO=%p, TotalExtSize=%u\n\0"
+            .as_ptr(),
         driver_object,
         physical_device_object,
         total_extension_size,
@@ -1558,7 +1466,7 @@ pub unsafe extern "C" fn StartDevice(
     status = init_fn(
         render_port,
         device_object,
-        core::ptr::null_mut(),
+        _irp,
         render_miniport_ptr,
         core::ptr::null_mut(),
         resource_list,
@@ -1595,10 +1503,16 @@ pub unsafe extern "C" fn StartDevice(
     }
     let render_topo_miniport_com = MiniportTopologyCom::new(false);
     let render_topo_miniport_ptr = Box::into_raw(render_topo_miniport_com) as *mut u8;
-    status = init_fn(
+    (*dev_ext).render_topo_miniport = render_topo_miniport_ptr as *mut MiniportTopologyCom;
+
+    let vtable = *(render_topo_port as *const *const *const u8);
+    let init_ptr = *vtable.add(3);
+    let topo_init_fn: PortInitFn = core::mem::transmute(init_ptr);
+
+    status = topo_init_fn(
         render_topo_port,
         device_object,
-        core::ptr::null_mut(),
+        _irp,
         render_topo_miniport_ptr,
         core::ptr::null_mut(),
         resource_list,
@@ -1651,10 +1565,14 @@ pub unsafe extern "C" fn StartDevice(
     let capture_miniport_ptr = Box::into_raw(capture_miniport_com) as *mut u8;
     (*dev_ext).capture_miniport = capture_miniport_ptr as *mut MiniportWaveRTCom;
 
-    status = init_fn(
+    let vtable = *(capture_port as *const *const *const u8);
+    let init_ptr = *vtable.add(3);
+    let capture_init_fn: PortInitFn = core::mem::transmute(init_ptr);
+
+    status = capture_init_fn(
         capture_port,
         device_object,
-        core::ptr::null_mut(),
+        _irp,
         capture_miniport_ptr,
         core::ptr::null_mut(),
         resource_list,
@@ -1692,10 +1610,16 @@ pub unsafe extern "C" fn StartDevice(
     }
     let capture_topo_miniport_com = MiniportTopologyCom::new(true);
     let capture_topo_miniport_ptr = Box::into_raw(capture_topo_miniport_com) as *mut u8;
-    status = init_fn(
+    (*dev_ext).capture_topo_miniport = capture_topo_miniport_ptr as *mut MiniportTopologyCom;
+
+    let vtable = *(capture_topo_port as *const *const *const u8);
+    let init_ptr = *vtable.add(3);
+    let capture_topo_init_fn: PortInitFn = core::mem::transmute(init_ptr);
+
+    status = capture_topo_init_fn(
         capture_topo_port,
         device_object,
-        core::ptr::null_mut(),
+        _irp,
         capture_topo_miniport_ptr,
         core::ptr::null_mut(),
         resource_list,
@@ -1724,30 +1648,16 @@ pub unsafe extern "C" fn StartDevice(
         capture_topo_port,
         KSPIN_TOPO_LINEOUT,
         capture_port,
-        KSPIN_TOPO_BRIDGE,
+        KSPIN_WAVE_BRIDGE,
     );
     if status != STATUS_SUCCESS {
         DbgPrint(
             "Leyline: PcRegisterPhysicalConnection Capture FAILED (0x%08X)\n\0".as_ptr(),
             status,
         );
+        return status;
     } else {
         DbgPrint("Leyline: StartDevice COMPLETED SUCCESSFULLY\n\0".as_ptr());
-
-        // Install CDO hooks only after successful start
-        let driver_object = (*device_object).DriverObject;
-        ORIGINAL_DISPATCH_CREATE = (*driver_object).MajorFunction[IRP_MJ_CREATE as usize];
-        (*driver_object).MajorFunction[IRP_MJ_CREATE as usize] = Some(dispatch_create);
-
-        ORIGINAL_DISPATCH_CLOSE = (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize];
-        (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize] = Some(dispatch_close);
-
-        ORIGINAL_DISPATCH_DEVICE_CONTROL =
-            (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize];
-        (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize] =
-            Some(dispatch_device_control);
-
-        DbgPrint("Leyline: Dispatch Hooks Installed\n\0".as_ptr());
     }
     status
 }

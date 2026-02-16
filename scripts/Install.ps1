@@ -37,10 +37,27 @@ try {
     Write-Host "`n--- [1/5] Initializing eWDK Environment ---" -ForegroundColor Cyan
     # ... (rest of environment setup remains the same) ...
     if (-not $env:WDK_ROOT) {
-        $ewdkRoot = "D:\eWDK_28000"
-        if (-not (Test-Path $ewdkRoot)) { throw "eWDK not found at $ewdkRoot" }
+        $possiblePaths = @(
+            "D:\eWDK_28000",
+            "C:\Users\Slate\Downloads\EWDK_br_release_28000_251103-1709",
+            "D:\"
+        )
+        
+        $ewdkRoot = $null
+        foreach ($p in $possiblePaths) {
+            if (Test-Path (Join-Path $p "BuildEnv\SetupBuildEnv.cmd")) {
+                $ewdkRoot = $p
+                break
+            }
+        }
+        
+        if (-not $ewdkRoot) {
+            Write-Host "[!] eWDK build environment (SetupBuildEnv.cmd) not found in expected locations." -ForegroundColor Red
+            throw "eWDK not found. Checked: $($possiblePaths -join ', ')"
+        }
         
         $env:eWDK_ROOT_DIR = $ewdkRoot
+        Write-Host "[*] Using eWDK at: $ewdkRoot" -ForegroundColor Gray
         $cmd = "`"$ewdkRoot\BuildEnv\SetupBuildEnv.cmd`" amd64 10.0.28000.0 && set"
         $envVars = cmd.exe /c $cmd
         foreach ($line in $envVars) {
@@ -67,6 +84,9 @@ try {
         
         # Fixed Devcon Path for eWDK 28000
         $env:DEVCON_EXE = Join-Path $env:eWDK_ROOT_DIR "Program Files\Windows Kits\10\Tools\$env:WindowsTargetPlatformVersion\x64\devcon.exe"
+        
+        # Add DevGen Path (Modern replacement for devcon install)
+        $env:DEVGEN_EXE = Join-Path $env:eWDK_ROOT_DIR "Program Files\Windows Kits\10\Tools\$env:WindowsTargetPlatformVersion\x64\devgen.exe"
     }
 
     Write-Host "--- [2/5] Executing Compilations ---" -ForegroundColor Cyan
@@ -151,33 +171,48 @@ try {
         certutil -addstore TrustedPublisher package\leyline.cer | Out-Null
 
         Write-Host "--- [5/5] PnP Driver Installation & Verification ---" -ForegroundColor Cyan
-        if (Test-Path $env:DEVCON_EXE) {
-            Push-Location "package"
-            # Check for existing node
-            $devFound = & $env:DEVCON_EXE find "Root\LeylineAudio" | Select-String "Matching Device(s) Found"
-            if ($devFound) {
-                Write-Host "[*] Updating existing device instance..." -ForegroundColor Yellow
-                & $env:DEVCON_EXE update leyline.inf "Root\LeylineAudio"
-            } else {
-                Write-Host "[*] Installing new device instance (ROOT\MEDIA)..." -ForegroundColor Yellow
-                & $env:DEVCON_EXE install leyline.inf "Root\LeylineAudio"
-            }
-            $lastExit = $LASTEXITCODE
-            Pop-Location
-        } else {
-            Write-Host "[!] devcon.exe not found at $env:DEVCON_EXE. Falling back to pnputil..." -ForegroundColor Red
-            pnputil /add-driver "package\leyline.inf" /install
-            $lastExit = $LASTEXITCODE
+        
+        # 1. Clean up any existing instances to avoid duplicates
+        Write-Host "[*] Checking for existing Leyline instances..."
+        $existing = Get-PnpDevice -PresentOnly:$false | Where-Object { $_.HardwareID -contains "Root\LeylineAudio" }
+        foreach ($dev in $existing) {
+            Write-Host "    -> Removing old instance: $($dev.InstanceId)"
+            pnputil /remove-device $dev.InstanceId | Out-Null
         }
+
+        # 2. Create the software device node using DevGen (Modern way)
+        Write-Host "[*] Creating software device node with DevGen..."
+        if (Test-Path $env:DEVGEN_EXE) {
+            & $env:DEVGEN_EXE /add /hardwareid "Root\LeylineAudio" | Out-Null
+        } else {
+            throw "devgen.exe NOT FOUND at $env:DEVGEN_EXE"
+        }
+
+        # 3. Install the driver package and associate it with the node
+        Write-Host "[*] Installing driver package and associating with device..."
+        $stageResult = pnputil /add-driver "package\leyline.inf" /install
+        Write-Host "    -> $stageResult"
 
         # Final Verification
         Start-Sleep -Seconds 2
-        $finalDev = Get-PnpDevice | Where-Object { $_.HardwareID -contains "Root\LeylineAudio" }
-        if ($finalDev -and ($finalDev.Status -eq "OK" -or $finalDev.ConfigManagerErrorCode -eq 0)) {
-            Write-Host "`n[SUCCESS] Leyline Audio $Version is ACTIVE and ATTACHED." -ForegroundColor Green
+        $finalDevices = Get-PnpDevice -PresentOnly:$true | Where-Object { $_.HardwareID -contains "Root\LeylineAudio" }
+        
+        if ($finalDevices) {
+            foreach ($dev in $finalDevices) {
+                Write-Host "`n[SUCCESS] Found active Leyline device: $($dev.FriendlyName)" -ForegroundColor Green
+                Write-Host "          Instance ID: $($dev.InstanceId)"
+                Write-Host "          Status: $($dev.Status)"
+                
+                if ($dev.Status -ne "OK") {
+                    Write-Host "`n################################################################" -ForegroundColor Red
+                    Write-Host "# [CRITICAL] DEVICE ERROR: $($dev.Status)                      #" -ForegroundColor Red
+                    Write-Host "# The driver is installed but failed to start.                 #" -ForegroundColor Red
+                    Write-Host "# Check Event Viewer or run 'pnputil /enum-devices /problem'.  #" -ForegroundColor Red
+                    Write-Host "################################################################`n" -ForegroundColor Red
+                }
+            }
         } else {
-            Write-Host "`n[WARNING] Driver installed, but device status is: $($finalDev.Status) (Code: $($finalDev.ConfigManagerErrorCode))" -ForegroundColor Yellow
-            Write-Host "[ACTION] A REBOOT is required to finalize the driver load and clear old service handles." -ForegroundColor Gray
+            Write-Host "`n[ERROR] Driver installed, but no active device node was found!" -ForegroundColor Red
         }
 
         Write-Host "`n[SUCCESS] Leyline Audio $Version Built & Installed." -ForegroundColor Green

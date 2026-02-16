@@ -467,8 +467,32 @@ All agents MUST proactively manage the build environment. If required tools (e.g
 - **Bindgen IRP Traversal**: Accessing the `CurrentStackLocation` in `bindgen`-generated `wdk-sys` structs requires traversing nested anonymous unions. On x64, the correct path is often `(*irp).Tail.Overlay.__bindgen_anon_2.__bindgen_anon_1.CurrentStackLocation`. This corresponds to the `ListEntry` variant of the `Overlay` union. Always verify against the generated `bindings.rs`.
 - **Static Mut Safety**: To safely pass a pointer to a `static mut` variable (like `CONTROL_DEVICE_OBJECT`) to a DDI without triggering Rust 2024 undefined behavior warnings, use the `&raw mut VARIABLE` syntax instead of `&mut VARIABLE`.
 
+### 7.9 Reference Headers
+The project includes a collection of raw Windows Driver Kit (WDK) headers in `.agent/references/` to assist agents in verifying struct layouts, interface definitions, and macro expansions without needing to browse external documentation.
+- **Location**: `.agent/references/`
+- **Usage**: Agents should `grep` or `read_file` these headers when implementing COM VTables or checking DDI signatures to ensure binary compatibility.
+- **Files**:
+    - `ks.h`: Kernel Streaming definitions.
+    - `ksmedia.h`: Multimedia-specific Kernel Streaming definitions (GUIDs, DataRanges).
+    - `portcls.h`: Definitive reference for PortCls interfaces (`IPort`, `IMiniport`, `IMiniportWaveRTStream`, etc.) and their method order.
+    - `audioenginebaseapo.h`: Foundation for Audio Processing Objects (APO).
+    - `mmdeviceapi.h`: Multimedia Device API for endpoint management.
+    - `devicetopology.h`: Navigation of internal device topology.
+    - `ntddk.h`: Core Windows Kernel-mode definitions.
+    - `drmk.h`: Digital Rights Management for Kernel Streaming.
+    - `wdf.h`: Windows Driver Framework core definitions.
+    - `wdm.h`: Foundational WDM structures and DDIs.
+    - `Audioclient.h`: IAudioClient3 for small-buffer/low-latency paths.
+    - `audioendpoints.h`: Audio endpoint property definitions.
+    - `avrt.h`: MMCSS thread priority and scheduling.
+    - `functiondiscoverykeys_devpkey.h`: Property keys for device configuration.
+    - `winerror.h` / `fltWinError.h`: Comprehensive error code mapping.
+    - `ntstatus.h`: Definitive list of NTSTATUS codes for precise error handling.
+    - `stdarg.h`: Support for variadic functions (e.g., kernel logging).
+    - `ResourceManager.h`: Resource locking and management.
+
 ---
-*Comprehensive Audit & Reference Mapping Complete: February 14, 2026*
+*Comprehensive Audit & Reference Mapping Complete: February 16, 2026*
 
 
 

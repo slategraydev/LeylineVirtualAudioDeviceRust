@@ -1,24 +1,17 @@
-# Professional Script Review: Leyline Audio Driver
+# Automation Scripts Audit: Leyline Audio Driver
 
 **Reviewer**: Antigravity (Gemini 1.5 Pro)
-**Date**: February 15, 2026
-**Status**: SESSION #25 COMPLETE
+**Date**: February 16, 2026
 
-## Script Inventory
+## Script Inventory & Health
 
-| Script | Purpose | Language | Dependency |
-| :--- | :--- | :--- | :--- |
-| **`scripts/Install.ps1`** | **[UBER]** One-click build, sign, and install. Hardened for eWDK 28000. | PowerShell 7+ | Drive D: (eWDK) |
-| **`scripts/Uninstall.ps1`** | **[UBER]** Complete system purge of all artifacts (including legacy samples). | PowerShell 7+ | None |
-| **`scripts/LaunchBuildEnv.ps1`** | Environment initialization. | PowerShell 7+ | Drive D: (eWDK) |
-| **`scripts/Update-Version.ps1`** | Automated INF version stamping. | PowerShell 7+ | None |
-| **`scripts/build_apo.ps1`** | Robust C++ APO build (Manual Paths). | PowerShell 7+ | eWDK + VC Tools |
-| **`scripts/package_driver.ps1`** | Full pipeline: Build, Package, Sign. | PowerShell 7+ | `cargo-wdk`, `dotnet`, `build_apo.ps1` |
+| Script | Purpose | Status | Notes |
+| :--- | :--- | :---: | :--- |
+| **`Install.ps1`** | Build + Install Pipeline | ✅ | Requires Admin. Contains Env Setup. |
+| **`Uninstall.ps1`** | System Purge | ✅ | Requires Admin. |
+| **`LaunchBuildEnv.ps1`** | Env Setup Only | ✅ | Restored Session #27. |
+| **`Install-VM.ps1`** | Remote Install | ✅ | Password updated to "rd". |
+| **`Uninstall-VM.ps1`** | Remote Cleanup | ✅ | Password updated to "rd". |
 
-## Automation Logic Audit
-- **Install.ps1**: Fixed `DEVCON_EXE` path for eWDK 28000. Added aggressive cleanup for `Root\simpleaudiosample` and `Root\SimpleAudioDriver` instances. Implemented fixed instance ID `0000` for consistent device enumeration.
-- **Uninstall.ps1**: Hardened to purge all legacy `simpleaudiosample` and `SimpleAudioDriver` artifacts from the Driver Store and PnP tree.
-- **Makefile.toml**: Orchestrates the pipeline; verified task mapping for `clean`, `install`, and `uninstall`.
-
----
-*Last Updated: February 15, 2026*
+## Observations
+- Scripts are healthy and ready for deployment.

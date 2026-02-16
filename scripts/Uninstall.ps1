@@ -17,34 +17,68 @@ Write-Host "`n--- Leyline Audio: UNINSTALLING ---" -ForegroundColor Red
 
 # 1. Device Removal
 Write-Host "[*] Removing PnP Devices (Leyline and legacy samples)..."
-$legacyIds = @("Root\LeylineAudio", "Root\simpleaudiosample", "Root\SimpleAudioDriver")
-Get-PnpDevice -PresentOnly:$false | Where-Object { 
-    $hwid = $_.HardwareID
-    $match = $false
-    foreach ($id in $legacyIds) { if ($hwid -contains $id) { $match = $true; break } }
-    $match
-} | ForEach-Object {
-    Write-Host "    -> Removing $($_.InstanceId) ($($_.FriendlyName))"
-    pnputil /remove-device $_.InstanceId | Out-Null
+
+# Use devcon to find devices by Hardware ID, as it's more reliable for root-enumerated "ghosts"
+$devconPath = "D:\eWDK_28000\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64\devcon.exe"
+if (Test-Path $devconPath) {
+    # findall is crucial to catch non-present/ghost nodes
+    $ids = & $devconPath findall "Root\LeylineAudio" | Where-Object { $_ -match "(.*):" -or $_ -match "^ROOT\\" } | ForEach-Object { 
+        if ($_ -match "(.*):") { $matches[1].Trim() } else { $_.Trim() }
+    }
+    foreach ($id in ($ids | Select-Object -Unique)) {
+        if ($id -match "ROOT\\") {
+            Write-Host "    -> Removing Device (devcon): $id"
+            & $devconPath remove "@$id" | Out-Null
+        }
+    }
+}
+
+# Fallback/Safety: Clean up by class and name
+$pnpDevices = pnputil /enum-devices /class MEDIA
+$toRemove = @()
+$currentId = ""
+foreach ($line in $pnpDevices) {
+    if ($line -match "Instance ID:\s+(.*)") { $currentId = $matches[1].Trim() }
+    if ($line -match "(Leyline|simpleaudiosample|SimpleAudioDriver)") {
+        if ($currentId) { $toRemove += $currentId; $currentId = "" }
+    }
+}
+foreach ($id in ($toRemove | Select-Object -Unique)) {
+    Write-Host "    -> Removing Device (pnputil): $id"
+    pnputil /remove-device $id | Out-Null
 }
 
 # 2. Service & Registry Cleanup
 Write-Host "[*] Deleting Services and Registry Bloat..."
 foreach ($svc in @("Leyline", "LEYLINEAUDIO", "simpleaudiosample")) {
-    sc.exe stop $svc | Out-Null
-    sc.exe delete $svc | Out-Null
+    if (Get-Service $svc -ErrorAction SilentlyContinue) {
+        Write-Host "    -> Stopping & Deleting Service: $svc"
+        sc.exe stop $svc | Out-Null
+        sc.exe delete $svc | Out-Null
+    }
 }
 # Remove APO Registration
 Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio\*" -Include "*Leyline*", "*simpleaudiosample*" -Recurse -ErrorAction SilentlyContinue
 
 # 3. Driver Store Purge
 Write-Host "[*] Purging Driver Store (OEM INFs)..."
-pnputil /enum-drivers | Select-String "Published Name:\s+(oem\d+\.inf)" -Context 0,2 | ForEach-Object {
-    if ($_.Context.PostContext -match "leyline.inf" -or $_.Context.PostContext -match "simpleaudiosample.inf") {
-        $name = $_.Matches[0].Groups[1].Value
-        Write-Host "    -> Deleting $name"
-        pnputil /delete-driver $name /force | Out-Null
+$drivers = pnputil /enum-drivers
+$oemInfs = @()
+for ($i = 0; $i -lt $drivers.Count; $i++) {
+    if ($drivers[$i] -match "Original Name:\s+(leyline\.inf|simpleaudiosample\.inf)") {
+        # Look back up to 2 lines for the Published Name
+        for ($j = 1; $j -le 2; $j++) {
+            if ($i -ge $j -and $drivers[$i-$j] -match "Published Name:\s+(oem\d+\.inf)") {
+                $oemInfs += $matches[1]
+                break
+            }
+        }
     }
+}
+
+foreach ($inf in ($oemInfs | Select-Object -Unique)) {
+    Write-Host "    -> Deleting Driver Package: $inf"
+    pnputil /delete-driver $inf /force | Out-Null
 }
 
 # 4. Certificate Removal
