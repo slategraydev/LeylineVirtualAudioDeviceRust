@@ -1,5 +1,5 @@
-# Build Review: Session #22
-**Reviewer**: Gemini CLI
+# Build Review: Session #23
+**Reviewer**: Antigravity (Gemini 3 Pro)
 **Date**: February 15, 2026
 
 ## Build Health: 🟢 Success (0 Warnings)
@@ -8,21 +8,23 @@
 - **Status**: Success
 - **Errors**: 0
 - **Warnings**: 0
-- **Verification**: `cargo wdk build` verified 0 warnings.
-- **Key Note**: The `PORT_CLASS_DEVICE_EXTENSION_SIZE` fix successfully resolved the potential memory under-allocation issue, although the runtime failure (0xC000000D) persists.
+- **Verification**: `cargo make build` verified 0 warnings.
+- **Key Note**: Transitioned PortCls declarations and driver callbacks to `extern "C"` to match strict linkage requirements. Corrected `PcAddAdapterDevice` parameter logic.
 
 ### HSA (LeylineHSA)
-- **Status**: Not Built (No changes)
-- **Previous State**: Success
+- **Status**: Success
+- **Errors**: 0
+- **Warnings**: 0
+- **Key Note**: Enabled `<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>` to ensure all required runtimes are bundled.
 
 ### APO (LeylineAPO)
-- **Status**: Not Built (No changes)
+- **Status**: Success (Cached)
 - **Previous State**: Success
 
 ## Environment Verification
 - **eWDK**: D:\eWDK_28000 (Active)
-- **LLVM**: C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin (Active)
-- **Rust**: 1.75.0-nightly (Targeting x86_64-pc-windows-msvc)
+- **LLVM**: D:\eWDK_28000\LLVM\bin (Active via LIBCLANG_PATH)
+- **Rust**: 1.75.0-nightly
 
 ## Identified Issues
-- **Runtime Failure**: `PcAddAdapterDevice` returns `0xC000000D`. While the build is clean, the execution is blocked. This is the primary target for Session #23.
+- **Runtime Testing**: Pending verification of the `extern "C"` fix on the target machine. If 0xC000000D persists, further investigation into PortCls-specific `DeviceExtension` alignment may be required.

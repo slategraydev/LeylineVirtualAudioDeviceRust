@@ -1,25 +1,31 @@
-# Session Commit Message: PortCls Remediation & Debugging Strategy
-**Reviewer**: Gemini CLI
+# Session Commit Payload: Session #25
+**Reviewer**: Antigravity (Gemini 1.5 Pro)
 **Date**: February 15, 2026
 
-## Session Summary
-Successfully corrected the `PORT_CLASS_DEVICE_EXTENSION_SIZE` constant to match x64 requirements (512 bytes), ensuring PortCls has sufficient memory for its internal state. Despite this fix, `PcAddAdapterDevice` continues to return `STATUS_INVALID_PARAMETER` (0xC000000D). The session concluded by updating project artifacts to pivot towards a WinDBG-led investigation in the next session to isolate the specific invalid parameter.
+### Summary
+Purged legacy driver artifacts, hardened the installation pipeline, and resolved root device enumeration mysteries.
 
-## Changes
-- **Kernel**: Corrected `PORT_CLASS_DEVICE_EXTENSION_SIZE` to 512 bytes in `crates/leyline-kernel/src/lib.rs`.
-- **Kernel**: Updated `AddDevice` extension size calculation to be strictly compliant with PortCls specifications.
-- **Documentation**: Updated `.agent/PROJECT_PROGRESS.MD` with Session #22 results and adjusted Session #23 TODOs for WinDBG debugging.
-- **Cleanup**: Removed redundant `PROJECT_PROGRESS.MD` from the root directory.
+### Changes
+- Purged 6 legacy `simpleaudiosample` driver packages from the system Driver Store.
+- Corrected `DEVCON_EXE` path in `Install.ps1` to align with eWDK 28000 directory structure.
+- Implemented aggressive system cleanup for `simpleaudiosample` and `SimpleAudioDriver` IDs in install/uninstall scripts.
+- Standardized root device creation with fixed instance ID `0000` to prevent duplicate node accumulation.
+- Verified that "Unknown" root devices `ROOT\SYSTEM\0001/0002` belong to third-party software (Virtual Desktop/Oculus).
 
-## Zero-Warning Verification Proof
-- `cargo wdk build` (Release) completed with 0 errors and 0 warnings.
-- `Select-String -Pattern "warning" -Path build.log` (Internal validation) returned no results.
+### Zero-Warning Verification Proof
+- `cargo make install` Output: "Leyline Audio 1.0.1.2106 Built & Installed."
+- Warning Scan: `Select-String -Pattern "warning"` returned 0 matches in most recent build logs.
 
-## Git Commit Payload
+---
+### Git Commit Payload (Conventional Commits)
 ```text
-fix: align PortCls device extension size for x64
+fix: purge legacy driver artifacts and harden installation pipeline
 
-- Corrected PORT_CLASS_DEVICE_EXTENSION_SIZE to 512 bytes (64 * sizeof(ULONG_PTR)).
-- Updated AddDevice extension size calculation for PortCls compliance.
-- Pivot to WinDBG investigation for persistent 0xC000000D error.
+Purged all traces of 'simpleaudiosample' from the Driver Store and PnP tree to prevent cross-pollination with the Leyline Audio Driver. Hardened the installation scripts for eWDK 28000 and implemented fixed instance ID management for root device nodes.
+
+- Deleted 6 legacy oemXX.inf packages from the Driver Store
+- Fixed devcon.exe path in scripts/Install.ps1
+- Added aggressive cleanup for legacy HardwareIDs in Install.ps1 and Uninstall.ps1
+- Implemented fixed instance ID '0000' for ROOT\MEDIA node creation
+- Verified 0-warning build for kernel and HSA stack
 ```

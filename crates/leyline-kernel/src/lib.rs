@@ -36,19 +36,20 @@ extern "C" {
 // PortCls External Declarations
 // ============================================================================
 
-extern "system" {
+#[link(name = "portcls")]
+extern "C" {
     pub fn PcAddAdapterDevice(
         DriverObject: PDRIVER_OBJECT,
         PhysicalDeviceObject: PDEVICE_OBJECT,
-        StartDevice: Option<unsafe extern "system" fn(PDEVICE_OBJECT, PIRP, PVOID) -> NTSTATUS>,
-        MaxSubDevices: u32,
+        StartDevice: Option<unsafe extern "C" fn(PDEVICE_OBJECT, PIRP, PVOID) -> NTSTATUS>,
+        MaxObjects: u32,
         DeviceExtensionSize: u32,
     ) -> NTSTATUS;
 
     pub fn PcInitializeAdapterDriver(
         DriverObject: PDRIVER_OBJECT,
         RegistryPath: PUNICODE_STRING,
-        AddDevice: Option<unsafe extern "system" fn(PDRIVER_OBJECT, PDEVICE_OBJECT) -> NTSTATUS>,
+        AddDevice: Option<unsafe extern "C" fn(PDRIVER_OBJECT, PDEVICE_OBJECT) -> NTSTATUS>,
     ) -> NTSTATUS;
 
     pub fn PcNewPort(OutPort: *mut *mut u8, ClassId: *const GUID) -> NTSTATUS;
@@ -889,6 +890,14 @@ pub const KSCATEGORY_CAPTURE_GUID: GUID = GUID {
     Data4: [0xA3, 0xB9, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
 };
 
+#[allow(non_upper_case_globals)]
+pub const KSCATEGORY_TOPOLOGY_GUID: GUID = GUID {
+    Data1: 0xDDA54A40,
+    Data2: 0x1E4C,
+    Data3: 0x11D1,
+    Data4: [0xA0, 0x50, 0x40, 0x57, 0x05, 0xC1, 0x00, 0x00],
+};
+
 static BRIDGE_DATARANGE: KSDATARANGE = KSDATARANGE {
     FormatSize: core::mem::size_of::<KSDATARANGE>() as u32,
     Flags: 0,
@@ -1154,6 +1163,16 @@ static mut ORIGINAL_DISPATCH_DEVICE_CONTROL: PDRIVER_DISPATCH = None;
 static mut ORIGINAL_DISPATCH_CREATE: PDRIVER_DISPATCH = None;
 static mut ORIGINAL_DISPATCH_CLOSE: PDRIVER_DISPATCH = None;
 
+static mut ETW_REG_HANDLE: u64 = 0;
+
+/// Leyline Audio Driver ETW Provider GUID: {71549463-5E1E-4B7E-9F93-A65606E50D64}
+const ETW_PROVIDER_GUID: GUID = GUID {
+    Data1: 0x71549463,
+    Data2: 0x5E1E,
+    Data3: 0x4B7E,
+    Data4: [0x9F, 0x93, 0xA6, 0x56, 0x06, 0xE5, 0x0D, 0x64],
+};
+
 // ============================================================================
 // Dispatch Routines
 // ============================================================================
@@ -1306,15 +1325,28 @@ unsafe extern "C" fn dispatch_device_control(device_object: PDEVICE_OBJECT, irp:
 // ============================================================================
 
 #[no_mangle]
-pub unsafe extern "system" fn DriverEntry(
+pub unsafe extern "C" fn DriverEntry(
     driver_object: PDRIVER_OBJECT,
     registry_path: PUNICODE_STRING,
 ) -> NTSTATUS {
     DbgPrint("Leyline: DriverEntry\n\0".as_ptr());
+
+    // Register ETW Provider for professional telemetry
+    let status = EtwRegister(
+        &ETW_PROVIDER_GUID,
+        None,
+        core::ptr::null_mut(),
+        &raw mut ETW_REG_HANDLE,
+    );
+    if status == 0 {
+        DbgPrint("Leyline: ETW Provider Registered Successfully\n\0".as_ptr());
+    }
+
+    (*driver_object).DriverUnload = Some(DriverUnload);
+
     let status = PcInitializeAdapterDriver(driver_object, registry_path, Some(AddDevice));
     if status == STATUS_SUCCESS {
         DbgPrint("Leyline: PcInitializeAdapterDriver Success\n\0".as_ptr());
-        // HOOKING MOVED TO STARTDEVICE
     } else {
         DbgPrint(
             "Leyline: PcInitializeAdapterDriver Failed with status 0x%08X\n\0".as_ptr(),
@@ -1324,8 +1356,18 @@ pub unsafe extern "system" fn DriverEntry(
     status
 }
 
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn DriverUnload(_driver_object: PDRIVER_OBJECT) {
+    DbgPrint("Leyline: DriverUnload\n\0".as_ptr());
+    if ETW_REG_HANDLE != 0 {
+        let _ = EtwUnregister(ETW_REG_HANDLE);
+        ETW_REG_HANDLE = 0;
+        DbgPrint("Leyline: ETW Provider Unregistered\n\0".as_ptr());
+    }
+}
+
 #[no_mangle]
-pub unsafe extern "system" fn AddDevice(
+pub unsafe extern "C" fn AddDevice(
     driver_object: PDRIVER_OBJECT,
     physical_device_object: PDEVICE_OBJECT,
 ) -> NTSTATUS {
@@ -1336,17 +1378,23 @@ pub unsafe extern "system" fn AddDevice(
         return STATUS_INVALID_PARAMETER;
     }
 
-    // PortCls requires DeviceExtensionSize to be at least PORT_CLASS_DEVICE_EXTENSION_SIZE.
-    // We calculate the total size as PortCls overhead + our custom DeviceExtension structure.
-    let extension_size =
-        (PORT_CLASS_DEVICE_EXTENSION_SIZE + core::mem::size_of::<DeviceExtension>()) as u32;
+    // PortCls requires the total size of the device extension, including its own
+    // PORT_CLASS_DEVICE_EXTENSION structure at the beginning.
+    let total_extension_size = (PORT_CLASS_DEVICE_EXTENSION_SIZE + core::mem::size_of::<DeviceExtension>()) as u32;
+
+    DbgPrint(
+        "Leyline: Calling PcAddAdapterDevice with DriverObject=%p, PDO=%p, TotalExtSize=%u\n\0".as_ptr(),
+        driver_object,
+        physical_device_object,
+        total_extension_size,
+    );
 
     let status = PcAddAdapterDevice(
         driver_object,
         physical_device_object,
         Some(StartDevice),
-        8, // MaxSubDevices (Must be > 0, typically 5-10)
-        extension_size,
+        10, // MaxSubDevices (Common value)
+        total_extension_size,
     );
 
     if status != STATUS_SUCCESS {
@@ -1358,7 +1406,7 @@ pub unsafe extern "system" fn AddDevice(
     status
 }
 #[no_mangle]
-pub unsafe extern "system" fn StartDevice(
+pub unsafe extern "C" fn StartDevice(
     device_object: PDEVICE_OBJECT,
     _irp: PIRP,
     resource_list: PVOID,

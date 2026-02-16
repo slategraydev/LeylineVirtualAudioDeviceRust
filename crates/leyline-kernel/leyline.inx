@@ -8,7 +8,7 @@ Class       = MEDIA
 ClassGuid   = {4d36e96c-e325-11ce-bfc1-08002be10318}
 Provider    = %ManufacturerName%
 CatalogFile = leyline.cat
-DriverVer   = 02/15/2026,1.0.13.411
+DriverVer   = 02/15/2026,1.0.1.2106
 PnpLockdown = 1
 
 [SourceDisksNames]
@@ -40,6 +40,12 @@ leyline.sys
 LeylineAPO.dll
 
 [Leyline_Device.AddReg]
+HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
+HKR,,Driver,,leyline.sys
+HKR,Drivers,SubClasses,,"wave"
+HKR,Drivers\wave\wdmaud.drv,Driver,,wdmaud.drv
+HKR,Drivers\wave\wdmaud.drv,Description,,%DeviceName%
+
 ; Register the APO COM Server
 HKCR,CLSID\%LeylineAPO_CLSID%,,,"Leyline Audio Processing Object"
 HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,,,%13%\LeylineAPO.dll
@@ -50,34 +56,52 @@ HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,ThreadingModel,,Both
 ; ==============================================================================
 
 [Leyline_Device.NT.Interfaces]
-; Render Interfaces (WaveRender)
-AddInterface = %KSCATEGORY_AUDIO%, "WaveRender", Leyline_RenderInterface
-AddInterface = %KSCATEGORY_RENDER%, "WaveRender", Leyline_RenderInterface
+; Render Interfaces
+AddInterface = %KSCATEGORY_AUDIO%, "WaveRender", Leyline_WaveRenderInterface
+AddInterface = %KSCATEGORY_RENDER%, "WaveRender", Leyline_WaveRenderInterface
+AddInterface = %KSCATEGORY_AUDIO%, "TopoRender", Leyline_TopoRenderInterface
+AddInterface = %KSCATEGORY_TOPOLOGY%, "TopoRender", Leyline_TopoRenderInterface
 
-; Capture Interfaces (WaveCapture)
-AddInterface = %KSCATEGORY_AUDIO%, "WaveCapture", Leyline_CaptureInterface
-AddInterface = %KSCATEGORY_CAPTURE%, "WaveCapture", Leyline_CaptureInterface
+; Capture Interfaces
+AddInterface = %KSCATEGORY_AUDIO%, "WaveCapture", Leyline_WaveCaptureInterface
+AddInterface = %KSCATEGORY_CAPTURE%, "WaveCapture", Leyline_WaveCaptureInterface
+AddInterface = %KSCATEGORY_AUDIO%, "TopoCapture", Leyline_TopoCaptureInterface
+AddInterface = %KSCATEGORY_TOPOLOGY%, "TopoCapture", Leyline_TopoCaptureInterface
 
-[Leyline_RenderInterface]
-AddReg = Leyline_RenderInterface.AddReg
+[Leyline_WaveRenderInterface]
+AddReg = Leyline_WaveRenderInterface.AddReg
 
-[Leyline_CaptureInterface]
-AddReg = Leyline_CaptureInterface.AddReg
+[Leyline_WaveCaptureInterface]
+AddReg = Leyline_WaveCaptureInterface.AddReg
 
-[Leyline_RenderInterface.AddReg]
+[Leyline_TopoRenderInterface]
+AddReg = Leyline_TopoRenderInterface.AddReg
+
+[Leyline_TopoCaptureInterface]
+AddReg = Leyline_TopoCaptureInterface.AddReg
+
+[Leyline_WaveRenderInterface.AddReg]
 ; Register the APOs for this interface
 HKR,"FX\\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
 HKR,"FX\\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
 HKR,"FX\\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameRender%
+HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_ANY%
 
-[Leyline_CaptureInterface.AddReg]
+[Leyline_WaveCaptureInterface.AddReg]
 ; Register the APOs for this interface
 HKR,"FX\\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
 HKR,"FX\\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
 HKR,"FX\\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
+HKR,,FriendlyName,,%DeviceNameCapture%
+HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_ANY%
+
+[Leyline_TopoRenderInterface.AddReg]
+HKR,,FriendlyName,,%DeviceNameRender%
+
+[Leyline_TopoCaptureInterface.AddReg]
 HKR,,FriendlyName,,%DeviceNameCapture%
 
 ; ==============================================================================
@@ -106,12 +130,17 @@ ServiceDesc      = "Leyline Audio Driver Service"
 KSCATEGORY_AUDIO   = "{6994AD04-93EF-11D0-A3CC-00A0C9223196}"
 KSCATEGORY_RENDER  = "{65E8773E-8F56-11D0-A3B9-00A0C9223196}"
 KSCATEGORY_CAPTURE = "{65E8773D-8F56-11D0-A3B9-00A0C9223196}"
+KSCATEGORY_TOPOLOGY= "{DDA54A40-1E4C-11D1-A050-405705C10000}"
 KSNAME_Wave        = "Wave"
 
 ; Property Keys
 PKEY_FX_StreamEffectClsid   = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},5"
 PKEY_FX_ModeEffectClsid     = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},6"
 PKEY_FX_EndpointEffectClsid = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},7"
+PKEY_AudioEndpoint_Association = "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},2"
+
+; Nodes
+KSNODETYPE_ANY = "{00000000-0000-0000-0000-000000000000}"
 
 ; Leyline Specifics
 LeylineAPO_CLSID = "{C8D3E4F5-B6A7-4A2D-A1A3-1A2B3C4D5E6F}"

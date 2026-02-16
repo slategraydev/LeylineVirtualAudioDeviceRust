@@ -1,20 +1,50 @@
 [config]
 skip_core_tasks = true
 
-[tasks.stamp-inf]
-description = "Update the INF version and date"
+[tasks.build]
+description = "Build all components (Kernel, APO, HSA)"
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
-    ".\\scripts\\Update-Version.ps1"
+    ".\\scripts\\Install.ps1 -build"
 ]
 
-[tasks.build]
-description = "Build the driver in release mode"
-dependencies = ["stamp-inf"]
-cwd = "crates/leyline-kernel"
-command = "cargo"
-args = ["wdk", "build", "--profile", "release"]
+[tasks.package]
+description = "Build and Package the driver"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\Install.ps1 -build -package"
+]
+
+[tasks.install]
+description = "Full Build, Package, and Install (Requires Admin)"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\Install.ps1"
+]
+
+[tasks.uninstall]
+description = "Uninstall the driver and purge system (Requires Admin)"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\Uninstall.ps1"
+]
+
+[tasks.clean]
+description = "Full system purge and build artifact cleanup"
+dependencies = ["uninstall"]
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\Install.ps1 -clean"
+]
+
+[tasks.reinstall]
+description = "Full uninstall followed by a fresh install"
+dependencies = ["clean", "install"]
 
 [tasks.test]
 description = "Run unit tests"
@@ -22,45 +52,5 @@ cwd = "crates/leyline-kernel"
 command = "cargo"
 args = ["test"]
 
-[tasks.package]
-description = "Package the driver"
-cwd = "crates/leyline-kernel"
-command = "cargo"
-args = ["wdk", "package"]
-
-[tasks.install]
-description = "Install the driver and certificate (Requires Admin)"
-script_runner = "powershell"
-script_extension = "ps1"
-script = [
-    ".\\scripts\\install_driver.ps1"
-]
-
-[tasks.uninstall]
-description = "Uninstall the driver (Requires Admin)"
-script_runner = "powershell"
-script_extension = "ps1"
-script = [
-    ".\\scripts\\uninstall_driver.ps1"
-]
-
-[tasks.setup-test-signing]
-description = "Enable test signing and reboot (requires admin)"
-script = [
-    "bcdedit /set testsigning on"
-]
-
-[tasks.cert-deploy]
-description = "Deploy test certificate"
-script = [
-    "certutil -addstore root WDRLocalTestCert.cer",
-    "certutil -addstore TrustedPublisher WDRLocalTestCert.cer"
-]
-
 [tasks.package-all]
-description = "Full build and package (Kernel + APO + HSA)"
-script_runner = "powershell"
-script_extension = "ps1"
-script = [
-    ".\\scripts\\package_driver.ps1"
-]
+alias = "package"
