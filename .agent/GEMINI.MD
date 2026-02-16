@@ -150,19 +150,18 @@ Clock Synchronization: Uses the system's high-precision timestamp to maintain a 
 
 
 /LeylineAudioDriver
-
 ├── /crates
-
-│   ├── /leyline-kernel      # Core Rust Driver (cdylib)
-
-│   │   ├── src/lib.rs       # IMiniportWaveRT \& DriverEntry
-
-│   │   ├── src/stream.rs    # IMiniportWaveRTStream 
-
-│   │   ├── src/buffer.rs    # Shared Ring Buffer logic 
-
+│   ├── /leyline-kernel      # Modular Rust Driver
+│   │   ├── src/lib.rs       # Module hub & DriverEntry
+│   │   ├── src/adapter.rs   # AddDevice/StartDevice (Orchestration)
+│   │   ├── src/wavert.rs    # IMiniportWaveRT implementation
+│   │   ├── src/topology.rs  # IMiniportTopology implementation
+│   │   ├── src/stream.rs    # Stream logic & Core KS Structs
+│   │   ├── src/descriptors.rs # Filter/Pin/Connection static data
+│   │   ├── src/vtables.rs   # COM VTable structure definitions
+│   │   ├── src/constants.rs # GUIDs and Magic Numbers
+│   │   ├── src/dispatch.rs  # CDO & IRP Dispatching
 │   │   └── leyline.inx      # Driver installation template
-
 │   └── /leyline-shared      # Shared GUIDs and IOCTL codes
 
 ├── /src

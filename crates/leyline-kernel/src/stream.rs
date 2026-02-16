@@ -5,56 +5,27 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
-use crate::buffer::RingBuffer;
-use crate::math::WaveRTMath;
+#![no_std]
+
+use crate::adapter::DeviceExtension;
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-const DEFAULT_HW_LATENCY: u32 = 20_000;
-const KSSTATE_STOP: i32 = 0;
-const KSSTATE_RUN: i32 = 3;
+// Correct bindings for wdk-sys
+pub type KSDATAFORMAT = wdk_sys::_KSDATAFORMAT;
+pub type WAVEFORMATEX = wdk_sys::tWAVEFORMATEX;
+pub type KSDATARANGE = wdk_sys::_KSDATARANGE;
+pub type KSPIN_DESCRIPTOR = wdk_sys::_KSPIN_DESCRIPTOR;
 
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct KSDATAFORMAT {
-    pub FormatSize: ULONG,
-    pub Flags: ULONG,
-    pub SampleSize: ULONG,
-    pub Reserved: ULONG,
-    pub MajorFormat: GUID,
-    pub SubFormat: GUID,
-    pub Specifier: GUID,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct WAVEFORMATEX {
-    pub wFormatTag: u16,
-    pub nChannels: u16,
-    pub nSamplesPerSec: u32,
-    pub nAvgBytesPerSec: u32,
-    pub nBlockAlign: u16,
-    pub wBitsPerSample: u16,
-    pub cbSize: u16,
-}
+// ============================================================================
+// WaveRT Struct Definitions
+// ============================================================================
 
 #[repr(C)]
 #[allow(non_snake_case)]
 pub struct KSDATAFORMAT_WAVEFORMATEX {
     pub DataFormat: KSDATAFORMAT,
     pub WaveFormatEx: WAVEFORMATEX,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct KSDATARANGE {
-    pub FormatSize: ULONG,
-    pub Flags: ULONG,
-    pub SampleSize: ULONG,
-    pub Reserved: ULONG,
-    pub MajorFormat: GUID,
-    pub SubFormat: GUID,
-    pub Specifier: GUID,
 }
 
 #[repr(C)]
@@ -70,28 +41,21 @@ pub struct KSDATARANGE_AUDIO {
 
 #[repr(C)]
 #[allow(non_snake_case)]
+pub struct PCCONNECTION {
+    pub FromNode: ULONG,
+    pub FromPin: ULONG,
+    pub ToNode: ULONG,
+    pub ToPin: ULONG,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
 pub struct PCPIN_DESCRIPTOR {
     pub MaxGlobalInstanceCount: ULONG,
     pub MaxFilterInstanceCount: ULONG,
     pub MinFilterInstanceCount: ULONG,
     pub AutomationTable: *const u8,
     pub KsPinDescriptor: KSPIN_DESCRIPTOR,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct KSPIN_DESCRIPTOR {
-    pub InterfacesCount: ULONG,
-    pub Interfaces: *const GUID,
-    pub MediumsCount: ULONG,
-    pub Mediums: *const u8,
-    pub DataRangesCount: ULONG,
-    pub DataRanges: *const *const KSDATARANGE,
-    pub DataFlow: ULONG,
-    pub Communication: ULONG,
-    pub Category: *const GUID,
-    pub Name: *const GUID,
-    pub Reserved: PVOID,
 }
 
 #[repr(C)]
@@ -106,15 +70,13 @@ pub struct PCFILTER_DESCRIPTOR {
     pub NodeCount: ULONG,
     pub Nodes: *const u8,
     pub ConnectionCount: ULONG,
-    pub Connections: *const u8,
+    pub Connections: *const PCCONNECTION,
     pub CategoryCount: ULONG,
     pub Categories: *const GUID,
 }
 
-unsafe impl Sync for KSDATARANGE {}
 unsafe impl Sync for KSDATARANGE_AUDIO {}
 unsafe impl Sync for PCPIN_DESCRIPTOR {}
-unsafe impl Sync for KSPIN_DESCRIPTOR {}
 unsafe impl Sync for PCFILTER_DESCRIPTOR {}
 
 pub trait TimeSource {
@@ -141,7 +103,7 @@ impl TimeSource for KernelTimeSource {
 }
 
 pub struct MiniportWaveRTStream {
-    buffer: RingBuffer,
+    buffer: leyline_shared::buffer::RingBuffer,
     state: i32,
     _format: PVOID,
     mdl: PMDL,
@@ -169,8 +131,8 @@ impl MiniportWaveRTStream {
             byte_rate = (*wave_format).WaveFormatEx.nAvgBytesPerSec;
         }
         Self {
-            buffer: RingBuffer::new(core::ptr::null_mut(), 0),
-            state: KSSTATE_STOP,
+            buffer: leyline_shared::buffer::RingBuffer::new(core::ptr::null_mut(), 0),
+            state: _KSSTATE::KSSTATE_STOP as i32,
             _format: format,
             mdl: core::ptr::null_mut(),
             mapping: core::ptr::null_mut(),
@@ -186,131 +148,112 @@ impl MiniportWaveRTStream {
 
     pub fn set_state(&mut self, state: i32) -> NTSTATUS {
         self.state = state;
-        match state {
-            KSSTATE_STOP => {
-                self.buffer.reset();
-                self.start_time = 0;
-            }
-            KSSTATE_RUN => {
-                self.start_time = self.time_source.query_time();
-                if !self.device_extension.is_null() {
-                    let dev_ext = self.device_extension as *mut crate::DeviceExtension;
-                    unsafe {
-                        if !(*dev_ext).shared_params.is_null() {
-                            let params = (*dev_ext).shared_params;
-                            (*params).qpc_frequency = self.frequency;
-                            (*params).buffer_size = self.buffer.get_size() as u32;
-                            (*params).byte_rate = self.byte_rate;
-                            if self._is_capture {
-                                (*params).capture_start_qpc = self.start_time;
-                            } else {
-                                (*params).render_start_qpc = self.start_time;
-                            }
-                        }
-                    }
+        if state == _KSSTATE::KSSTATE_STOP as i32 {
+            self.start_time = 0;
+        } else if state == _KSSTATE::KSSTATE_RUN as i32 {
+            self.start_time = self.time_source.query_time();
+        }
+        STATUS_SUCCESS
+    }
+
+    pub fn get_position(&mut self, position: *mut u64) -> NTSTATUS {
+        if self.state != _KSSTATE::KSSTATE_RUN as i32 || self.start_time == 0 {
+            unsafe {
+                if !position.is_null() {
+                    *position = 0;
                 }
             }
-            _ => {}
-        }
-        STATUS_SUCCESS
-    }
-
-    pub fn get_position(&self, position: *mut u64) -> NTSTATUS {
-        if position.is_null() {
-            return STATUS_INVALID_PARAMETER;
+            return STATUS_SUCCESS;
         }
 
-        // KSAUDIO_POSITION structure has two u64 fields: PlayOffset and WriteOffset.
-        // We must ensure we don't cause an alignment or bounds issue.
-        #[repr(C)]
-        struct KsAudioPosition {
-            play_offset: u64,
-            write_offset: u64,
-        }
-
-        let mut calculated_position: u64 = 0;
-        if self.state == KSSTATE_RUN {
-            let current_time = self.time_source.query_time();
-            let elapsed_ticks = current_time - self.start_time;
-            calculated_position = WaveRTMath::calculate_position(
-                elapsed_ticks,
-                self.byte_rate,
-                self.frequency,
-                self.buffer.get_size(),
-            );
-        }
+        let now = self.time_source.query_time();
+        let elapsed_ticks = now - self.start_time;
+        let elapsed_bytes = leyline_shared::math::WaveRTMath::ticks_to_bytes(
+            elapsed_ticks,
+            self.byte_rate,
+            self.frequency,
+        );
 
         unsafe {
-            let pos_ptr = position as *mut KsAudioPosition;
-            // SAFETY: The caller (PortCls) provides the buffer for GetPosition.
-            // In a real driver, we might use MmProbeAndLockPages if we were
-            // accessing user memory, but PortCls handles the system-side mapping.
-            (*pos_ptr).play_offset = calculated_position;
-            (*pos_ptr).write_offset = calculated_position;
+            if !position.is_null() {
+                if !self.buffer.get_base_address().is_null() {
+                    *position = elapsed_bytes % (self.buffer.get_size() as u64);
+                } else {
+                    *position = 0;
+                }
+            }
         }
         STATUS_SUCCESS
     }
 
-    pub fn allocate_audio_buffer(&mut self, req_size: usize, audio_mdl: *mut PMDL) -> NTSTATUS {
-        if audio_mdl.is_null() {
-            return STATUS_INVALID_PARAMETER;
+    pub unsafe fn allocate_audio_buffer(&mut self, size: usize, out_mdl: *mut PMDL) -> NTSTATUS {
+        if !self.mdl.is_null() {
+            return STATUS_ALREADY_COMMITTED;
         }
-        if !self.device_extension.is_null() {
-            let dev_ext = self.device_extension as *mut crate::DeviceExtension;
-            unsafe {
+
+        let low: PHYSICAL_ADDRESS = core::mem::zeroed();
+        let mut high: PHYSICAL_ADDRESS = core::mem::zeroed();
+        high.QuadPart = 0xFFFFFFFF;
+        let skip: PHYSICAL_ADDRESS = core::mem::zeroed();
+
+        let mdl = MmAllocatePagesForMdlEx(
+            low,
+            high,
+            skip,
+            size as u64,
+            _MEMORY_CACHING_TYPE::MmCached,
+            MM_ALLOCATE_FULLY_REQUIRED,
+        );
+
+        if mdl.is_null() {
+            // Fallback to device extension loopback if available
+            if !self.device_extension.is_null() {
+                let dev_ext = self.device_extension as *mut DeviceExtension;
                 if !(*dev_ext).loopback_mdl.is_null() {
                     self.mdl = (*dev_ext).loopback_mdl;
                     self.mapping = (*dev_ext).loopback_buffer as PVOID;
-                    self.buffer.rebase(self.mapping as *mut u8, req_size);
+                    self.buffer = leyline_shared::buffer::RingBuffer::new(
+                        self.mapping as *mut u8,
+                        (*dev_ext).loopback_size,
+                    );
+                    if !out_mdl.is_null() {
+                        *out_mdl = self.mdl;
+                    }
                     self.owns_mdl = false;
-                    *audio_mdl = self.mdl;
                     return STATUS_SUCCESS;
                 }
             }
+            return STATUS_INSUFFICIENT_RESOURCES;
         }
 
-        let low: PHYSICAL_ADDRESS = unsafe { core::mem::zeroed() };
-        let mut high: PHYSICAL_ADDRESS = unsafe { core::mem::zeroed() };
-        high.QuadPart = 0xFFFFFFFF;
-        let skip: PHYSICAL_ADDRESS = unsafe { core::mem::zeroed() };
+        self.mapping = MmMapLockedPagesSpecifyCache(
+            mdl,
+            0, // KernelMode
+            _MEMORY_CACHING_TYPE::MmCached,
+            core::ptr::null_mut(),
+            0,
+            _MM_PAGE_PRIORITY::NormalPagePriority as u32,
+        ) as PVOID;
 
-        unsafe {
-            self.mdl = MmAllocatePagesForMdlEx(
-                low,
-                high,
-                skip,
-                req_size as u64,
-                _MEMORY_CACHING_TYPE::MmCached,
-                MM_ALLOCATE_FULLY_REQUIRED,
-            );
-            if self.mdl.is_null() {
-                return STATUS_INSUFFICIENT_RESOURCES;
-            }
-            self.mapping = MmMapLockedPagesSpecifyCache(
-                self.mdl,
-                0,
-                _MEMORY_CACHING_TYPE::MmCached,
-                core::ptr::null_mut(),
-                0,
-                _MM_PAGE_PRIORITY::NormalPagePriority as u32,
-            );
-            if self.mapping.is_null() {
-                MmFreePagesFromMdl(self.mdl);
-                IoFreeMdl(self.mdl);
-                self.mdl = core::ptr::null_mut();
-                return STATUS_INSUFFICIENT_RESOURCES;
-            }
-            self.buffer.rebase(self.mapping as *mut u8, req_size);
-            self.owns_mdl = true;
-            *audio_mdl = self.mdl;
+        if self.mapping.is_null() {
+            IoFreeMdl(mdl);
+            return STATUS_INSUFFICIENT_RESOURCES;
         }
+
+        self.mdl = mdl;
+        self.buffer = leyline_shared::buffer::RingBuffer::new(self.mapping as *mut u8, size);
+        self.owns_mdl = true;
+        if !out_mdl.is_null() {
+            *out_mdl = mdl;
+        }
+
         STATUS_SUCCESS
     }
 
     pub fn get_hw_latency(&self, latency: *mut u32) {
-        if !latency.is_null() {
-            unsafe {
-                *latency = DEFAULT_HW_LATENCY;
+        unsafe {
+            if !latency.is_null() {
+                *latency = 0; // Software-only driver
             }
         }
     }
@@ -318,12 +261,11 @@ impl MiniportWaveRTStream {
 
 impl Drop for MiniportWaveRTStream {
     fn drop(&mut self) {
-        if !self.mdl.is_null() && self.owns_mdl {
-            unsafe {
+        unsafe {
+            if self.owns_mdl && !self.mdl.is_null() {
                 if !self.mapping.is_null() {
                     MmUnmapLockedPages(self.mapping, self.mdl);
                 }
-                MmFreePagesFromMdl(self.mdl);
                 IoFreeMdl(self.mdl);
             }
         }

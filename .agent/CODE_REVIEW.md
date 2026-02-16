@@ -1,28 +1,26 @@
 # Architectural Audit: Leyline Audio Driver
 
-**Reviewer**: Antigravity (Gemini 1.5 Pro)
+**Reviewer**: Antigravity (Gemini 2.0 Flash)
 **Date**: February 16, 2026
 
 ## Critical Findings & Resolutions
 
-### 1. IRQL_NOT_LESS_OR_EQUAL BSOD (RESOLVED)
-- **Finding**: System crashed during installation/streaming.
-- **Diagnosis**: 
-    1. **Illegal Hooking**: The driver was overwriting `MajorFunction` in `StartDevice`. This interfered with `portcls.sys` and accessed code/data at inappropriate IRQLs.
-    2. **Unaligned Memory Access**: `GetPosition` was performing manual pointer arithmetic on a raw `u64` pointer, which is unsafe at `DISPATCH_LEVEL` where PortCls typically calls it.
-- **Resolution**: 
-    1. Removed all `MajorFunction` hijacking.
-    2. Implemented a proper `KsAudioPosition` struct in `stream.rs` for safe, aligned access.
+### 1. Horizontal Refactor (IN PROGRESS)
+- **Finding**: The 1,700-line `lib.rs` was causing context confusion and structural errors (VTable mismatches).
+- **Resolution**: Initiated a crate-wide refactor into logical modules. This isolates COM implementations (`wavert.rs`, `topology.rs`) from static data (`descriptors.rs`, `constants.rs`).
+- **Status**: Currently non-compiling. Build logic requires alignment with `wdk-sys` naming conventions.
 
-### 2. Topology Port Initialization Failure (STATUS_INVALID_PARAMETER_MIX)
-- **Finding**: `StartDevice` fails at `PcNewPort` or `Init` for Topology with `0xC00002B9`.
-- **Diagnosis**: This is likely a descriptor error. PortCls is rejecting the `PCFILTER_DESCRIPTOR` for the topology miniport, possibly due to incorrectly terminated `PCCONNECTION` arrays or invalid pin categories.
-- **Next Step**: Audit `TOPO_RENDER_PINS` and `TOPO_CONNECTIONS` against `portcls.h` reference.
+### 2. Memory Safety (HARDENED)
+- **Finding**: `DRIVER_IRQL_NOT_LESS_OR_EQUAL` BSODs suggested that PortCls was accessing descriptors or VTables in paged memory at `DISPATCH_LEVEL`.
+- **Resolution**: Forced all static descriptors, VTables, and data arrays into the `.rdata` section using `#[link_section]`.
 
-## Safety Audit
-- **IRQL Safety**: Streaming path (`GetPosition`, `SetState`) is now significantly safer.
-- **Hooking**: 0 hooks present. 100% compliant with standard WDM/PortCls patterns.
+### 3. Graph Logic (ISOLATED)
+- **Finding**: Persistent `0xC00002B9` (STATUS_GRAPH_ALREADY_SATISFIED) error indicated redundant or conflicting topology registration.
+- **Resolution**: Simplified `StartDevice` to register only the WaveRT filters. Topology filters are temporarily disabled to establish a stable baseline.
 
-## Recommendations for Session #29
-1.  **Deployment**: Proceed with installation.
-2.  **Telemetry**: If failure persists, enable Driver Verifier to catch the exact allocation causing corruption.
+## Safety & Type Audit
+- **Refactoring Debt**: The modularization has introduced a temporary "import storm." The next agent must carefully map `wdk-sys` internal types (e.g., `_KSDATAFORMAT` vs `KSDATAFORMAT`).
+
+## Recommendations for Session #30
+1. **Restore Build**: Prioritize resolving the compiler errors in the new modular structure.
+2. **Modular Verification**: Verify that each module can be built independently if possible.

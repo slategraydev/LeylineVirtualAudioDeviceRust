@@ -21,6 +21,12 @@ The framework relies on a hierarchical stack of markdown artifacts in the projec
 - **`TOOLCHAIN_REVIEW.md`**: Granular environment management. (Located in `.agent/`)
 - **`COMMIT_MESSAGE.MD`**: Session commit message template. (Located in `.agent/`)
 
+## 1.2 The Horizontal Mandate [CRITICAL]
+To prevent context exhaustion and structural errors (like VTable mismatches), agents MUST maintain a **Horizontal Architecture**.
+- **No Monoliths**: Files exceeding 500 lines MUST be evaluated for splitting into logical modules (e.g., `constants.rs`, `descriptors.rs`, `vtables.rs`).
+- **Isolation of Concerns**: Logic implementation (methods) MUST be separated from structural definitions (VTables/Descriptors) whenever practical.
+- **Granular imports**: Prefer explicit module imports over `use crate::*` to maintain clear dependency graphs.
+
 ## 2. Implementation: The Status Workflow
 The primary automation tool is the `/status` workflow, located at `.agent/workflows/status.md`. This file serves as the agent's "Standard Operating Procedure" (SOP) for session alignment.
 
