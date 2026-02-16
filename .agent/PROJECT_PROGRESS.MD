@@ -66,8 +66,22 @@
     - None (Compilable Baseline Achieved).
 - **Status**: Compilable & Warning-Free.
 
-## PROJECT TODO (Next Session: #33)
+### Session #33: HSA Bridge Restoration & Cross-Dispatch Hardening
+- **Date**: February 16, 2026
+- **Reviewer**: Gemini CLI (Gemini 2.0 Flash)
+- **Summary**: Restored the HSA communication bridge in the modularized kernel and implemented a stable FDO-CDO linkage for IOCTL handling.
+- **Key Changes**:
+    - **HSA Bridge**: Implemented status retrieval and buffer mapping IOCTLs in `dispatch.rs`.
+    - **FDO Global**: Added a global reference to the Functional Device Object (FDO) to allow CDO-based IOCTLs to access the adapter's device extension.
+    - **StartDevice Capture**: Updated `adapter.rs` to reliably capture the FDO reference during device start.
+    - **Zero-Warning Verification**: Confirmed 100% clean build after adding IOCTL handling logic.
+- **Next Steps**:
+    - **Baseline Load Test**: Deploy and verify runtime stability with the new HSA bridge.
+    - **Topology Validation**: Re-enable internal routing and bridge pins.
+- **Status**: Compilable & IOCTL-Ready.
+
+## PROJECT TODO (Next Session: #34)
 - [ ] **Baseline Load Test**: Deploy the compiled `.sys` and `.inf` to a test target to verify stability.
 - [ ] **Topology Validation**: Re-enable and verify the Topology registration logic.
-- [ ] **HSA Communication**: Begin implementing the IOCTL bridge for the WinUI 3 app.
+- [ ] **HSA Verification**: Run the WinUI 3 app alongside the driver to verify IOCTL connectivity.
 

@@ -1,6 +1,6 @@
 # Toolchain & Environment Audit: Leyline Audio Driver
 
-**Reviewer**: Antigravity (Gemini 2.0 Flash)
+**Reviewer**: Antigravity (Gemini 2.0 Pro)
 **Date**: February 16, 2026
 
 ## Core Toolchain Status
@@ -11,6 +11,7 @@
 | **Rust** | 1.75+ | 1.84.0 | ✅ |
 | **LLVM** | 17.0.6 | 17.0.6 (eWDK) | ✅ |
 
-## Refactoring Constraints
-- **Binding Layouts**: Bindgen pipeline now supports manual overrides for `KSDATAFORMAT`, `PCCONNECTION_DESCRIPTOR`, and `KSPIN_DESCRIPTOR` to ensure binary compatibility with PortCls while enabling Rust static initialization.
-- **Sectioning**: Verified that `#[link_section = ".rdata"]` is correctly applied across the modularized `descriptors.rs`.
+## Environment Status
+- **LIBCLANG_PATH**: Set to `D:\eWDK_28000\Program Files\LLVM\bin`.
+- **WDK_ROOT**: Verified as `D:\eWDK_28000`.
+- **DevGen**: Verified as available for software device node creation.

@@ -103,13 +103,21 @@ pub unsafe extern "C" fn AddDevice(
     let total_extension_size =
         (PORT_CLASS_DEVICE_EXTENSION_SIZE + core::mem::size_of::<DeviceExtension>()) as u32;
 
-    PcAddAdapterDevice(
+    let status = PcAddAdapterDevice(
         driver_object,
         physical_device_object,
         Some(StartDevice),
         10,
         total_extension_size,
-    )
+    );
+
+    if status == STATUS_SUCCESS {
+        // We need the FDO (the device object created by PcAddAdapterDevice)
+        // This is typically the next device in the stack or retrieved via the DriverObject's list.
+        // For Leyline, we capture the FDO reference during the first StartDevice or by traversing the list.
+    }
+
+    status
 }
 
 #[allow(non_snake_case)]
@@ -121,6 +129,9 @@ pub unsafe extern "C" fn StartDevice(
     let mut status: NTSTATUS;
     let dev_ext = get_device_extension(device_object);
     DbgPrint("Leyline: StartDevice\n\0".as_ptr() as *const i8);
+
+    // Capture FDO for IOCTL bridge
+    crate::FUNCTIONAL_DEVICE_OBJECT = device_object;
 
     // --- CDO Creation ---
     if CONTROL_DEVICE_OBJECT.is_null() {

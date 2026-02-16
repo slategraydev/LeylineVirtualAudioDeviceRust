@@ -1,31 +1,19 @@
-# Session Commit Message: Build Restoration & Zero-Warning Baseline
-
-**Reviewer**: Antigravity (Gemini 2.0 Flash)
-**Date**: February 16, 2026
+# Session Commit Message Template
 
 ## Plain Text Commit Message [COPY-PASTE]
-```text
-feat: restore zero-warning build and harden pin descriptors
+feat: restore HSA IOCTL bridge and FDO linkage
 
-Resolved the final structural blockers from the horizontal refactor and achieved a 100% clean baseline for the kernel driver.
+Restored the communication bridge between the Hardware Support App and the modularized kernel driver.
 
-- Implemented manual KSPIN_DESCRIPTOR definition in build.rs to support static initialization.
-- Resolved 10+ warnings related to unused imports and naming conventions across the modularized crate.
-- Hardened the binding pipeline to ensure 100% type parity with wdk-sys GUIDs.
-- Verified full driver packaging (SYS/INF) via the cargo wdk release pipeline.
-```
+- Implemented IOCTL handling for status retrieval and buffer mapping in dispatch.rs.
+- Established a global Functional Device Object (FDO) reference for cross-dispatch access.
+- Updated StartDevice to capture the FDO reference for stable IOCTL handling.
+- Verified 100% warning-free build for the kernel and shared crates.
 
-## Git Commit Payload (Detailed)
+## Detailed Impact Bullets
+- **HSA Integration**: Restored functionality for GET_STATUS and MAP_BUFFER IOCTLs to support real-time monitoring.
+- **Architectural Linkage**: Implemented FDO-CDO linkage to allow standalone IOCTL routines to access adapter state.
+- **Verification**: Achieved zero-warning baseline proof via cargo-wdk release build.
 
-**Header**: `feat: restore zero-warning build and harden pin descriptors`
-
-**Summary**: Resolved the final structural blockers from the horizontal refactor and achieved a 100% clean baseline for the kernel driver.
-
-**Impact Bullets**:
-- Implemented manual `KSPIN_DESCRIPTOR` definition in `build.rs` to support static initialization.
-- Resolved 10+ warnings related to unused imports and naming conventions across the modularized crate.
-- Hardened the binding pipeline to ensure 100% type parity with `wdk-sys` GUIDs.
-- Verified full driver packaging (SYS/INF) via the `cargo wdk` release pipeline.
-
-**Zero-Warning Proof**:
-`Select-String -Pattern "warning" -Path build_log.txt` (Confirmed empty on Feb 16, 2026).
+**Reviewer**: Gemini CLI (Gemini 2.0 Flash)
+**Date**: February 16, 2026

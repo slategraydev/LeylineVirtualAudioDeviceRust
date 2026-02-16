@@ -66,6 +66,9 @@ extern "C" {
 #[no_mangle]
 pub static mut CONTROL_DEVICE_OBJECT: *mut DEVICE_OBJECT = core::ptr::null_mut();
 
+#[no_mangle]
+pub static mut FUNCTIONAL_DEVICE_OBJECT: *mut DEVICE_OBJECT = core::ptr::null_mut();
+
 static mut ETW_REG_HANDLE: u64 = 0;
 
 /// Leyline Audio Driver ETW Provider GUID: {71549463-5E1E-4B7E-9F93-A65606E50D64}
