@@ -18,17 +18,56 @@ pub mod topology;
 pub mod vtables;
 pub mod wavert;
 
-pub use stream::audio;
+// First std/core.
+use core::ptr::null_mut;
 
-use crate::adapter::{AddDevice, MiniportWaveRTStreamCom};
-use crate::constants::*;
-use crate::dispatch::*;
+// Second, external crates.
 use wdk_alloc::WDKAllocator;
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
+// Then current crate.
+use crate::constants::*;
+use crate::dispatch::*;
+
+// Include generated bindings in a private module.
+#[allow(clippy::all)]
+#[allow(non_camel_case_types)]
+#[allow(non_upper_case_globals)]
+#[allow(non_snake_case)]
+#[allow(unused_imports)]
+#[allow(dead_code)]
+#[allow(clippy::unnecessary_cast)]
+#[allow(clippy::useless_transmute)]
+#[allow(clippy::too_many_arguments)]
+pub mod audio {
+    include!(concat!(env!("OUT_DIR"), "/audio_bindings.rs"));
+}
+
+pub use audio as audio_bindings;
+
 #[global_allocator]
 static GLOBAL: WDKAllocator = WDKAllocator;
+
+// ============================================================================
+// Global Driver State
+// ============================================================================
+
+#[no_mangle]
+pub static mut CONTROL_DEVICE_OBJECT: *mut DEVICE_OBJECT = null_mut();
+
+#[no_mangle]
+pub static mut FUNCTIONAL_DEVICE_OBJECT: *mut DEVICE_OBJECT = null_mut();
+
+static mut ETW_REG_HANDLE: u64 = 0;
+
+/// Leyline Audio Driver ETW Provider GUID: {71549463-5E1E-4B7E-9F93-A65606E50D64}
+const ETW_PROVIDER_GUID: GUID = GUID {
+    Data1: 0x71549463,
+    Data2: 0x5E1E,
+    Data3: 0x4B7E,
+    Data4: [0x9F, 0x93, 0xA6, 0x56, 0x06, 0xE5, 0x0D, 0x64],
+};
 
 // ============================================================================
 // PortCls External Declarations
@@ -60,67 +99,61 @@ extern "C" {
 }
 
 // ============================================================================
-// Global Driver State
-// ============================================================================
-
-#[no_mangle]
-pub static mut CONTROL_DEVICE_OBJECT: *mut DEVICE_OBJECT = core::ptr::null_mut();
-
-#[no_mangle]
-pub static mut FUNCTIONAL_DEVICE_OBJECT: *mut DEVICE_OBJECT = core::ptr::null_mut();
-
-static mut ETW_REG_HANDLE: u64 = 0;
-
-/// Leyline Audio Driver ETW Provider GUID: {71549463-5E1E-4B7E-9F93-A65606E50D64}
-const ETW_PROVIDER_GUID: GUID = GUID {
-    Data1: 0x71549463,
-    Data2: 0x5E1E,
-    Data3: 0x4B7E,
-    Data4: [0x9F, 0x93, 0xA6, 0x56, 0x06, 0xE5, 0x0D, 0x64],
-};
-
-// ============================================================================
 // Driver Entry Point
 // ============================================================================
 
+/// Driver entry point.
+///
+/// # Safety
+/// Standard kernel DriverEntry. Parameters must be valid pointers provided by the OS.
 #[no_mangle]
 pub unsafe extern "C" fn DriverEntry(
     driver_object: PDRIVER_OBJECT,
     registry_path: PUNICODE_STRING,
 ) -> NTSTATUS {
-    DbgPrint("Leyline: DriverEntry\n\0".as_ptr() as *const i8);
+    DbgPrint(c"Leyline: DriverEntry\n".as_ptr());
 
-    // Register ETW Provider
+    // Register ETW Provider.
     let _ = EtwRegister(
         &ETW_PROVIDER_GUID,
         None,
-        core::ptr::null_mut(),
+        null_mut(),
         &raw mut ETW_REG_HANDLE,
     );
 
     (*driver_object).DriverUnload = Some(DriverUnload);
 
-    let status = PcInitializeAdapterDriver(driver_object, registry_path, Some(AddDevice));
-    if status == STATUS_SUCCESS {
-        DbgPrint("Leyline: PcInitializeAdapterDriver Success\n\0".as_ptr() as *const i8);
-
-        // Safe CDO Dispatch Hooking
-        ORIGINAL_DISPATCH_CREATE = (*driver_object).MajorFunction[IRP_MJ_CREATE as usize];
-        (*driver_object).MajorFunction[IRP_MJ_CREATE as usize] = Some(dispatch_create);
-
-        ORIGINAL_DISPATCH_CLOSE = (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize];
-        (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize] = Some(dispatch_close);
-
-        ORIGINAL_DISPATCH_CONTROL = (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize];
-        (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize] =
-            Some(dispatch_device_control);
+    let status = PcInitializeAdapterDriver(
+        driver_object,
+        registry_path,
+        Some(crate::adapter::AddDevice),
+    );
+    if status != STATUS_SUCCESS {
+        return status;
     }
+
+    DbgPrint(c"Leyline: PcInitializeAdapterDriver Success\n".as_ptr());
+
+    // Safe CDO Dispatch Hooking.
+    ORIGINAL_DISPATCH_CREATE = (*driver_object).MajorFunction[IRP_MJ_CREATE as usize];
+    (*driver_object).MajorFunction[IRP_MJ_CREATE as usize] = Some(dispatch_create);
+
+    ORIGINAL_DISPATCH_CLOSE = (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize];
+    (*driver_object).MajorFunction[IRP_MJ_CLOSE as usize] = Some(dispatch_close);
+
+    ORIGINAL_DISPATCH_CONTROL = (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize];
+    (*driver_object).MajorFunction[IRP_MJ_DEVICE_CONTROL as usize] = Some(dispatch_device_control);
+
     status
 }
 
+/// Driver unload routine.
+///
+/// # Safety
+/// Standard kernel DriverUnload callback.
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn DriverUnload(_driver_object: PDRIVER_OBJECT) {
-    DbgPrint("Leyline: DriverUnload\n\0".as_ptr() as *const i8);
+    DbgPrint(c"Leyline: DriverUnload\n".as_ptr());
     if ETW_REG_HANDLE != 0 {
         let _ = EtwUnregister(ETW_REG_HANDLE);
         ETW_REG_HANDLE = 0;
@@ -131,30 +164,42 @@ pub unsafe extern "C" fn DriverUnload(_driver_object: PDRIVER_OBJECT) {
 // Stream Callbacks (Bridge to stream.rs)
 // ============================================================================
 
+/// QueryInterface for IMiniportWaveRTStream.
+///
+/// # Safety
+/// Standard COM-like QueryInterface. Parameters must be valid pointers.
 pub unsafe extern "system" fn stream_query_interface(
     this: *mut u8,
     iid: *const GUID,
     out: *mut *mut u8,
 ) -> NTSTATUS {
-    let com_obj = this as *mut MiniportWaveRTStreamCom;
+    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
     if is_equal_guid(iid, &IID_IMiniportWaveRTStream) || is_equal_guid(iid, &IID_IUnknown) {
         (*com_obj).ref_count += 1;
         *out = this;
-        STATUS_SUCCESS
-    } else {
-        *out = core::ptr::null_mut();
-        STATUS_NOINTERFACE
+        return STATUS_SUCCESS;
     }
+
+    *out = null_mut();
+    STATUS_NOINTERFACE
 }
 
+/// AddRef for IMiniportWaveRTStream.
+///
+/// # Safety
+/// Standard COM-like AddRef. Parameters must be valid pointers.
 pub unsafe extern "system" fn stream_add_ref(this: *mut u8) -> u32 {
-    let com_obj = this as *mut MiniportWaveRTStreamCom;
+    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
     (*com_obj).ref_count += 1;
     (*com_obj).ref_count
 }
 
+/// Release for IMiniportWaveRTStream.
+///
+/// # Safety
+/// Standard COM-like Release. Parameters must be valid pointers.
 pub unsafe extern "system" fn stream_release(this: *mut u8) -> u32 {
-    let com_obj = this as *mut MiniportWaveRTStreamCom;
+    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
     (*com_obj).ref_count -= 1;
     let count = (*com_obj).ref_count;
     if count == 0 {
@@ -163,20 +208,36 @@ pub unsafe extern "system" fn stream_release(this: *mut u8) -> u32 {
     count
 }
 
+/// SetFormat callback.
+///
+/// # Safety
+/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn stream_set_format(_this: *mut u8, _format: *mut u8) -> NTSTATUS {
     STATUS_SUCCESS
 }
 
+/// SetState callback.
+///
+/// # Safety
+/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn stream_set_state(this: *mut u8, state: i32) -> NTSTATUS {
-    let com_obj = this as *mut MiniportWaveRTStreamCom;
+    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
     (*(*com_obj).stream).set_state(state)
 }
 
+/// GetPosition callback.
+///
+/// # Safety
+/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn stream_get_position(this: *mut u8, position: *mut u64) -> NTSTATUS {
-    let com_obj = this as *mut MiniportWaveRTStreamCom;
+    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
     (*(*com_obj).stream).get_position(position)
 }
 
+/// AllocateAudioBuffer callback.
+///
+/// # Safety
+/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn stream_allocate_audio_buffer(
     this: *mut u8,
     req_size: usize,
@@ -185,49 +246,70 @@ pub unsafe extern "system" fn stream_allocate_audio_buffer(
     off: *mut u32,
     cache: *mut i32,
 ) -> NTSTATUS {
-    let com_obj = this as *mut MiniportWaveRTStreamCom;
+    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
     let status = (*(*com_obj).stream).allocate_audio_buffer(req_size, mdl as *mut PMDL);
-    if status == STATUS_SUCCESS {
-        if !act_size.is_null() {
-            *act_size = req_size;
-        }
-        if !off.is_null() {
-            *off = 0;
-        }
-        if !cache.is_null() {
-            *cache = 1;
-        }
+    if status != STATUS_SUCCESS {
+        return status;
     }
+
+    if !act_size.is_null() {
+        *act_size = req_size;
+    }
+    if !off.is_null() {
+        *off = 0;
+    }
+    if !cache.is_null() {
+        *cache = 1;
+    }
+
     status
 }
 
+/// FreeAudioBuffer callback.
+///
+/// # Safety
+/// Standard PortCls callback.
 pub unsafe extern "system" fn stream_free_audio_buffer(
     _this: *mut u8,
     _mdl: *mut u8,
     _size: usize,
 ) {
 }
+
+/// GetHWLatency callback.
+///
+/// # Safety
+/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn stream_get_hw_latency(this: *mut u8, latency: *mut u32) {
-    let com_obj = this as *mut MiniportWaveRTStreamCom;
+    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
     (*(*com_obj).stream).get_hw_latency(latency);
 }
+
+/// GetPositionRegister callback.
+///
+/// # Safety
+/// Standard PortCls callback.
 pub unsafe extern "system" fn stream_get_position_register(
     _this: *mut u8,
     _reg: *mut u8,
 ) -> NTSTATUS {
     0xC00000BBu32 as i32
 }
+
+/// GetClockRegister callback.
+///
+/// # Safety
+/// Standard PortCls callback.
 pub unsafe extern "system" fn stream_get_clock_register(_this: *mut u8, _reg: *mut u8) -> NTSTATUS {
     0xC00000BBu32 as i32
 }
 
-pub fn is_equal_guid(a: *const GUID, b: &GUID) -> bool {
-    unsafe {
-        (*a).Data1 == b.Data1
-            && (*a).Data2 == b.Data2
-            && (*a).Data3 == b.Data3
-            && (*a).Data4 == b.Data4
-    }
+/// Compares two GUIDs for equality.
+///
+/// # Safety
+/// Parameter 'a' must be a valid pointer to a GUID.
+pub unsafe fn is_equal_guid(a: *const GUID, b: &GUID) -> bool {
+    (*a).Data1 == b.Data1 && (*a).Data2 == b.Data2 && (*a).Data3 == b.Data3 && (*a).Data4 == b.Data4
 }
 
 #[cfg(not(test))]

@@ -44,15 +44,23 @@ try
     { throw "Driver package not found. Run with -build."
     }
 
-    # Locate DevGen on host to bundle it
-    $ewdkRoot = "D:\eWDK_28000"
-    if (-not (Test-Path $ewdkRoot))
-    { $ewdkRoot = "C:\Users\Slate\Downloads\EWDK_br_release_28000_251103-1709"
+    # Locate DevGen on host to bundle it (Ensuring we match the 28000 environment)
+    $devgenHost = $null
+    $possibleEwdk = @("D:\eWDK_28000", $env:eWDK_ROOT_DIR, "C:\Users\Slate\Downloads\EWDK_br_release_28000_251103-1709")
+    foreach ($p in $possibleEwdk)
+    {
+        if ($p -and (Test-Path $p))
+        {
+            $found = Get-ChildItem -Path $p -Filter "devgen.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1
+            if ($found)
+            { $devgenHost = $found; break 
+            }
+        }
     }
-    $devgenHost = Get-ChildItem -Path $ewdkRoot -Filter "devgen.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1
+
     if ($devgenHost)
     {
-        Write-Host "[*] Bundling DevGen from host..."
+        Write-Host "[*] Bundling DevGen from: $($devgenHost.FullName)"
         Copy-Item $devgenHost.FullName "package\devgen.exe" -Force
     }
 

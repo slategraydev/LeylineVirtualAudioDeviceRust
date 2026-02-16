@@ -5,12 +5,15 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
+// Second, external crates.
+use wdk_sys::GUID;
+
+// Then current crate.
 use crate::constants::*;
 use crate::stream::{
     KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCCONNECTION,
     PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR,
 };
-use wdk_sys::GUID;
 
 #[repr(transparent)]
 pub struct SyncPtr<T>(pub *const T);

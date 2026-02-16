@@ -40,6 +40,10 @@ try
             }
         }
 
+        Write-Host "[VM] Cleaning Registry (APO & HSA)..."
+        Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio\*" -Include "*Leyline*" -Recurse -ErrorAction SilentlyContinue
+        Remove-Item -Path "HKLM:\SOFTWARE\Leyline*" -Recurse -ErrorAction SilentlyContinue
+
         Write-Host "[VM] Purging Driver Store..."
         $drivers = pnputil /enum-drivers
         for ($i = 0; $i -lt $drivers.Count; $i++)

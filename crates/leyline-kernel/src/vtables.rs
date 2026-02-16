@@ -5,6 +5,7 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
+// Second, external crates.
 use wdk_sys::{GUID, NTSTATUS};
 
 #[allow(non_snake_case)]

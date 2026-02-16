@@ -20,6 +20,7 @@ The framework relies on a hierarchical stack of markdown artifacts in the projec
 - **`SCRIPTS_REVIEW.md`**: Automation script audit. (Located in `.agent/`)
 - **`TOOLCHAIN_REVIEW.md`**: Granular environment management. (Located in `.agent/`)
 - **`COMMIT_MESSAGE.MD`**: Session commit message template. (Located in `.agent/`)
+- **`styles/`**: Styling & Code Quality standards (e.g., `rust.txt`). (Located in `.agent/`)
 
 ## 1.2 The Horizontal Mandate [CRITICAL]
 To prevent context exhaustion and structural errors (like VTable mismatches), agents MUST maintain a **Horizontal Architecture**.
@@ -57,7 +58,8 @@ To maintain the integrity of this framework, agents are bound by a strict mainte
 7. **Session Cleanup**: Delete all ephemeral verification logs (e.g., `*.txt`, `*.log`) from the project root **and all subdirectories** (e.g., `crates/leyline-kernel`).
 8. **Build Sanitation**: Execute a "clean" command on all build targets to ensure no cross-pollination between sessions. [CRITICAL]
 9. **Zero-Warning Enforcement**: Resolve ALL errors and warnings before updating logs or artifacts. No "temporary" warnings allowed.
-10. **Warning Literacy**: Agents MUST NOT trust the summary output of build tools. They MUST proactively search build logs using `grep` or `Select-String` for "warning" to ensure 100% cleanliness. [NEW]
+10. **Clippy Verification**: MUST execute `cargo clippy --workspace --all-targets -- -D warnings` and resolve all identified issues in source code. [NEW]
+11. **Warning Literacy**: Agents MUST NOT trust the summary output of build tools. They MUST proactively search build logs using `grep` or `Select-String` for "warning" to ensure 100% cleanliness. [NEW]
 11. **Goal-Oriented Development**: Every action MUST progress the project toward the "Product North Star" defined in `GEMINI.MD` Section 0. Aimless development or feature-creep is a protocol violation. [NEW]
 12. **Sacrosanct Testing**: Tests represent the 1:1 physical manifestation of the technical spec. Diluting tests to make code pass is strictly prohibited. If code fails a test, refactor the code, not the test. [NEW]
 13. **Delicate Spec Evolution**: Update the "Constitution" (`GEMINI.MD`) only for deliberate architectural decisions or structure changes.

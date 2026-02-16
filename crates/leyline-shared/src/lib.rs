@@ -70,7 +70,7 @@ pub const KSCATEGORY_REALTIME: [u8; 16] = [
 // IOCTL codes for communication between the Hardware Support App (HSA)
 // and the kernel-mode driver.
 
-// Helper for defining IOCTLs (CTL_CODE macro logic)
+// Helper for defining IOCTLs (CTL_CODE macro logic).
 const fn ctl_code(device_type: u32, function: u32, method: u32, access: u32) -> u32 {
     (device_type << 16) | (access << 14) | (function << 2) | method
 }

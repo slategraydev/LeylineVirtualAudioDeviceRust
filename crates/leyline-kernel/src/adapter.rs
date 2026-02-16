@@ -5,18 +5,25 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
+// First std/core/alloc.
+use alloc::boxed::Box;
+use core::mem::size_of;
+use core::ptr::null_mut;
+
+// Second, external crates.
+use wdk_sys::ntddk::*;
+use wdk_sys::*;
+
+// Then current crate.
 use crate::constants::*;
 use crate::dispatch::*;
 use crate::stream::MiniportWaveRTStream;
 use crate::topology::MiniportTopologyCom;
 use crate::vtables::*;
 use crate::wavert::MiniportWaveRTCom;
-use alloc::boxed::Box;
-use wdk_sys::ntddk::*;
-use wdk_sys::*;
 
 const _POOL_TAG: u32 = u32::from_be_bytes(*b"LLAD");
-const PORT_CLASS_DEVICE_EXTENSION_SIZE: usize = 64 * core::mem::size_of::<usize>();
+const PORT_CLASS_DEVICE_EXTENSION_SIZE: usize = 64 * size_of::<usize>();
 
 #[repr(C)]
 pub struct DeviceExtension {
@@ -41,16 +48,6 @@ pub struct MiniportWaveRTStreamCom {
     pub ref_count: u32,
 }
 
-impl MiniportWaveRTStreamCom {
-    pub fn new(stream: *mut MiniportWaveRTStream) -> Box<Self> {
-        Box::new(Self {
-            vtable: &STREAM_VTABLE,
-            stream,
-            ref_count: 1,
-        })
-    }
-}
-
 #[link_section = ".rdata"]
 pub static STREAM_VTABLE: IMiniportWaveRTStreamVTable = IMiniportWaveRTStreamVTable {
     base: IUnknownVTable {
@@ -68,6 +65,20 @@ pub static STREAM_VTABLE: IMiniportWaveRTStreamVTable = IMiniportWaveRTStreamVTa
     GetClockRegister: crate::stream_get_clock_register,
 };
 
+impl MiniportWaveRTStreamCom {
+    pub fn new(stream: *mut MiniportWaveRTStream) -> Box<Self> {
+        Box::new(Self {
+            vtable: &STREAM_VTABLE,
+            stream,
+            ref_count: 1,
+        })
+    }
+}
+
+/// Retrieves the Leyline device extension from a PortCls device object.
+///
+/// # Safety
+/// The provided device object must be a valid PortCls-initialized device object.
 #[inline(always)]
 pub unsafe fn get_device_extension(device_object: PDEVICE_OBJECT) -> *mut DeviceExtension {
     let base = (*device_object).DeviceExtension as *mut u8;
@@ -93,33 +104,33 @@ extern "C" {
     ) -> NTSTATUS;
 }
 
+/// AddDevice callback for PortCls initialization.
+///
+/// # Safety
+/// Standard kernel AddDevice callback. Parameters must be valid pointers provided by the OS.
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn AddDevice(
     driver_object: PDRIVER_OBJECT,
     physical_device_object: PDEVICE_OBJECT,
 ) -> NTSTATUS {
-    DbgPrint("Leyline: AddDevice\n\0".as_ptr() as *const i8);
+    DbgPrint(c"Leyline: AddDevice\n".as_ptr());
 
     let total_extension_size =
-        (PORT_CLASS_DEVICE_EXTENSION_SIZE + core::mem::size_of::<DeviceExtension>()) as u32;
+        (PORT_CLASS_DEVICE_EXTENSION_SIZE + size_of::<DeviceExtension>()) as u32;
 
-    let status = PcAddAdapterDevice(
+    PcAddAdapterDevice(
         driver_object,
         physical_device_object,
         Some(StartDevice),
         10,
         total_extension_size,
-    );
-
-    if status == STATUS_SUCCESS {
-        // We need the FDO (the device object created by PcAddAdapterDevice)
-        // This is typically the next device in the stack or retrieved via the DriverObject's list.
-        // For Leyline, we capture the FDO reference during the first StartDevice or by traversing the list.
-    }
-
-    status
+    )
 }
 
+/// StartDevice callback for hardware initialization.
+///
+/// # Safety
+/// Standard kernel StartDevice callback. Parameters must be valid pointers provided by the OS.
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn StartDevice(
     device_object: PDEVICE_OBJECT,
@@ -128,9 +139,9 @@ pub unsafe extern "C" fn StartDevice(
 ) -> NTSTATUS {
     let mut status: NTSTATUS;
     let dev_ext = get_device_extension(device_object);
-    DbgPrint("Leyline: StartDevice\n\0".as_ptr() as *const i8);
+    DbgPrint(c"Leyline: StartDevice\n".as_ptr());
 
-    // Capture FDO for IOCTL bridge
+    // Capture FDO for IOCTL bridge.
     crate::FUNCTIONAL_DEVICE_OBJECT = device_object;
 
     // --- CDO Creation ---
@@ -148,7 +159,7 @@ pub unsafe extern "C" fn StartDevice(
 
         status = IoCreateDevice(
             (*device_object).DriverObject,
-            core::mem::size_of::<usize>() as u32,
+            size_of::<usize>() as u32,
             &mut device_name,
             FILE_DEVICE_UNKNOWN,
             0,
@@ -167,13 +178,13 @@ pub unsafe extern "C" fn StartDevice(
                 Buffer: link_name_str.as_mut_ptr(),
             };
             let _ = IoCreateSymbolicLink(&mut link_name, &mut device_name);
-            DbgPrint("Leyline: CDO Ready\n\0".as_ptr() as *const i8);
+            DbgPrint(c"Leyline: CDO Ready\n".as_ptr());
         }
     }
 
     // --- WaveRender Registration ---
-    DbgPrint("Leyline: Registering WaveRender Port\n\0".as_ptr() as *const i8);
-    let mut render_port: *mut u8 = core::ptr::null_mut();
+    DbgPrint(c"Leyline: Registering WaveRender Port\n".as_ptr());
+    let mut render_port: *mut u8 = null_mut();
     status = PcNewPort(&mut render_port, &CLSID_PortWaveRT);
     if status != STATUS_SUCCESS {
         return status;
@@ -201,7 +212,7 @@ pub unsafe extern "C" fn StartDevice(
         device_object,
         _irp,
         render_miniport_ptr,
-        core::ptr::null_mut(),
+        null_mut(),
         resource_list,
     );
     if status != STATUS_SUCCESS {
@@ -217,8 +228,8 @@ pub unsafe extern "C" fn StartDevice(
     }
 
     // --- WaveCapture Registration ---
-    DbgPrint("Leyline: Registering WaveCapture Port\n\0".as_ptr() as *const i8);
-    let mut capture_port: *mut u8 = core::ptr::null_mut();
+    DbgPrint(c"Leyline: Registering WaveCapture Port\n".as_ptr());
+    let mut capture_port: *mut u8 = null_mut();
     status = PcNewPort(&mut capture_port, &CLSID_PortWaveRT);
     if status != STATUS_SUCCESS {
         return status;
@@ -237,7 +248,7 @@ pub unsafe extern "C" fn StartDevice(
         device_object,
         _irp,
         capture_miniport_ptr,
-        core::ptr::null_mut(),
+        null_mut(),
         resource_list,
     );
     if status != STATUS_SUCCESS {
@@ -251,9 +262,7 @@ pub unsafe extern "C" fn StartDevice(
     status = PcRegisterSubdevice(device_object, wave_capture_name.as_ptr(), capture_port);
 
     if status == STATUS_SUCCESS {
-        DbgPrint(
-            "Leyline: StartDevice COMPLETED SUCCESSFULLY (Baseline)\n\0".as_ptr() as *const i8,
-        );
+        DbgPrint(c"Leyline: StartDevice COMPLETED SUCCESSFULLY (Baseline)\n".as_ptr());
     }
     status
 }

@@ -5,6 +5,7 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
+// Second, external crates.
 use wdk_sys::GUID;
 
 // ============================================================================
@@ -192,11 +193,11 @@ pub const KSNODETYPE_MICROPHONE: GUID = GUID {
 
 pub const PCFILTER_NODE: u32 = !0u32;
 
-// KSPIN_DATAFLOW
+// KSPIN_DATAFLOW.
 pub const KSPIN_DATAFLOW_IN: u32 = 1;
 pub const KSPIN_DATAFLOW_OUT: u32 = 2;
 
-// KSPIN_COMMUNICATION
+// KSPIN_COMMUNICATION.
 pub const KSPIN_COMMUNICATION_NONE: u32 = 0;
 pub const KSPIN_COMMUNICATION_SINK: u32 = 1;
 pub const KSPIN_COMMUNICATION_SOURCE: u32 = 2;

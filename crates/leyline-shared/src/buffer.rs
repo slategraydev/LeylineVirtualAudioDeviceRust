@@ -25,6 +25,11 @@ impl RingBuffer {
         self.size
     }
 
+    /// Creates a new RingBuffer.
+    ///
+    /// # Safety
+    /// The provided buffer pointer must be valid for the given size and must remain
+    /// valid for the lifetime of the RingBuffer.
     pub unsafe fn new(buffer: *mut u8, size: usize) -> Self {
         Self {
             buffer,
@@ -34,6 +39,11 @@ impl RingBuffer {
         }
     }
 
+    /// Re-bases the RingBuffer to a new memory location.
+    ///
+    /// # Safety
+    /// The provided buffer pointer must be valid for the given size and must remain
+    /// valid for the duration of the RingBuffer's use.
     pub unsafe fn rebase(&mut self, buffer: *mut u8, size: usize) {
         self.buffer = buffer;
         self.size = size;
@@ -114,18 +124,16 @@ impl RingBuffer {
 
     pub fn available_write(&self) -> usize {
         if self.write_pos >= self.read_pos {
-            self.size - (self.write_pos - self.read_pos) - RESERVED_BYTE
-        } else {
-            self.read_pos - self.write_pos - RESERVED_BYTE
+            return self.size - (self.write_pos - self.read_pos) - RESERVED_BYTE;
         }
+        self.read_pos - self.write_pos - RESERVED_BYTE
     }
 
     pub fn available_read(&self) -> usize {
         if self.write_pos >= self.read_pos {
-            self.write_pos - self.read_pos
-        } else {
-            self.size - (self.read_pos - self.write_pos)
+            return self.write_pos - self.read_pos;
         }
+        self.size - (self.read_pos - self.write_pos)
     }
 }
 

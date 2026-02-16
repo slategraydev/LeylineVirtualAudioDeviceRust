@@ -5,12 +5,18 @@
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
+// First std/core/alloc.
+use alloc::boxed::Box;
+use core::ptr::null_mut;
+
+// Second, external crates.
+use wdk_sys::*;
+
+// Then current crate.
 use crate::constants::*;
 use crate::descriptors::*;
 use crate::stream::PCFILTER_DESCRIPTOR;
 use crate::vtables::*;
-use alloc::boxed::Box;
-use wdk_sys::*;
 
 pub struct MiniportTopology {
     pub is_initialized: bool,
@@ -24,7 +30,13 @@ impl MiniportTopology {
             is_capture,
         }
     }
-    pub fn init(&mut self, _ua: PVOID, _rl: PVOID, _p: PVOID) -> NTSTATUS {
+
+    pub fn init(
+        &mut self,
+        _unknown_adapter: PVOID,
+        _resource_list: PVOID,
+        _port: PVOID,
+    ) -> NTSTATUS {
         self.is_initialized = true;
         STATUS_SUCCESS
     }
@@ -37,6 +49,18 @@ pub struct MiniportTopologyCom {
     pub ref_count: u32,
 }
 
+#[link_section = ".rdata"]
+pub static TOPOLOGY_VTABLE: IMiniportTopologyVTable = IMiniportTopologyVTable {
+    base: IUnknownVTable {
+        QueryInterface: topology_query_interface,
+        AddRef: topology_add_ref,
+        Release: topology_release,
+    },
+    GetDescription: topology_get_description,
+    DataRangeIntersection: topology_data_range_intersection,
+    Init: topology_init,
+};
+
 impl MiniportTopologyCom {
     pub fn new(is_capture: bool) -> Box<Self> {
         Box::new(Self {
@@ -47,6 +71,10 @@ impl MiniportTopologyCom {
     }
 }
 
+/// QueryInterface callback for Topology miniport.
+///
+/// # Safety
+/// Standard COM-like QueryInterface. Parameters must be valid pointers.
 pub unsafe extern "system" fn topology_query_interface(
     this: *mut u8,
     iid: *const GUID,
@@ -59,19 +87,27 @@ pub unsafe extern "system" fn topology_query_interface(
     {
         (*com_obj).ref_count += 1;
         *out = this;
-        STATUS_SUCCESS
-    } else {
-        *out = core::ptr::null_mut();
-        STATUS_NOINTERFACE
+        return STATUS_SUCCESS;
     }
+
+    *out = null_mut();
+    STATUS_NOINTERFACE
 }
 
+/// AddRef callback for Topology miniport.
+///
+/// # Safety
+/// Standard COM-like AddRef. Parameters must be valid pointers.
 pub unsafe extern "system" fn topology_add_ref(this: *mut u8) -> u32 {
     let com_obj = this as *mut MiniportTopologyCom;
     (*com_obj).ref_count += 1;
     (*com_obj).ref_count
 }
 
+/// Release callback for Topology miniport.
+///
+/// # Safety
+/// Standard COM-like Release. Parameters must be valid pointers.
 pub unsafe extern "system" fn topology_release(this: *mut u8) -> u32 {
     let com_obj = this as *mut MiniportTopologyCom;
     (*com_obj).ref_count -= 1;
@@ -82,6 +118,10 @@ pub unsafe extern "system" fn topology_release(this: *mut u8) -> u32 {
     count
 }
 
+/// GetDescription callback for Topology miniport.
+///
+/// # Safety
+/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn topology_get_description(
     this: *mut u8,
     out_description: *mut u8,
@@ -96,36 +136,36 @@ pub unsafe extern "system" fn topology_get_description(
     STATUS_SUCCESS
 }
 
+/// DataRangeIntersection callback for Topology miniport.
+///
+/// # Safety
+/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn topology_data_range_intersection(
     _this: *mut u8,
-    _pin: u32,
-    _dr: *mut u8,
-    _mdr: *mut u8,
-    _dfcb: u32,
-    _df: *mut u8,
-    _adfcb: *mut u32,
+    _pin_id: u32,
+    _data_range: *mut u8,
+    _matching_data_range: *mut u8,
+    _data_format_cb: u32,
+    _data_format: *mut u8,
+    _actual_data_format_cb: *mut u32,
 ) -> NTSTATUS {
     STATUS_NOT_IMPLEMENTED
 }
 
+/// Init callback for Topology miniport.
+///
+/// # Safety
+/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn topology_init(
     this: *mut u8,
-    ua: *mut u8,
-    rl: *mut u8,
-    p: *mut u8,
+    unknown_adapter: *mut u8,
+    resource_list: *mut u8,
+    port: *mut u8,
 ) -> NTSTATUS {
     let com_obj = this as *mut MiniportTopologyCom;
-    (*com_obj).inner.init(ua as PVOID, rl as PVOID, p as PVOID)
+    (*com_obj).inner.init(
+        unknown_adapter as PVOID,
+        resource_list as PVOID,
+        port as PVOID,
+    )
 }
-
-#[link_section = ".rdata"]
-pub static TOPOLOGY_VTABLE: IMiniportTopologyVTable = IMiniportTopologyVTable {
-    base: IUnknownVTable {
-        QueryInterface: topology_query_interface,
-        AddRef: topology_add_ref,
-        Release: topology_release,
-    },
-    GetDescription: topology_get_description,
-    DataRangeIntersection: topology_data_range_intersection,
-    Init: topology_init,
-};

@@ -14,10 +14,7 @@ fn main() {
     let wdk_version_trimmed = wdk_version.trim_end_matches('\\');
     let wdk_root_path = PathBuf::from(wdk_root_trimmed);
 
-    println!(
-        r"cargo:rustc-link-search=native={}\Lib\{}\km\x64",
-        wdk_root_trimmed, wdk_version_trimmed
-    );
+    println!(r"cargo:rustc-link-search=native={wdk_root_trimmed}\Lib\{wdk_version_trimmed}\km\x64");
 
     let inc_km = wdk_root_path
         .join("Include")
@@ -82,8 +79,9 @@ fn main() {
         .expect("Unable to generate bindings");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let bindings_file = out_path.join("audio_bindings.rs");
     generated
-        .write_to_file(out_path.join("audio_bindings.rs"))
+        .write_to_file(&bindings_file)
         .expect("Couldn't write bindings!");
 
     if env::var("CARGO_CFG_TEST").is_err() {
