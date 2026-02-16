@@ -163,26 +163,15 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
     }
     let ks_range = data_range as *const KSDATARANGE;
     unsafe {
-        if !crate::is_equal_guid(
-            &(*ks_range).__bindgen_anon_1.MajorFormat,
-            &KSDATAFORMAT_TYPE_AUDIO,
-        ) {
+        if !crate::is_equal_guid(&(*ks_range).MajorFormat, &KSDATAFORMAT_TYPE_AUDIO) {
             return STATUS_NO_MATCH;
         }
-        if !crate::is_equal_guid(
-            &(*ks_range).__bindgen_anon_1.Specifier,
-            &KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
-        ) {
+        if !crate::is_equal_guid(&(*ks_range).Specifier, &KSDATAFORMAT_SPECIFIER_WAVEFORMATEX) {
             return STATUS_NO_MATCH;
         }
-        let is_pcm = crate::is_equal_guid(
-            &(*ks_range).__bindgen_anon_1.SubFormat,
-            &KSDATAFORMAT_SUBTYPE_PCM,
-        );
-        let is_float = crate::is_equal_guid(
-            &(*ks_range).__bindgen_anon_1.SubFormat,
-            &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
-        );
+        let is_pcm = crate::is_equal_guid(&(*ks_range).SubFormat, &KSDATAFORMAT_SUBTYPE_PCM);
+        let is_float =
+            crate::is_equal_guid(&(*ks_range).SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
         if !is_pcm && !is_float {
             return STATUS_NO_MATCH;
         }
@@ -199,10 +188,10 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
         }
 
         let result = data_format as *mut crate::stream::KSDATAFORMAT_WAVEFORMATEX;
-        (*result).DataFormat.__bindgen_anon_1.FormatSize = format_size;
-        (*result).DataFormat.__bindgen_anon_1.MajorFormat = KSDATAFORMAT_TYPE_AUDIO;
-        (*result).DataFormat.__bindgen_anon_1.SubFormat = (*ks_range).__bindgen_anon_1.SubFormat;
-        (*result).DataFormat.__bindgen_anon_1.Specifier = KSDATAFORMAT_SPECIFIER_WAVEFORMATEX;
+        (*result).DataFormat.FormatSize = format_size;
+        (*result).DataFormat.MajorFormat = KSDATAFORMAT_TYPE_AUDIO;
+        (*result).DataFormat.SubFormat = (*ks_range).SubFormat;
+        (*result).DataFormat.Specifier = KSDATAFORMAT_SPECIFIER_WAVEFORMATEX;
 
         (*result).WaveFormatEx.wFormatTag = if is_pcm { 1 } else { 3 };
         (*result).WaveFormatEx.nChannels = 2;

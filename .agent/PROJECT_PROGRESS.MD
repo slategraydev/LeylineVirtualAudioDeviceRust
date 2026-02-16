@@ -40,8 +40,21 @@
     - **Type Mismatches**: Final remaining errors relate to `audio::GUID` vs `wdk_sys::GUID` distinction.
 - **Status**: Near-compiling (Finalizing type unification).
 
-## PROJECT TODO (Next Session: #31)
-- **[ ] Type Unification**: Resolve the GUID type mismatches in `descriptors.rs`.
-- **[ ] Build Restoration**: Achieve 100% clean build with zero warnings.
-- **[ ] Baseline Load Test**: Verify the "pure WaveRT" driver loads without BSOD.
+### Session #31: Type Unification & Descriptor Hardening
+- **Date**: February 16, 2026
+- **Reviewer**: Antigravity (Gemini 2.0 Flash)
+- **Summary**: Resolved the critical GUID type mismatch and standardized PortCls descriptor naming.
+- **Key Changes**:
+    - **GUID Unification**: Blocked bindgen's `GUID` and injected `wdk_sys::GUID` into `audio_bindings.rs` to ensure 100% type parity across the crate.
+    - **Descriptor Hardening**: Blocked `KSDATAFORMAT` and `PCCONNECTION_DESCRIPTOR` in bindgen and provided static-friendly manual definitions to support `descriptors.rs` initialization.
+    - **Naming Correction**: Updated `PCCONNECTION` to `PCCONNECTION_DESCRIPTOR` and corrected field names (`FromNodePin`, `ToNodePin`) to match WDK headers.
+    - **Visibility Fix**: Made the `audio` module public in `stream.rs` to resolve re-export errors in `lib.rs`.
+- **Current Problems**:
+    - **KSPIN_DESCRIPTOR Union**: Final remaining errors relate to initializing the `KSPIN_DESCRIPTOR` union in `descriptors.rs`.
+- **Status**: Near-compiling (Surgical fix phase).
+
+## PROJECT TODO (Next Session: #32)
+- [ ] **KSPIN_DESCRIPTOR Fix**: Align `descriptors.rs` with the `KSPIN_DESCRIPTOR` union layout or block/manually define it.
+- [ ] **Zero-Warning Proof**: Achieve 100% clean build.
+- [ ] **Baseline Load Test**: Verify driver stability on a test target.
 

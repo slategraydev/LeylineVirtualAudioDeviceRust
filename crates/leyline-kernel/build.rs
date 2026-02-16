@@ -38,7 +38,20 @@ fn main() {
         .use_core()
         .ctypes_prefix("core::ffi")
         .clang_arg("-D_AMD64_")
-        .clang_arg("-D_KERNEL_MODE");
+        .clang_arg("-D_KERNEL_MODE")
+        .blocklist_type("GUID")
+        .blocklist_type("_GUID")
+        .blocklist_type("ULONG")
+        .blocklist_type("LONGLONG")
+        .raw_line("use wdk_sys::GUID;")
+        .raw_line("pub type _GUID = GUID;")
+        .raw_line("pub type ULONG = core::ffi::c_ulong;")
+        .raw_line("pub type LONGLONG = core::ffi::c_longlong;")
+        .raw_line("#[repr(C)] #[derive(Copy, Clone)] pub struct KSDATAFORMAT { pub FormatSize: ULONG, pub Flags: ULONG, pub SampleSize: ULONG, pub Reserved: ULONG, pub MajorFormat: GUID, pub SubFormat: GUID, pub Specifier: GUID, }")
+        .raw_line("pub type KSDATARANGE = KSDATAFORMAT;")
+        .raw_line("pub type PKSDATARANGE = *mut KSDATAFORMAT;")
+        .raw_line("#[repr(C)] #[derive(Copy, Clone)] pub struct PCCONNECTION_DESCRIPTOR { pub FromNode: ULONG, pub FromNodePin: ULONG, pub ToNode: ULONG, pub ToNodePin: ULONG, }")
+        .raw_line("pub type PPCCONNECTION_DESCRIPTOR = *mut PCCONNECTION_DESCRIPTOR;");
 
     let s_km = inc_km.to_str().unwrap();
     let s_shared = inc_shared.to_str().unwrap();
@@ -49,12 +62,17 @@ fn main() {
     bindings = bindings.clang_arg("-I".to_owned() + s_crt);
 
     let generated = bindings
-        .allowlist_type(".*KSDATA.*")
         .allowlist_type(".*WAVEFORMAT.*")
         .allowlist_type(".*KSSTATE.*")
         .allowlist_type(".*PCPIN_DESCRIPTOR.*")
         .allowlist_type(".*PCFILTER_DESCRIPTOR.*")
-        .allowlist_type(".*PCCONNECTION.*")
+        .blocklist_type("KSDATAFORMAT")
+        .blocklist_type("KSDATARANGE")
+        .blocklist_type("PKSDATARANGE")
+        .blocklist_type("_KSDATAFORMAT")
+        .blocklist_type("KSTOPOLOGY_CONNECTION")
+        .blocklist_type("PCCONNECTION_DESCRIPTOR")
+        .blocklist_type("PPCCONNECTION_DESCRIPTOR")
         .allowlist_var("KSSTATE_.*")
         .allowlist_var("KSDATAFORMAT_.*")
         .generate()

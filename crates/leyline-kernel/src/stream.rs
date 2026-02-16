@@ -14,22 +14,22 @@ use crate::constants::*;
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 #[allow(unnecessary_transmutes)]
-mod audio {
+pub mod audio {
     include!(concat!(env!("OUT_DIR"), "/audio_bindings.rs"));
 }
 
 // Explicitly re-export only what we need from audio.
-pub type KSDATAFORMAT = audio::KSDATAFORMAT;
-pub type KSDATARANGE = audio::KSDATARANGE;
-pub type KSPIN_DESCRIPTOR = audio::KSPIN_DESCRIPTOR;
 pub type PCFILTER_DESCRIPTOR = audio::PCFILTER_DESCRIPTOR;
 pub type PCPIN_DESCRIPTOR = audio::PCPIN_DESCRIPTOR;
-pub type PCCONNECTION = audio::PCCONNECTION;
 pub type WAVEFORMATEX = audio::WAVEFORMATEX;
+pub type KSPIN_DESCRIPTOR = audio::KSPIN_DESCRIPTOR;
+pub type KSDATAFORMAT = audio::KSDATAFORMAT;
+pub type KSDATARANGE = audio::KSDATARANGE;
+pub type PKSDATARANGE = audio::PKSDATARANGE;
+pub type PCCONNECTION = audio::PCCONNECTION_DESCRIPTOR;
 
 // Helper module for nested union field names (exported for descriptors.rs)
 pub mod audio_types {
-    pub use super::audio::KSDATAFORMAT__bindgen_ty_1;
     pub use super::audio::KSPIN_DESCRIPTOR__bindgen_ty_1;
 }
 

@@ -23,15 +23,13 @@ unsafe impl<T> Sync for SyncPtr<T> {}
 #[link_section = ".rdata"]
 pub static PCM_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
     DataRange: KSDATARANGE {
-        __bindgen_anon_1: audio_types::KSDATAFORMAT__bindgen_ty_1 {
-            FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
-            Flags: 0,
-            SampleSize: 0,
-            Reserved: 0,
-            MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-            SubFormat: KSDATAFORMAT_SUBTYPE_PCM,
-            Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
-        },
+        FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
+        Flags: 0,
+        SampleSize: 0,
+        Reserved: 0,
+        MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
+        SubFormat: KSDATAFORMAT_SUBTYPE_PCM,
+        Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
     },
     MaximumChannels: 2,
     MinimumBitsPerSample: 16,
@@ -43,15 +41,13 @@ pub static PCM_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
 #[link_section = ".rdata"]
 pub static FLOAT_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
     DataRange: KSDATARANGE {
-        __bindgen_anon_1: audio_types::KSDATAFORMAT__bindgen_ty_1 {
-            FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
-            Flags: 0,
-            SampleSize: 0,
-            Reserved: 0,
-            MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-            SubFormat: KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
-            Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
-        },
+        FormatSize: core::mem::size_of::<KSDATARANGE_AUDIO>() as u32,
+        Flags: 0,
+        SampleSize: 0,
+        Reserved: 0,
+        MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
+        SubFormat: KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
+        Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
     },
     MaximumChannels: 2,
     MinimumBitsPerSample: 32,
@@ -62,15 +58,13 @@ pub static FLOAT_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
 
 #[link_section = ".rdata"]
 pub static BRIDGE_DATARANGE: KSDATARANGE = KSDATARANGE {
-    __bindgen_anon_1: audio_types::KSDATAFORMAT__bindgen_ty_1 {
-        FormatSize: core::mem::size_of::<KSDATARANGE>() as u32,
-        Flags: 0,
-        SampleSize: 0,
-        Reserved: 0,
-        MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-        SubFormat: KSDATAFORMAT_SUBTYPE_ANALOG,
-        Specifier: KSDATAFORMAT_SPECIFIER_NONE_GUID,
-    },
+    FormatSize: core::mem::size_of::<KSDATARANGE>() as u32,
+    Flags: 0,
+    SampleSize: 0,
+    Reserved: 0,
+    MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
+    SubFormat: KSDATAFORMAT_SUBTYPE_ANALOG,
+    Specifier: KSDATAFORMAT_SPECIFIER_NONE_GUID,
 };
 
 #[link_section = ".rdata"]
@@ -262,25 +256,25 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
 #[link_section = ".rdata"]
 pub static WAVE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
     FromNode: PCFILTER_NODE,
-    FromPin: KSPIN_WAVE_SINK,
+    FromNodePin: KSPIN_WAVE_SINK,
     ToNode: PCFILTER_NODE,
-    ToPin: KSPIN_WAVE_BRIDGE,
+    ToNodePin: KSPIN_WAVE_BRIDGE,
 }];
 
 #[link_section = ".rdata"]
 pub static WAVE_CAPTURE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
     FromNode: PCFILTER_NODE,
-    FromPin: KSPIN_WAVE_BRIDGE,
+    FromNodePin: KSPIN_WAVE_BRIDGE,
     ToNode: PCFILTER_NODE,
-    ToPin: KSPIN_WAVE_SINK,
+    ToNodePin: KSPIN_WAVE_SINK,
 }];
 
 #[link_section = ".rdata"]
 pub static TOPO_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
     FromNode: PCFILTER_NODE,
-    FromPin: KSPIN_TOPO_BRIDGE,
+    FromNodePin: KSPIN_TOPO_BRIDGE,
     ToNode: PCFILTER_NODE,
-    ToPin: KSPIN_TOPO_LINEOUT,
+    ToNodePin: KSPIN_TOPO_LINEOUT,
 }];
 
 #[link_section = ".rdata"]
