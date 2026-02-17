@@ -115,8 +115,8 @@ try
     }
 
     # 5. Build Artifact Cleanup
-    if (Test-Path "package")
-    { Remove-Item "package" -Recurse -Force
+    if (Test-Path "$ProjectRoot/package")
+    { Remove-Item "$ProjectRoot/package" -Recurse -Force
     }
 
     # Kernel Clean (Release Only)

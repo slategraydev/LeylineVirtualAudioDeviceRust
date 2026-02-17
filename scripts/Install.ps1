@@ -70,8 +70,8 @@ try
         # HSA Clean
         dotnet clean src/HSA/LeylineHSA.csproj -c Release | Out-Null
         # Package Purge
-        if (Test-Path "package")
-        { Remove-Item "package" -Recurse -Force
+        if (Test-Path "$ProjectRoot/package")
+        { Remove-Item "$ProjectRoot/package" -Recurse -Force
         }
 
         # System State Purge: Remove existing and legacy devices to start from a truly blank slate
@@ -130,41 +130,42 @@ try
     if ($package)
     {
         Write-Host "--- [3/5] Packaging & Signing ---" -ForegroundColor Cyan
-        if (Test-Path "package")
-        { Remove-Item "package" -Recurse -Force
+        if (Test-Path "$ProjectRoot/package")
+        { Remove-Item "$ProjectRoot/package" -Recurse -Force
         }
-        New-Item -ItemType Directory -Path "package/HSA" -Force | Out-Null
+        New-Item -ItemType Directory -Path "$ProjectRoot/package/HSA" -Force | Out-Null
 
         # Kernel: The Rust build produces a .dll (cdylib), but Windows drivers MUST be .sys
-        $kernelOutput = "crates/leyline-kernel/target/release/leyline.dll"
+        # Note: In a workspace, cargo puts output in workspace root target/, not crate target/
+        $kernelOutput = "target/release/leyline.dll"
         if (-not (Test-Path $kernelOutput))
         {
             # Fallback check for .sys just in case environment handles it
-            $kernelOutput = "crates/leyline-kernel/target/release/leyline.sys"
+            $kernelOutput = "target/release/leyline.sys"
         }
 
         if (-not (Test-Path $kernelOutput))
         { throw "Kernel build artifact NOT FOUND at $kernelOutput"
         }
 
-        Write-Host "[*] Packaging Kernel: $kernelOutput -> package/leyline.sys"
-        Copy-Item $kernelOutput "package/leyline.sys"
-        Copy-Item "crates/leyline-kernel/leyline.inx" "package/leyline.inf"
-        Copy-Item "src/APO/LeylineAPO.dll" "package/"
-        dotnet publish src/HSA/LeylineHSA.csproj -c Release -r win-x64 --self-contained false -o "package/HSA" | Out-Null
+        Write-Host "[*] Packaging Kernel: $kernelOutput -> $ProjectRoot/package/leyline.sys"
+        Copy-Item $kernelOutput "$ProjectRoot/package/leyline.sys"
+        Copy-Item "$ProjectRoot/crates/leyline-kernel/leyline.inx" "$ProjectRoot/package/leyline.inf"
+        Copy-Item "$ProjectRoot/src/APO/LeylineAPO.dll" "$ProjectRoot/package/"
+        dotnet publish "$ProjectRoot/src/HSA/LeylineHSA.csproj" -c Release -r win-x64 --self-contained false -o "$ProjectRoot/package/HSA" | Out-Null
 
         # Generate Catalog and Sign
-        & $env:INF2CAT_EXE /driver:package /os:10_X64,Server2016_X64
-        if (-not (Test-Path "package\leyline.pfx"))
+        & $env:INF2CAT_EXE /driver:"$ProjectRoot/package" /os:10_X64,Server2016_X64
+        if (-not (Test-Path "$ProjectRoot/package\leyline.pfx"))
         {
             $cert = New-SelfSignedCertificate -Subject "Leyline Audio Driver" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My"
-            $cert | Export-PfxCertificate -FilePath package\leyline.pfx -Password (ConvertTo-SecureString -String "REDACTED_CERT_PASS" -Force -AsPlainText)
-            $cert | Export-Certificate -FilePath package\leyline.cer
+            $cert | Export-PfxCertificate -FilePath "$ProjectRoot/package\leyline.pfx" -Password (ConvertTo-SecureString -String "REDACTED_CERT_PASS" -Force -AsPlainText)
+            $cert | Export-Certificate -FilePath "$ProjectRoot/package\leyline.cer"
         }
-        foreach ($f in @("package\leyline.sys", "package\leyline.cat", "package\LeylineAPO.dll", "package\HSA\LeylineHSA.exe"))
+        foreach ($f in @("$ProjectRoot/package\leyline.sys", "$ProjectRoot/package\leyline.cat", "$ProjectRoot/package\LeylineAPO.dll", "$ProjectRoot/package\HSA\LeylineHSA.exe"))
         {
             if (Test-Path $f)
-            { & $env:SIGNTOOL_EXE sign /f package\leyline.pfx /p password /fd SHA256 /t http://timestamp.digicert.com $f
+            { & $env:SIGNTOOL_EXE sign /f "$ProjectRoot/package\leyline.pfx" /p password /fd SHA256 /t http://timestamp.digicert.com $f
             }
         }
     }
@@ -172,8 +173,8 @@ try
     if ($install)
     {
         Write-Host "--- [4/5] System Provisioning ---" -ForegroundColor Cyan
-        certutil -addstore root package\leyline.cer | Out-Null
-        certutil -addstore TrustedPublisher package\leyline.cer | Out-Null
+        certutil -addstore root "$ProjectRoot/package\leyline.cer" | Out-Null
+        certutil -addstore TrustedPublisher "$ProjectRoot/package\leyline.cer" | Out-Null
 
         Write-Host "--- [5/5] PnP Driver Installation & Verification ---" -ForegroundColor Cyan
 
@@ -198,7 +199,7 @@ try
 
         # 3. Install the driver package and associate it with the node
         Write-Host "[*] Installing driver package and associating with device..."
-        $stageResult = pnputil /add-driver "package\leyline.inf" /install
+        $stageResult = pnputil /add-driver "$ProjectRoot/package\leyline.inf" /install
         Write-Host "    -> $stageResult"
 
         # Final Verification

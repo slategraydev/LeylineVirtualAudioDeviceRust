@@ -40,11 +40,174 @@ try
 
     # 2. Build on Host
     Write-Host "--- [1/3] Building Driver Package on Host ---" -ForegroundColor Cyan
-    & "$PSScriptRoot\Install.ps1" -clean:$clean -build -package -install:$false
 
+    # Force clean rebuild to ensure latest code is compiled
+    # Note: Cargo workspace puts output in workspace root target/, not crate target/
+    $kernelBinary = "$ProjectRoot/target/release/leyline.dll"
+    $kernelSys = "$ProjectRoot/target/release/leyline.sys"
 
-    if (-not (Test-Path "package"))
+    # Get timestamp before build
+    $preBuildTime = $null
+    if (Test-Path $kernelBinary)
+    {
+        $preBuildTime = (Get-Item $kernelBinary).LastWriteTime
+        Write-Host "[*] Previous build: $($preBuildTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Gray
+    } elseif (Test-Path $kernelSys)
+    {
+        $preBuildTime = (Get-Item $kernelSys).LastWriteTime
+        Write-Host "[*] Previous build: $($preBuildTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Gray
+    }
+
+    # Force clean to ensure cargo rebuilds everything
+    Write-Host "[*] Cleaning old build artifacts..." -ForegroundColor Yellow
+    # Clean from workspace root to ensure proper cleanup
+    cargo clean --release
+    if ($LASTEXITCODE -ne 0)
+    {
+        Pop-Location
+        throw "cargo clean failed with exit code $LASTEXITCODE"
+    }
+    Pop-Location
+
+    # Verify clean actually removed the files
+    if (Test-Path $kernelBinary)
+    {
+        Remove-Item $kernelBinary -Force
+        Write-Host "[*] Manually removed old DLL" -ForegroundColor Gray
+    }
+    if (Test-Path $kernelSys)
+    {
+        Remove-Item $kernelSys -Force
+        Write-Host "[*] Manually removed old SYS" -ForegroundColor Gray
+    }
+
+    # Also clean stale files in crate target directory if they exist
+    $staleBinary = "$ProjectRoot/crates/leyline-kernel/target/release/leyline.dll"
+    $staleSys = "$ProjectRoot/crates/leyline-kernel/target/release/leyline.sys"
+    if (Test-Path $staleBinary)
+    {
+        Remove-Item $staleBinary -Force
+        Write-Host "[*] Removed stale DLL from crate target" -ForegroundColor Gray
+    }
+    if (Test-Path $staleSys)
+    {
+        Remove-Item $staleSys -Force
+        Write-Host "[*] Removed stale SYS from crate target" -ForegroundColor Gray
+    }
+
+    # Run the build
+    Write-Host "[*] Starting fresh build..." -ForegroundColor Cyan
+    $buildOutput = & "$PSScriptRoot\Install.ps1" -clean:$clean -build -package -install:$false 2>&1
+    $buildExitCode = $LASTEXITCODE
+
+    # Show build output for debugging
+    if ($buildOutput)
+    {
+        Write-Host "[*] Build output:" -ForegroundColor Gray
+        $buildOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+    }
+
+    if ($buildExitCode -ne 0)
+    {
+        throw "Build script failed with exit code $buildExitCode"
+    }
+
+    # Debug: Show what files exist in target/release
+    Write-Host "[*] Listing build output directory..." -ForegroundColor Gray
+    $targetDir = "$ProjectRoot/target/release"
+    if (Test-Path $targetDir)
+    {
+        $files = Get-ChildItem $targetDir -File | Where-Object { $_.Name -match "\.(dll|sys|exe)$" } | Select-Object -First 10
+        foreach ($file in $files)
+        {
+            Write-Host "    Found: $($file.Name) ($($file.LastWriteTime.ToString('HH:mm:ss')))" -ForegroundColor Gray
+        }
+    } else
+    {
+        Write-Host "    [WARNING] Target directory not found: $targetDir" -ForegroundColor Yellow
+    }
+
+    # PowerShell scripts don't set LASTEXITCODE properly, check if files exist instead
+    if (-not (Test-Path $kernelBinary) -and -not (Test-Path $kernelSys))
+    {
+        Write-Host "[ERROR] Expected binaries not found:" -ForegroundColor Red
+        Write-Host "  - $kernelBinary" -ForegroundColor Red
+        Write-Host "  - $kernelSys" -ForegroundColor Red
+        Write-Host "[HINT] Check if cargo wdk build produced output in $ProjectRoot/target/release/" -ForegroundColor Yellow
+        throw "Build failed - no output binary found"
+    }
+
+    # Verify build actually produced new binary
+    $postBuildTime = $null
+    $actualBinary = $null
+    if (Test-Path $kernelBinary)
+    {
+        $postBuildTime = (Get-Item $kernelBinary).LastWriteTime
+        $actualBinary = $kernelBinary
+    } elseif (Test-Path $kernelSys)
+    {
+        $postBuildTime = (Get-Item $kernelSys).LastWriteTime
+        $actualBinary = $kernelSys
+    }
+
+    if ($preBuildTime -and $postBuildTime -le $preBuildTime)
+    {
+        throw "Build did not produce new binary! Timestamp unchanged: $postBuildTime"
+    }
+
+    # Verify the build actually produced a NEW file (not the old one)
+    if ($preBuildTime -and $postBuildTime -eq $preBuildTime)
+    {
+        Write-Host "[ERROR] Build did not produce new binary!" -ForegroundColor Red
+        Write-Host "[ERROR] Binary timestamp unchanged: $($postBuildTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Red
+        Write-Host "[HINT] Try running manually:" -ForegroundColor Yellow
+        Write-Host "      cd crates/leyline-kernel" -ForegroundColor Yellow
+        Write-Host "      cargo clean --release" -ForegroundColor Yellow
+        Write-Host "      cargo build --release" -ForegroundColor Yellow
+        throw "Build timestamp did not update - cargo may not be recompiling changed files"
+    }
+
+    $currentTime = Get-Date
+    $buildAge = ($currentTime - $postBuildTime).TotalMinutes
+    if ($buildAge -gt 1)
+    {
+        Write-Host "[WARNING] New build is $([int]$buildAge) minutes old - build may have used cache" -ForegroundColor Yellow
+    }
+
+    Write-Host "[*] Build successful: $actualBinary" -ForegroundColor Green
+    Write-Host "[*] NEW build created: $($postBuildTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Green
+
+    if ($preBuildTime)
+    {
+        $timeDiff = ($postBuildTime - $preBuildTime).TotalMinutes
+        Write-Host "[*] Time since previous build: $([int]$timeDiff) minutes" -ForegroundColor Gray
+    }
+
+    if (-not (Test-Path "$ProjectRoot/package"))
     { throw "Driver package not found. Run with -build."
+    }
+
+    # Verify package contains fresh binary
+    $packagedSys = "$ProjectRoot/package/leyline.sys"
+    if (Test-Path $packagedSys)
+    {
+        $packageTime = (Get-Item $packagedSys).LastWriteTime
+        $sourceTime = (Get-Item $actualBinary).LastWriteTime
+
+        Write-Host "[*] Source binary: $($sourceTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Gray
+        Write-Host "[*] Packaged binary: $($packageTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Gray
+
+        # Allow 2 second tolerance for file system timestamps
+        $timeDiff = ($packageTime - $sourceTime).TotalSeconds
+        if ($timeDiff -lt -2)
+        {
+            Write-Host "[ERROR] Package is older than source binary by $([int]$timeDiff) seconds!" -ForegroundColor Red
+            throw "Package is stale - source: $sourceTime, package: $packageTime"
+        }
+        Write-Host "[*] Package verified fresh (timestamp diff: $([int]$timeDiff)s)" -ForegroundColor Green
+    } else
+    {
+        throw "$ProjectRoot/package/leyline.sys not found - packaging failed"
     }
 
     # Locate DevGen on host to bundle it (Ensuring we match the 28000 environment)
@@ -64,7 +227,7 @@ try
     if ($devgenHost)
     {
         Write-Host "[*] Bundling DevGen from: $($devgenHost.FullName)"
-        Copy-Item $devgenHost.FullName "package\devgen.exe" -Force
+        Copy-Item $devgenHost.FullName "$ProjectRoot/package\devgen.exe" -Force
     }
 
     # 3. Remote Provisioning
@@ -82,7 +245,7 @@ try
 
     # Copy package to VM
     Write-Host "[*] Copying driver files..."
-    Copy-Item -Path "package\*" -Destination $remotePath -ToSession $vmsess -Recurse -Force
+    Copy-Item -Path "$ProjectRoot/package\*" -Destination $remotePath -ToSession $vmsess -Recurse -Force
 
     # 4. Remote Execution
     Write-Host "--- [3/3] Executing Remote Installation ---" -ForegroundColor Cyan
@@ -99,7 +262,7 @@ try
         if (-not (Test-Path $regPath))
         { New-Item -Path $regPath -Force | Out-Null
         }
-        New-ItemProperty -Path $regPath -Name "DEFAULT" -Value 0xF -PropertyType DWORD -Force | Out-Null
+        New-ItemProperty -Path $regPath -Name "DEFAULT" -Value 0xFFFFFFFF -PropertyType DWORD -Force | Out-Null
 
         Write-Host "[VM] Installing Certificates (Root and TrustedPublisher)..."
         # Using -f to force and -user for current user if machine store is restrictive
