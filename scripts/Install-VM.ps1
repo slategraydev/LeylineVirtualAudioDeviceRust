@@ -8,7 +8,8 @@
 param (
     [string]$VMName = "LeylineTestVM",
     [string]$UserName = "USER",
-    [switch]$clean
+    [switch]$clean,
+    [switch]$UseRootMedia
 )
 
 $ErrorActionPreference = "Stop"
@@ -210,16 +211,33 @@ try
         throw "$ProjectRoot/package/leyline.sys not found - packaging failed"
     }
 
-    # Locate DevGen on host to bundle it (Ensuring we match the 28000 environment)
+    # Locate DevGen and DevCon on host to bundle them (Ensuring we match the 28000 environment)
     $devgenHost = $null
+    $devconHost = $null
     $possibleEwdk = @("D:\eWDK_28000", $env:eWDK_ROOT_DIR, "C:\Users\Slate\Downloads\EWDK_br_release_28000_251103-1709")
     foreach ($p in $possibleEwdk)
     {
         if ($p -and (Test-Path $p))
         {
-            $found = Get-ChildItem -Path $p -Filter "devgen.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1
-            if ($found)
-            { $devgenHost = $found; break
+            # Find devgen.exe
+            if (-not $devgenHost)
+            {
+                $found = Get-ChildItem -Path $p -Filter "devgen.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1
+                if ($found)
+                { $devgenHost = $found
+                }
+            }
+            # Find devcon.exe
+            if (-not $devconHost)
+            {
+                $found = Get-ChildItem -Path $p -Filter "devcon.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1
+                if ($found)
+                { $devconHost = $found
+                }
+            }
+            # Break if both found
+            if ($devgenHost -and $devconHost)
+            { break
             }
         }
     }
@@ -230,18 +248,27 @@ try
         Copy-Item $devgenHost.FullName "$ProjectRoot/package\devgen.exe" -Force
     }
 
+    if ($devconHost)
+    {
+        Write-Host "[*] Bundling DevCon from: $($devconHost.FullName)"
+        Copy-Item $devconHost.FullName "$ProjectRoot/package\devcon.exe" -Force
+    } else
+    {
+        Write-Host "[WARNING] DevCon not found. Root\Media mode will not be available on VM." -ForegroundColor Yellow
+    }
+
     # 3. Remote Provisioning
     Write-Host "--- [2/3] Deploying to VM: $VMName ---" -ForegroundColor Cyan
 
     # Create remote directory
     $remotePath = "C:\LeylineInstall"
     Invoke-Command -Session $vmsess -ScriptBlock {
-        param($path)
+        param($path, $UseRootMedia)
         if (Test-Path $path)
         { Remove-Item $path -Recurse -Force
         }
         New-Item -ItemType Directory -Path $path -Force | Out-Null
-    } -ArgumentList $remotePath
+    } -ArgumentList $remotePath, $UseRootMedia
 
     # Copy package to VM
     Write-Host "[*] Copying driver files..."
@@ -250,7 +277,7 @@ try
     # 4. Remote Execution
     Write-Host "--- [3/3] Executing Remote Installation ---" -ForegroundColor Cyan
     Invoke-Command -Session $vmsess -ScriptBlock {
-        param($path)
+        param($path, $UseRootMedia)
         Set-Location $path
         $ErrorActionPreference = "Stop"
 
@@ -278,18 +305,33 @@ try
         $stageResult = pnputil /add-driver "leyline.inf" /install
         Write-Host "    -> $stageResult"
 
-        Write-Host "[VM] Creating Device Node with DevGen..."
-        if (Test-Path "devgen.exe")
+        # Session #42: Support both SWD\DEVGEN (default) and ROOT\MEDIA (experimental) enumeration modes
+        if ($UseRootMedia)
         {
-            .\devgen.exe /add /hardwareid "Root\LeylineAudio" | Out-Null
-            Write-Host "    -> Device node created."
+            Write-Host "[VM] [ROOT_MEDIA MODE] Creating device with devcon.exe install..."
+            if (Test-Path "devcon.exe")
+            {
+                $devconResult = .\devcon.exe install "leyline.inf" "Root\LeylineAudio" 2>&1
+                Write-Host "    -> Devcon result: $devconResult"
+            } else
+            {
+                Write-Host "    -> [ERROR] devcon.exe missing in package. Cannot use Root\Media mode." -ForegroundColor Red
+            }
         } else
         {
-            Write-Host "    -> [WARNING] devgen.exe missing in package. Device node not created." -ForegroundColor Yellow
+            Write-Host "[VM] [SWD_DEVGEN MODE] Creating Device Node with DevGen (default)..."
+            if (Test-Path "devgen.exe")
+            {
+                .\devgen.exe /add /hardwareid "Root\LeylineAudio" | Out-Null
+                Write-Host "    -> Device node created."
+            } else
+            {
+                Write-Host "    -> [WARNING] devgen.exe missing in package. Device node not created." -ForegroundColor Yellow
+            }
         }
 
         Write-Host "[VM] Success. Check Device Manager." -ForegroundColor Green
-    } -ArgumentList $remotePath
+    } -ArgumentList $remotePath, $UseRootMedia
 
     Write-Host "`n[SUCCESS] Deployment to $VMName complete." -ForegroundColor Green
 

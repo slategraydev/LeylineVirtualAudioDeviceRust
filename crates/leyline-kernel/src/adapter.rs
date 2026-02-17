@@ -106,6 +106,22 @@ extern "C" {
 
 }
 
+// Session #42: Explicit audio device interface registration
+// Required because INF AddInterface is not being processed for virtual audio drivers
+extern "C" {
+    pub fn IoRegisterDeviceInterface(
+        PhysicalDeviceObject: PDEVICE_OBJECT,
+        InterfaceClassGuid: *const GUID,
+        ReferenceString: *const u16,
+        SymbolicLinkName: *mut UNICODE_STRING,
+    ) -> NTSTATUS;
+
+    pub fn IoSetDeviceInterfaceState(
+        SymbolicLinkName: *const UNICODE_STRING,
+        Enable: u8,
+    ) -> NTSTATUS;
+}
+
 /// AddDevice callback for PortCls initialization.
 ///
 /// # Safety
@@ -229,6 +245,26 @@ pub unsafe extern "C" fn StartDevice(
         return status;
     }
 
+    // Session #42: Explicitly register audio device interface for WaveRender
+    // Bypass INF AddInterface which isn't being processed for virtual drivers
+    let mut render_interface_string: UNICODE_STRING = unsafe { core::mem::zeroed() };
+    let interface_status = unsafe {
+        IoRegisterDeviceInterface(
+            device_object,
+            &KSCATEGORY_AUDIO_GUID,
+            null_mut(),
+            &mut render_interface_string,
+        )
+    };
+    if interface_status == STATUS_SUCCESS {
+        unsafe {
+            IoSetDeviceInterfaceState(&render_interface_string, 1);
+        }
+        DbgPrint(c"Leyline: WaveRender Audio Interface Registered\n".as_ptr());
+    } else {
+        DbgPrint(c"Leyline: WaveRender Interface Registration Failed (non-critical)\n".as_ptr());
+    }
+
     // --- WaveCapture Registration ---
     DbgPrint(c"Leyline: Registering WaveCapture Port\n".as_ptr());
     let mut capture_port: *mut u8 = null_mut();
@@ -265,6 +301,25 @@ pub unsafe extern "C" fn StartDevice(
     if status != STATUS_SUCCESS {
         DbgPrint(c"Leyline: PcRegisterSubdevice(WaveCapture) Failed\n".as_ptr());
         return status;
+    }
+
+    // Session #42: Explicitly register audio device interface for WaveCapture
+    let mut capture_interface_string: UNICODE_STRING = unsafe { core::mem::zeroed() };
+    let interface_status = unsafe {
+        IoRegisterDeviceInterface(
+            device_object,
+            &KSCATEGORY_AUDIO_GUID,
+            null_mut(),
+            &mut capture_interface_string,
+        )
+    };
+    if interface_status == STATUS_SUCCESS {
+        unsafe {
+            IoSetDeviceInterfaceState(&capture_interface_string, 1);
+        }
+        DbgPrint(c"Leyline: WaveCapture Audio Interface Registered\n".as_ptr());
+    } else {
+        DbgPrint(c"Leyline: WaveCapture Interface Registration Failed (non-critical)\n".as_ptr());
     }
 
     // --- Topology Registration (Render Only for Diagnosis) ---

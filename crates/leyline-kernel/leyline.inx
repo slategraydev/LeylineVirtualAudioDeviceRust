@@ -8,7 +8,7 @@ Class       = MEDIA
 ClassGuid   = {4d36e96c-e325-11ce-bfc1-08002be10318}
 Provider    = %ManufacturerName%
 CatalogFile = leyline.cat
-DriverVer   = 02/16/2026,1.0.1.1906
+DriverVer   = 02/16/2026,1.0.1.1948
 PnpLockdown = 1
 
 [SourceDisksNames]
@@ -90,6 +90,8 @@ HKR,"FX\\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameRender%
 HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
+; Force endpoint visibility: 0x00000101 = FLOW_MASK_RENDER | FLAG_ENABLE
+HKR,"EP\0",%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000101
 
 [Leyline_WaveCaptureInterface.AddReg]
 ; Register the APOs for this interface
@@ -99,6 +101,8 @@ HKR,"FX\\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameCapture%
 HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
+; Force endpoint visibility: 0x00000201 = FLOW_MASK_CAPTURE | FLAG_ENABLE
+HKR,"EP\0",%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000201
 
 [Leyline_TopoRenderInterface.AddReg]
 HKR,,FriendlyName,,%DeviceNameRender%
@@ -141,6 +145,7 @@ PKEY_FX_StreamEffectClsid   = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},5"
 PKEY_FX_ModeEffectClsid     = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},6"
 PKEY_FX_EndpointEffectClsid = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},7"
 PKEY_AudioEndpoint_Association = "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},2"
+PKEY_AudioDevice_EnableEndpointByDefault = "{F3E80BEF-1723-4FF2-BCC4-7F83DC5E46D4},4"
 
 ; Nodes
 KSNODETYPE_ANY         = "{00000000-0000-0000-0000-000000000000}"

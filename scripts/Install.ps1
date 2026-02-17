@@ -5,7 +5,8 @@ param (
     [switch]$clean,
     [switch]$build,
     [switch]$package,
-    [switch]$install
+    [switch]$install,
+    [switch]$UseRootMedia
 )
 
 # Default behavior: If no switches provided, do everything
@@ -13,6 +14,10 @@ if (-not ($build -or $package -or $install))
 {
     $build = $true; $package = $true; $install = $true
 }
+
+# Session #42: Root\Media Enumeration Mode
+# By default, use DevGen (SWD\DEVGEN). Use -UseRootMedia to test alternative enumeration.
+
 
 $ErrorActionPreference = "Stop"
 $initialDir = Get-Location
@@ -187,20 +192,47 @@ try
             pnputil /remove-device $dev.InstanceId | Out-Null
         }
 
-        # 2. Create the software device node using DevGen (Modern way)
-        Write-Host "[*] Creating software device node with DevGen..."
-        if (Test-Path $env:DEVGEN_EXE)
+        # Session #42: Enumerator Selection
+        # SWD\DEVGEN (default) vs ROOT\MEDIA (experimental for audio endpoint support)
+        if ($UseRootMedia)
         {
-            & $env:DEVGEN_EXE /add /hardwareid "Root\LeylineAudio" | Out-Null
+            Write-Host "[*] [ROOT_MEDIA MODE] Creating device with devcon.exe install..." -ForegroundColor Cyan
+            Write-Host "    This mode uses Root\\Media enumerator which may support audio endpoints." -ForegroundColor Gray
+            if (Test-Path $env:DEVCON_EXE)
+            {
+                # Use devcon install to create a traditional ROOT\MEDIA enumerated device
+                # This creates Instance ID like ROOT\MEDIA\0000 instead of SWD\DEVGEN\{GUID}
+                $devconResult = & $env:DEVCON_EXE install "$ProjectRoot/package/leyline.inf" "Root\LeylineAudio" 2>&1
+                Write-Host "    -> Devcon result: $devconResult" -ForegroundColor Gray
+            } else
+            {
+                throw "devcon.exe NOT FOUND at $env:DEVCON_EXE. Cannot use Root\\Media mode."
+            }
         } else
         {
-            throw "devgen.exe NOT FOUND at $env:DEVGEN_EXE"
+            Write-Host "[*] [SWD_DEVGEN MODE] Creating software device node with DevGen (default)..." -ForegroundColor Cyan
+            Write-Host "    Note: If endpoints don't appear, try -UseRootMedia switch." -ForegroundColor Gray
+            if (Test-Path $env:DEVGEN_EXE)
+            {
+                & $env:DEVGEN_EXE /add /hardwareid "Root\LeylineAudio" | Out-Null
+            } else
+            {
+                throw "devgen.exe NOT FOUND at $env:DEVGEN_EXE"
+            }
         }
 
-        # 3. Install the driver package and associate it with the node
-        Write-Host "[*] Installing driver package and associating with device..."
-        $stageResult = pnputil /add-driver "$ProjectRoot/package\leyline.inf" /install
-        Write-Host "    -> $stageResult"
+        # 3. Install the driver package (skip for Root\Media mode as devcon install already does this)
+        if (-not $UseRootMedia)
+        {
+            Write-Host "[*] Installing driver package and associating with device..."
+            $stageResult = pnputil /add-driver "$ProjectRoot/package/leyline.inf" /install
+            Write-Host "    -> $stageResult"
+        } else
+        {
+            Write-Host "[*] [ROOT_MEDIA MODE] Driver already staged by devcon install." -ForegroundColor Gray
+            # Still need to ensure driver is in driver store
+            $stageResult = pnputil /add-driver "$ProjectRoot/package/leyline.inf" 2>&1 | Out-Null
+        }
 
         # Final Verification
         Start-Sleep -Seconds 2

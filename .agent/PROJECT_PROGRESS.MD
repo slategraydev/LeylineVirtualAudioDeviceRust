@@ -116,6 +116,61 @@ The comprehensive diagnostic instrumentation (added in Session #39) revealed tha
   - `KSINTERFACESETID_STANDARD` - Required for pin interface declarations (was hardcoded)
   - `KSPROPSETID_PIN` - Required for pin property handling
 
+### Session #42: Audio Endpoint Enumeration Investigation - COMPLETE
+**Reviewer**: Antigravity (Kimi-k2.5)
+**Date**: February 18, 2026
+**Summary**: Implemented comprehensive enumeration infrastructure and explicit audio interface registration to solve the critical blocking issue (Capabilities: 0x00000000, no audio endpoints). Session delivered three major components: (1) Dual-mode enumeration via `-UseRootMedia` switch, (2) Explicit `IoRegisterDeviceInterface` calls in driver code, (3) INF-based `PKEY_AudioDevice_EnableEndpointByDefault` fix using official Microsoft GUID.
+**Phase 1: Enumeration Infrastructure**
+- **Install.ps1**: Added `-UseRootMedia` switch for Root\Media vs SWD\DEVGEN enumeration testing
+- **Install-VM.ps1**: Enhanced with `-UseRootMedia` propagation and `devcon.exe` bundling
+- **Bug Fix**: Corrected `$UseRootMedia` parameter propagation to remote VM sessions
+- **Result**: Root\Media enumeration confirmed working (Instance ID: `ROOT\MEDIA\0000`) but endpoints still not visible
+
+**Phase 2: Explicit Interface Registration (Driver Code)**
+- **adapter.rs**: Added `IoRegisterDeviceInterface` and `IoSetDeviceInterfaceState` imports
+- **WaveRender**: Explicit `KSCATEGORY_AUDIO_GUID` interface registration after `PcRegisterSubdevice`
+- **WaveCapture**: Explicit `KSCATEGORY_AUDIO_GUID` interface registration after `PcRegisterSubdevice`
+- **DbgPrint**: Added logging for interface registration success/failure
+- **Result**: Interface registration APIs execute but return failure (NTSTATUS error) - requires further investigation
+
+**Phase 3: INF Force-Enable Property**
+- **leyline.inx**: Added `PKEY_AudioDevice_EnableEndpointByDefault` with correct Microsoft GUID
+- **WaveRender**: `0x00000101` = FLOW_MASK_RENDER | FLAG_ENABLE
+- **WaveCapture**: `0x00000201` = FLOW_MASK_CAPTURE | FLAG_ENABLE
+- **Property Key**: `{F3E80BEF-1723-4FF2-BCC4-7F83DC5E46D4},4` (verified against Microsoft docs)
+- **Result**: Ready for testing - should force endpoint visibility regardless of AEB path determination
+
+**Key Findings from Microsoft Documentation Review**
+- **Timing Issue**: AEB runs 7-step algorithm; path determination (Step 4) fails if WaveRT miniport isn't fully initialized when queried
+- **Virtual Driver Gap**: Windows may not process INF `AddInterface` for root-enumerated devices the same way as physical hardware
+- **Force-Enable Override**: `PKEY_AudioDevice_EnableEndpointByDefault` bypasses AEB heuristics and forces endpoint visibility
+- **KSNODETYPE Impact**: Speaker/Microphone node types should be enabled by default (unlike UnknownFormFactor types)
+
+**Build Status**
+- Kernel: 0 warnings, 0 errors
+- APO: Not modified (stable)
+- HSA: Not modified (stable)
+- Scripts: PSScriptAnalyzer clean (removed unused `$enumerationMode` variable)
+
+**Diagnostics Delivered**
+- **Diagnose-VM.ps1**: Created remote diagnostic tool for VM testing
+- Checks: Device status, capabilities, services, MMDevices registry, MMDevice API, driver files
+- Captures: Audio-related Windows events, configuration flags, problem codes
+
+**Hand-off to Session #43**
+Three parallel solutions now deployed:
+1. Root\Media enumeration mode (test if enumerator matters)
+2. Explicit `IoRegisterDeviceInterface` (test if kernel registration works)
+3. INF `PKEY_AudioDevice_EnableEndpointByDefault` (test if INF override works)
+
+**Next Session Action Items**
+- [ ] Test with `-UseRootMedia` to verify force-enable property creates endpoints
+- [ ] Capture DebugView output to check if explicit interface registration shows errors
+- [ ] If INF fix works: Problem solved, document and move to audio streaming tests
+- [ ] If INF fix fails: Investigate further - possibly APO integration, KS property handling, or timing delays
+
+**Status**: 🟡 **TESTING PHASE** - All infrastructure deployed, ready for verification in Session #43
+
 ### Session #41: Audio Endpoint Investigation & System Cleanup Hardening
 **Reviewer**: Antigravity (Kimi-k2.5)
 **Date**: February 17, 2026
@@ -149,18 +204,18 @@ The comprehensive diagnostic instrumentation (added in Session #39) revealed tha
 5. **INF AddInterface Processing**: Windows may not be re-processing AddInterface entries on driver update. Requires full driver package deletion and reinstall (now handled by updated Uninstall.ps1).
 **Status**: ✅ Driver fully operational at kernel level, ❌ Audio endpoints not visible to Windows Audio subsystem. **CRITICAL PATH**: Investigate SWD\DEVGEN vs Root\Media enumeration for audio endpoint creation.
 
-## PROJECT TODO (Next Session: #42)
-- [ ] **CRITICAL: Audio Endpoint Creation**: Investigate and fix why WaveRT miniports don't create audio endpoints in Windows
-  - Hypothesis 1: Try Root\Media enumerator instead of SWD\DEVGEN
-  - Hypothesis 2: Add explicit device interface registration in code
-  - Hypothesis 3: Verify INF AddInterface is being processed (check MMDevices registry after clean install)
-  - Hypothesis 4: Check if categories need adjustment (KSCATEGORY_AUDIO, KSCATEGORY_RENDER, etc.)
-- [ ] **Verify Clean Install**: Run updated Uninstall.ps1 → Reboot → Install.ps1 -clean → Check endpoints
-- [ ] **DbgPrint Analysis**: Capture full driver load sequence and verify each step
-- [ ] **Registry Analysis**: Check MMDevices\Audio\Render and Capture after install
-- [ ] **Alternative Enumeration**: Research if SWD\DEVGEN supports audio endpoints or must use different method
-- [ ] **APO Integration**: Once endpoints appear, verify LeylineAPO.dll loads correctly
-- [ ] **HSA Connectivity**: Test WinUI 3 HSA app connects via IOCTL to CDO
+## PROJECT TODO (Next Session: #43)
+- [ ] **CRITICAL: Root\Media Enumeration Test**: Test the `-UseRootMedia` switch in VM to verify if Root\Media enumeration creates audio endpoints
+  - Run `Uninstall.ps1` → Reboot → `Install.ps1 -clean -UseRootMedia`
+  - Check if Leyline Output/Input appear in `mmsys.cpl`
+  - Check MMDevices registry for endpoint entries
+  - Document results: If successful, Root\Media becomes the default; if failed, investigate explicit interface registration
+- [ ] **MMDevices Registry Verification**: After Root\Media install, check `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render` and `Capture` for Leyline entries
+- [ ] **DbgPrint Capture**: Verify driver initializes correctly with Root\Media enumeration (should be identical to SWD\DEVGEN at driver level)
+- [ ] **Fallback Plan**: If Root\Media doesn't work, add explicit `IoRegisterDeviceInterface` calls in `adapter.rs` StartDevice to register audio device interfaces in code
+- [ ] **APO Integration**: Once endpoints appear, verify LeylineAPO.dll loads and processes audio
+- [ ] **HSA Connectivity**: Test WinUI 3 HSA app connects via IOCTL to driver's CDO
+- [ ] **Endpoint Persistence**: Verify endpoints survive driver stop/start cycles and system reboots
   - `KSPROPSETID_CONNECTION` - Required for connection state management
   - `GUID_NULL` - Standard null GUID for defaults
 - **Code Quality**: Replaced hardcoded GUID in `descriptors.rs` with named constant `KSINTERFACESETID_STANDARD`.
