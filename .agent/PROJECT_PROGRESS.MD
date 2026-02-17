@@ -115,6 +115,52 @@ The comprehensive diagnostic instrumentation (added in Session #39) revealed tha
 - **Missing GUIDs Added**:
   - `KSINTERFACESETID_STANDARD` - Required for pin interface declarations (was hardcoded)
   - `KSPROPSETID_PIN` - Required for pin property handling
+
+### Session #41: Audio Endpoint Investigation & System Cleanup Hardening
+**Reviewer**: Antigravity (Kimi-k2.5)
+**Date**: February 17, 2026
+**Summary**: Driver loads successfully with all 4 subdevices (WaveRender, WaveCapture, TopologyRender, TopologyCapture) and physical connections established, but audio endpoints do not appear in Windows Sound Control Panel. Uninstall script hardened to handle all cleanup scenarios including SWD\DEVGEN devices.
+**Key Changes**:
+- **TopologyCapture Registration**: Added missing TopologyCapture miniport registration in `adapter.rs` (was only registering TopologyRender)
+- **Physical Connections Enabled**: Uncommented and activated `PcRegisterPhysicalConnection` calls linking WaveRT to Topology miniports
+- **PcRegisterPhysicalConnection Import**: Added import from `lib.rs` and `extern "C"` declaration
+- **Enhanced DbgPrint**: Added detailed registration logging showing all 4 subdevices and physical connections
+- **Uninstall Script Hardening**:
+  - Added SWD\DEVGEN device detection and removal
+  - Added orphaned "Generic software device" cleanup
+  - Enhanced driver store purge with `/force /uninstall` flags
+  - Removed unused variables (PSScriptAnalyzer warnings)
+  - Added WMI force-removal fallback for stubborn devices
+- **System Verification**: Confirmed driver stages correctly, service runs, but audio endpoints not enumerated by Windows Audio subsystem
+**Root Cause Analysis (Audio Endpoints)**:
+- Driver loads: ✅ `STATUS_SUCCESS` on all initializations
+- HardwareID: ✅ Correctly set to `Root\LeylineAudio` (matches INF)
+- Driver Service: ✅ Running (STATE: 4)
+- DriverStore: ✅ `leyline.sys` staged correctly
+- Subdevices: ✅ All 4 registered (WaveRender, WaveCapture, TopologyRender, TopologyCapture)
+- Physical Connections: ✅ Both render and capture chains connected
+- **Audio Endpoints**: ❌ 0 found in MMDevices registry
+- **KS Properties**: ❌ "No Audio Properties" in diagnostic
+**Hypotheses for Audio Endpoint Failure**:
+1. **SWD\DEVGEN Enumeration Issue**: Windows may not process INF `AddInterface` entries correctly for SWD-enumerated devices. Traditional audio drivers use `Root\Media` enumerator.
+2. **Missing Interface Registration**: May need explicit `IoRegisterDeviceInterface` calls in code rather than relying solely on INF `AddInterface`.
+3. **Category/GUID Mismatch**: `KSCATEGORY_AUDIO` + `KSCATEGORY_RENDER`/`KSCATEGORY_CAPTURE` may need adjustment.
+4. **PortCls Registration Order**: WaveRT miniports may need to be registered with different flags or parameters for Windows Audio Service to recognize them as endpoints.
+5. **INF AddInterface Processing**: Windows may not be re-processing AddInterface entries on driver update. Requires full driver package deletion and reinstall (now handled by updated Uninstall.ps1).
+**Status**: ✅ Driver fully operational at kernel level, ❌ Audio endpoints not visible to Windows Audio subsystem. **CRITICAL PATH**: Investigate SWD\DEVGEN vs Root\Media enumeration for audio endpoint creation.
+
+## PROJECT TODO (Next Session: #42)
+- [ ] **CRITICAL: Audio Endpoint Creation**: Investigate and fix why WaveRT miniports don't create audio endpoints in Windows
+  - Hypothesis 1: Try Root\Media enumerator instead of SWD\DEVGEN
+  - Hypothesis 2: Add explicit device interface registration in code
+  - Hypothesis 3: Verify INF AddInterface is being processed (check MMDevices registry after clean install)
+  - Hypothesis 4: Check if categories need adjustment (KSCATEGORY_AUDIO, KSCATEGORY_RENDER, etc.)
+- [ ] **Verify Clean Install**: Run updated Uninstall.ps1 → Reboot → Install.ps1 -clean → Check endpoints
+- [ ] **DbgPrint Analysis**: Capture full driver load sequence and verify each step
+- [ ] **Registry Analysis**: Check MMDevices\Audio\Render and Capture after install
+- [ ] **Alternative Enumeration**: Research if SWD\DEVGEN supports audio endpoints or must use different method
+- [ ] **APO Integration**: Once endpoints appear, verify LeylineAPO.dll loads correctly
+- [ ] **HSA Connectivity**: Test WinUI 3 HSA app connects via IOCTL to CDO
   - `KSPROPSETID_CONNECTION` - Required for connection state management
   - `GUID_NULL` - Standard null GUID for defaults
 - **Code Quality**: Replaced hardcoded GUID in `descriptors.rs` with named constant `KSINTERFACESETID_STANDARD`.

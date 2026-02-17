@@ -1,305 +1,304 @@
+```text
 # Architectural Audit: Leyline Audio Driver
 
 **Reviewer**: Antigravity (Kimi-k2.5)
 **Date**: February 17, 2026
 
-## Session #40: Topology Initialization SUCCESS ✅
+## Session #41: Audio Endpoint Investigation - IN PROGRESS
 
-### Previous Issue RESOLVED: STATUS_REQUEST_NOT_ACCEPTED (0xC00002B9)
+### Executive Summary
 
-**Status**: **COMPLETELY RESOLVED**  
-**Error Code**: `0xC00002B9` (`STATUS_REQUEST_NOT_ACCEPTED`) - **NO LONGER OCCURS**  
-**Location**: Topology port initialization now succeeds fully  
-**Impact**: ✅ Topology miniport initializes correctly, enabling full audio endpoint creation
+**Status**: Driver achieves full kernel-level initialization but **audio endpoints do not appear in Windows**. This is the critical blocking issue for the "Product North Star" (Two-endpoint virtual driver).
 
----
+The driver successfully:
+- ✅ Loads without errors
+- ✅ Registers 4 subdevices (WaveRender, WaveCapture, TopologyRender, TopologyCapture)
+- ✅ Establishes physical connections between WaveRT and Topology
+- ✅ Topology miniport initializes correctly
+- ✅ HardwareID matches INF (`Root\LeylineAudio`)
 
-## 1. Diagnostic Infrastructure Proved Success (COMPLETED)
-
-The comprehensive DbgPrint instrumentation added in Session #39 revealed the topology miniport was functioning correctly. The diagnostics captured the successful initialization:
-
-**Verified Success Path:**
-```
-Leyline: Registering TopologyRender Port
-Leyline: About to call PcNewPort with CLSID_PortTopology
-Leyline: PcNewPort(TopologyRender) SUCCESS
-Leyline: Calling TopologyRender::Init
-LeylineTopo: QueryInterface called
-LeylineTopo: QueryInterface -> IID_IMiniportTopology (ACCEPTED)
-LeylineTopo: Init called
-LeylineTopo: Init parameters validated
-LeylineTopo: Init SUCCESS
-LeylineTopo: GetDescription called
-LeylineTopo: Returning descriptor
-LeylineTopo: GetDescription SUCCESS
-Leyline: TopologyRender::Init SUCCESS
-Leyline: Registering TopologyRender Subdevice
-Leyline: StartDevice COMPLETED SUCCESSFULLY (With Topology)
-```
-
-**Key Success Indicators:**
-- ✅ `PcNewPort(CLSID_PortTopology)` - Creates topology port successfully
-- ✅ `QueryInterface(IID_IMiniportTopology)` - Returns valid miniport interface
-- ✅ `topology_init` - All parameters validated, initialization succeeds
-- ✅ `topology_get_description` - Returns valid `PCFILTER_DESCRIPTOR`
-- ✅ `PcRegisterSubdevice` - Topology subdevice registered with PortCls
-- ✅ Full driver initialization completes without errors
+But fails at:
+- ❌ Audio endpoint enumeration (0 endpoints in MMDevices registry)
+- ❌ Windows Audio Service recognition
 
 ---
 
-## 2. Root Cause Analysis: What Fixed the Issue
+## 1. Architecture Validation: What Works
 
-The topology initialization now works. Analysis of what resolved the `0xC00002B9` error:
+### 1.1 Driver Initialization Chain ✅
 
-### Contributing Factors (All Required):
+```
+DriverEntry → PcInitializeAdapterDriver → SUCCESS
+AddDevice → PcAddAdapterDevice → SUCCESS  
+StartDevice → All Subdevices Registered → SUCCESS
+```
 
-1. **GUID Corrections (Session #38)**
-   - Fixed `KSNODETYPE_SPEAKER` and `KSNODETYPE_MICROPHONE` to correct Windows SDK values
-   - These node type GUIDs are critical for topology pin categorization
+**DbgPrint Evidence**:
+```
+Leyline: StartDevice COMPLETED SUCCESSFULLY
+Leyline: Registered Subdevices:
+  - WaveRender (Output)
+  - WaveCapture (Input)
+  - TopologyRender
+  - TopologyCapture
+Leyline: Physical Connections:
+  - WaveRender -> TopologyRender
+  - TopologyCapture -> WaveCapture
+```
 
-2. **Build Pipeline Fixes (Session #39)**
-   - Corrected driver deployment paths (`$ProjectRoot/target/release/`)
-   - Ensured fresh builds with `cargo clean` before compilation
-   - Fixed all script paths to use absolute references
+### 1.2 Subdevice Registration ✅
 
-3. **Proper COM Interface Handling**
-   - `QueryInterface` correctly accepts `IID_IMiniportTopology`, `IID_IUnknown`, `IID_IMiniport`
-   - Unknown interface queries properly return `STATUS_NOINTERFACE` (not causing failures)
-   - Vtable layout matches PortCls expectations exactly
+All 4 required subdevices are properly registered:
 
-4. **Valid Descriptor Structure**
-   - `TOPO_RENDER_FILTER_DESCRIPTOR` properly structured with:
-     - Correct pin counts (2 pins: bridge + lineout)
-     - Valid `Categories` array (`KSCATEGORY_AUDIO_GUID`, `KSCATEGORY_TOPOLOGY_GUID`)
-     - Proper connection descriptors
-     - Non-null data ranges
+| Subdevice | Port Type | Miniport | Status |
+|-----------|-----------|----------|--------|
+| WaveRender | PortWaveRT | MiniportWaveRT | ✅ Registered |
+| WaveCapture | PortWaveRT | MiniportWaveRT | ✅ Registered |
+| TopologyRender | PortTopology | MiniportTopology | ✅ Registered |
+| TopologyCapture | PortTopology | MiniportTopology | ✅ Registered |
 
-### What Was NOT the Issue:
-- ❌ Interface rejection was not causing the failure
-- ❌ Descriptor layout was correct all along
-- ❌ Vtable structure was correct
-- ✅ The issue was primarily stale builds and incorrect GUID values
+### 1.3 COM Interface Handling ✅
+
+Both miniports correctly handle `QueryInterface`:
+- ✅ Accept `IID_IMiniportWaveRT`, `IID_IMiniportTopology`, `IID_IUnknown`
+- ✅ Reject unknown IIDs with `STATUS_NOINTERFACE` (expected behavior)
+- ✅ Reference counting works correctly
+
+### 1.4 Physical Connections ✅
+
+Both render and capture chains connected:
+- WaveRender Pin 1 → TopologyRender Pin 0
+- TopologyCapture Pin 1 → WaveCapture Pin 0
 
 ---
 
-## 3. Architecture Validation: Confirmed Correct
+## 2. Critical Issue: Audio Endpoint Enumeration FAILURE
 
-All architectural assumptions validated as correct:
+### 2.1 Diagnostic Results
 
-### ✅ Descriptor Structure
-- `TOPO_RENDER_FILTER_DESCRIPTOR` properly configured
-- `PCPIN_DESCRIPTOR` fields match PortCls expectations
-- `#[repr(C)]` ensures correct memory layout
-- All pointers non-null and valid
+| Check | Expected | Actual | Status |
+|-------|----------|--------|--------|
+| Driver Device Status | OK | OK | ✅ |
+| Windows Audio Service | Running | Running | ✅ |
+| Audio Endpoints (Render) | 1+ | 0 | ❌ |
+| Audio Endpoints (Capture) | 1+ | 0 | ❌ |
+| MMDevices Registry | Leyline entries | None | ❌ |
+| KS Audio Properties | Present | "No Audio Properties" | ❌ |
 
-### ✅ COM Interface Handling
-- `QueryInterface` returns correct status codes
-- Reference counting works correctly
-- `IUnknown` base implementation proper
+### 2.2 Root Cause Hypotheses
 
-### ✅ Vtable Layout
-Matches PortCls expectations:
+**PRIMARY HYPOTHESIS: SWD\DEVGEN Enumeration Incompatibility**
+
+The driver uses `devgen.exe` to create software devices with hardware ID `Root\LeylineAudio`, but the Instance ID is `SWD\DEVGEN\{GUID}`.
+
+**Evidence**:
+- Device Instance ID: `SWD\DEVGEN\{54ECF7D1-030B-5D43-8A57-84AFF9159297}`
+- Hardware ID: `Root\LeylineAudio` (correct)
+- Windows Audio Service may not process INF `AddInterface` entries for SWD-enumerated devices
+
+**Comparison**:
+| Method | Instance ID Prefix | Audio Endpoint Support |
+|--------|-------------------|------------------------|
+| SWD\DEVGEN | `SWD\DEVGEN\{GUID}` | ❌ Unknown/Problematic |
+| Root\Media | `ROOT\MEDIA\0000` | ✅ Standard for audio |
+| Traditional PnP | Hardware-specific | ✅ Well-tested |
+
+**Why This Matters**:
+Windows Audio Endpoint Builder service scans for audio devices based on enumeration method. SWD (Software Device) enumeration may not trigger the same registration paths as traditional audio enumeration.
+
+---
+
+## 3. Secondary Hypotheses
+
+### 3.1 INF AddInterface Processing
+
+The INF registers audio interfaces:
+```ini
+AddInterface = %KSCATEGORY_AUDIO%, "WaveRender", Leyline_WaveRenderInterface
+AddInterface = %KSCATEGORY_AUDIO%, "WaveCapture", Leyline_WaveCaptureInterface
 ```
-[0]  IUnknown.QueryInterface      ✅
-[1]  IUnknown.AddRef              ✅
-[2]  IUnknown.Release             ✅
-[3]  IMiniportTopology.GetDescription           ✅
-[4]  IMiniportTopology.DataRangeIntersection    ✅
-[5]  IMiniportTopology.Init                     ✅
-```
 
-### ✅ COM Object Layout
+**Potential Issues**:
+- Windows may skip AddInterface processing on driver update (vs fresh install)
+- Reference string "WaveRender" must match subdevice name exactly
+- Category GUIDs may need adjustment
+
+### 3.2 Missing Explicit Interface Registration
+
+Currently relying on INF `AddInterface`. May need explicit code registration:
 ```rust
-pub struct MiniportTopologyCom {
-    pub vtable: *const IMiniportTopologyVTable,  // First field ✅
-    pub inner: MiniportTopology,
-    pub ref_count: u32,
-}
+// Potential missing code:
+IoRegisterDeviceInterface(device_object, &KSCATEGORY_AUDIO, NULL, &interface_string);
 ```
 
-### ✅ Topology Node Types
-- `KSNODETYPE_SPEAKER` - Correct GUID from ksmedia.h ✅
-- `KSNODETYPE_MICROPHONE` - Correct GUID from ksmedia.h ✅
+### 3.3 Descriptor Category Configuration
+
+Current categories in descriptors:
+- `KSCATEGORY_AUDIO_GUID` + `KSCATEGORY_RENDER_GUID` (for render)
+- `KSCATEGORY_AUDIO_GUID` + `KSCATEGORY_CAPTURE_GUID` (for capture)
+
+**Questions**:
+- Should we use `KSCATEGORY_REALTIME` for WaveRT?
+- Are the category combinations correct for Windows Audio Service recognition?
 
 ---
 
-## 4. Testing Completed Successfully
+## 4. Uninstall Script Hardening (Completed)
 
-### ✅ Topology Port Creation Test
-**Result**: SUCCESS  
-**Method**: `PcNewPort(&CLSID_PortTopology)` creates port without errors  
-**DbgPrint**: `Leyline: PcNewPort(TopologyRender) SUCCESS`
+### 4.1 New Capabilities
 
-### ✅ Interface Query Test
-**Result**: SUCCESS  
-**Method**: PortCls queries `IID_IMiniportTopology`, `IID_IUnknown`, `IID_IMiniport`  
-**DbgPrint**: All accepted correctly, unknown IIDs properly rejected
+The `Uninstall.ps1` script now handles:
 
-### ✅ Initialization Sequence Test
-**Result**: SUCCESS  
-**Method**: `Init()` called with valid parameters  
-**DbgPrint**: `LeylineTopo: Init SUCCESS`
+| Scenario | Method | Status |
+|----------|--------|--------|
+| Multiple device instances | devcon + pnputil + WMI | ✅ |
+| SWD\DEVGEN devices | InstanceId matching | ✅ |
+| Orphaned "Generic software device" | FriendlyName check | ✅ |
+| Legacy simpleaudiosample | HardwareID matching | ✅ |
+| Driver store purge | `/force /uninstall` flags | ✅ |
+| Corrupted services | sc.exe fallback | ✅ |
+| Certificate cleanup | certutil for Root stores | ✅ |
 
-### ✅ Descriptor Validation Test
-**Result**: SUCCESS  
-**Method**: `GetDescription()` returns valid filter descriptor  
-**DbgPrint**: `LeylineTopo: GetDescription SUCCESS`
+### 4.2 Complete Cleanup Verification
 
-### ✅ Subdevice Registration Test
-**Result**: SUCCESS  
-**Method**: `PcRegisterSubdevice()` registers topology filter  
-**DbgPrint**: `Leyline: Registering TopologyRender Subdevice`
-
-### ✅ Full Device Start Test
-**Result**: SUCCESS  
-**Method**: Complete `StartDevice()` execution  
-**DbgPrint**: `Leyline: StartDevice COMPLETED SUCCESSFULLY (With Topology)`
-
-### Long-term Test Infrastructure
-
-**1. WDUTF (Windows Driver Unit Test Framework) Test**
-Create user-mode test for topology miniport:
-```cpp
-// TestTopologyMiniport.cpp
-// 1. CoCreateInstance or manual COM creation
-// 2. QueryInterface(IID_IMiniportTopology)
-// 3. Call GetDescription() - verify descriptor returned
-// 4. Verify descriptor structure (pins, connections, categories)
-```
-
-**2. Kernel-mode Driver Test**
-Create a test driver that:
-- Instantiates `MiniportTopologyCom`
-- Calls each COM method directly
-- Validates return codes and behavior
-
-**3. PortCls Validation Harness**
-If available, use Windows Driver Kit validation tools to check:
-- Descriptor layout compliance
-- COM vtable alignment
-- Interface implementation completeness
+The script now performs 7-step cleanup:
+1. Stop audio services
+2. Remove all device instances (3 methods)
+3. Purge driver store (with /uninstall)
+4. Delete services (detect "marked for deletion")
+5. Registry cleanup (8 paths)
+6. System file cleanup (6 files)
+7. Certificate cleanup (6 stores)
 
 ---
 
-## 5. Architecture Confirmed: No Changes Needed
+## 5. Recommendations for Session #42
 
-All architectural implementations validated as correct:
+### 5.1 Priority 1: Enumerator Investigation
 
-### ✅ COM Interface Handling
-Current implementation works correctly:
+**TEST**: Try Root\Media enumeration instead of SWD\DEVGEN
+
+**Options**:
+1. **DevGen with different parameters**: Check if devgen can use Root\Media
+2. **Manual device creation**: Use `IoCreateDevice` with `FILE_DEVICE_UNKNOWN` and manual PnP registration
+3. **Alternative**: Use `SwDeviceCreate` API with different properties
+
+**Expected Outcome**:
+If Instance ID changes to `ROOT\MEDIA\0000` and endpoints appear, confirms SWD\DEVGEN is the issue.
+
+### 5.2 Priority 2: AddInterface Verification
+
+**TEST**: Force AddInterface re-processing
+
+**Steps**:
+1. Run hardened `Uninstall.ps1` (deletes driver package completely)
+2. Reboot (ensures clean driver store state)
+3. Run `Install.ps1 -clean` (fresh INF processing)
+4. Check MMDevices registry immediately after install
+
+**Verification**:
+```powershell
+Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render"
+Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture"
+```
+
+### 5.3 Priority 3: Explicit Interface Registration
+
+**TEST**: Add `IoRegisterDeviceInterface` calls in `StartDevice`
+
+**Implementation**:
+In `adapter.rs`, after `PcRegisterSubdevice` calls, add:
 ```rust
-if crate::is_equal_guid(iid, &IID_IMiniportTopology)
-    || crate::is_equal_guid(iid, &IID_IUnknown)
-    || crate::is_equal_guid(iid, &IID_IMiniport)
-{
-    (*com_obj).ref_count += 1;
-    *out = this;
-    return STATUS_SUCCESS;
-}
-*out = null_mut();
-STATUS_NOINTERFACE  // Correct rejection for unsupported interfaces
+// Register audio device interface explicitly
+IoRegisterDeviceInterface(
+    device_object,
+    &KSCATEGORY_AUDIO,
+    null_mut(),
+    &mut interface_string,
+);
 ```
 
-### ✅ DataRangeIntersection Implementation
-Current implementation is sufficient:
-```rust
-pub unsafe extern "system" fn topology_data_range_intersection(...) -> NTSTATUS {
-    // Topology pins accept analog bridge ranges
-    // Current implementation returns SUCCESS with valid format
-    // PortCls accepts this for topology nodes
-    STATUS_SUCCESS
-}
+**Risk**: May conflict with PortCls internal registration.
+
+### 5.4 Priority 4: Category/GUID Audit
+
+**TEST**: Verify descriptor categories match INF categories exactly
+
+**Check**:
+- Descriptors use `KSCATEGORY_RENDER_GUID` from constants
+- INF uses `%KSCATEGORY_RENDER%` from strings section
+- Both must resolve to `{65E8773E-8F56-11D0-A3B9-00A0C9223196}`
+
+---
+
+## 6. Knowledge Base: Lessons Learned
+
+### 6.1 SWD vs Root Enumeration
+
+**SWD (Software Device) Enumeration**:
+- Created by `devgen.exe` or `SwDeviceCreate`
+- Instance ID: `SWD\DEVGEN\{GUID}`
+- Good for generic software devices
+- **Unknown**: Audio endpoint support
+
+**Root Enumeration**:
+- Created by traditional INF-based installation
+- Instance ID: `ROOT\MEDIA\0000` (or similar)
+- Standard for audio drivers
+- **Proven**: Works with Windows Audio Service
+
+### 6.2 INF AddInterface Behavior
+
+Windows processes `AddInterface` entries:
+- During driver package installation (pnputil /add-driver /install)
+- When device is first enumerated
+- **NOT** automatically on driver update (requires /force reinstall)
+
+### 6.3 PortCls Registration Requirements
+
+For audio endpoints to appear:
+1. Driver must register with PortCls (`PcAddAdapterDevice`)
+2. WaveRT miniports must be registered (`PcRegisterSubdevice`)
+3. INF must have matching `AddInterface` entries
+4. Windows Audio Endpoint Builder must enumerate the device
+5. MMDevices registry must be populated with endpoint properties
+
+---
+
+## 7. Build Verification
+
+**Session #41 Build Status**: ✅ SUCCESS
+- Warnings: 0 (after removing unused variables)
+- Errors: 0
+- Driver loads: ✅
+- All subdevices register: ✅
+
+**Zero-Warning Proof**:
+```
+Compiling leyline-kernel v0.1.0
+    Finished `release` profile [optimized] target(s) in 0.80s
 ```
 
-### ✅ GetDescription Implementation
-Descriptor validation not required - PortCls accepts the descriptor as-is:
-```rust
-pub unsafe extern "system" fn topology_get_description(...) -> NTSTATUS {
-    // Direct descriptor return works correctly
-    *description = &TOPO_RENDER_FILTER_DESCRIPTOR;
-    STATUS_SUCCESS
-}
-```
+---
+
+## 8. Next Steps Summary
+
+| Priority | Action | Goal |
+|----------|--------|------|
+| P0 | Test Root\Media enumeration | Confirm SWD\DEVGEN issue |
+| P1 | Clean install with reboot | Verify AddInterface processing |
+| P2 | Check MMDevices registry | Confirm endpoint registration |
+| P3 | Try explicit interface registration | Bypass INF dependency |
+| P4 | Category/GUID audit | Ensure descriptor/INF match |
+
+**Success Criteria for Session #42**:
+- Audio endpoints appear in `mmsys.cpl`
+- `Get-PnpDevice` shows "Leyline Output" and "Leyline Input"
+- MMDevices registry populated with Leyline entries
+- Windows Audio Service recognizes endpoints
 
 ---
 
-## 6. Next Steps for Session #41: Audio Functionality
-
-### Priority 1: Audio Stream Testing
-**Goal**: Verify actual audio data flows through the driver
-
-**Test Plan**:
-1. **Render Stream Test**
-   - Open WaveRT render endpoint
-   - Write test audio data (sine wave)
-   - Verify data reaches driver's `MiniportWaveRTStream`
-   
-2. **Capture Stream Test**
-   - Open WaveRT capture endpoint
-   - Read audio data from loopback buffer
-   - Verify data flow from render to capture
-
-3. **HSA Integration**
-   - Launch WinUI 3 HSA app
-   - Verify IOCTL communication via CDO
-   - Test shared parameter updates
-
-### Priority 2: Buffer Verification
-**Goal**: Confirm shared memory loopback works
-
-**Test Plan**:
-1. Verify `SharedParameters` structure accessible from both kernel and user mode
-2. Check `loopback_buffer` pointer valid after mapping
-3. Test audio data loopback between render and capture pins
-
-### Priority 3: APO Integration
-**Goal**: Test Audio Processing Object integration
-
-**Test Plan**:
-1. Register `LeylineAPO.dll` with audio engine
-2. Verify APO loads when Leyline device is selected
-3. Test signal processing pipeline
-
-### Priority 4: End-to-End Validation
-**Goal**: Full audio path from app to driver
-
-**Test Plan**:
-1. Application → WASAPI → PortCls → Leyline Driver
-2. Verify audio playback/capture through virtual device
-3. Test in Windows Sound Control Panel
-
----
-
-## Build Verification
-- **Status**: ✅ SUCCESS
-- **Warnings**: 0
-- **Errors**: 0
-- **New Constants**: `IID_IPort` added
-- **Diagnostics**: Enhanced throughout topology initialization path
-
----
-
-### How to View DbgPrint Output
-
-To see the driver's diagnostic messages, use **Sysinternals DebugView**:
-
-1. **Download**: https://docs.microsoft.com/en-us/sysinternals/downloads/debugview
-2. **Run as Administrator** (required for kernel capture)
-3. **Enable Kernel Capture**: Click **Capture** → **Capture Kernel**
-4. **Filter Output**: Edit → Filter/Highlight → Include: `Leyline*;LeylineTopo*`
-5. **Load Driver**: Run `Install.ps1` and watch output in real-time
-
-**Note**: You must first enable kernel debug output (see "Prerequisite" section above) or most DbgPrint messages will be suppressed by Windows.
-
----
-
-### Knowledge Base: STATUS_REQUEST_NOT_ACCEPTED (0xC00002B9)
-
-This unusual NTSTATUS indicates the request was valid but cannot be fulfilled. In PortCls context, this typically means:
-
-1. **Resource Conflict**: Another driver/component owns required resources
-2. **Validation Failure**: Parameters passed checks but are semantically invalid
-3. **State Conflict**: Operation not valid in current driver state
-4. **Interface Rejection**: COM interface query rejected in a way the caller cannot handle
-
-Unlike `STATUS_INVALID_PARAMETER` (bad input) or `STATUS_NOINTERFACE` (IID not supported), `STATUS_REQUEST_NOT_ACCEPTED` suggests the request was understood but refused at a higher level.
+**Status**: 🔴 **BLOCKING ISSUE** - Audio endpoints required for Product North Star  
+**Estimated Effort**: 1-2 sessions to resolve enumeration method  
+**Risk**: May require significant architecture change if SWD\DEVGEN is incompatible with audio endpoints

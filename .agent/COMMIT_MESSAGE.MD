@@ -1,83 +1,83 @@
-feat: achieve full topology initialization - BREAKTHROUGH
+# Commit Message: Session #41
 
-The 0xC00002B9 (STATUS_REQUEST_NOT_ACCEPTED) topology initialization failure is COMPLETELY RESOLVED. The driver now achieves full two-endpoint virtual audio adapter initialization with working render, capture, and topology subdevices.
+**Reviewer**: Antigravity (Kimi-k2.5)
+**Date**: February 17, 2026
+**Session**: #41
 
-## BREAKTHROUGH: Topology Initialization SUCCESS
+## Summary
+Driver achieves full kernel-level initialization with all 4 subdevices registered and physical connections established. Audio endpoints do not appear in Windows - suspected SWD\DEVGEN enumeration incompatibility with Windows Audio Service. Uninstall script hardened for complete system cleanup.
 
-**Verified Success Path:**
+## Changes Made
+
+### Code Changes
+- **adapter.rs**: Added TopologyCapture miniport registration (previously only TopologyRender)
+- **adapter.rs**: Enabled PcRegisterPhysicalConnection for both render and capture chains
+- **adapter.rs**: Added import for PcRegisterPhysicalConnection from lib.rs
+- **adapter.rs**: Enhanced DbgPrint output showing all registered subdevices and connections
+
+### Script Hardening
+- **Uninstall.ps1**: Added SWD\DEVGEN device detection and removal
+- **Uninstall.ps1**: Added orphaned "Generic software device" cleanup
+- **Uninstall.ps1**: Enhanced driver store purge with /force /uninstall flags
+- **Uninstall.ps1**: Added WMI force-removal fallback for stubborn devices
+- **Uninstall.ps1**: Fixed PSScriptAnalyzer warnings (removed unused variables)
+- **Uninstall.ps1**: Added certificate cleanup with certutil for Root stores
+
+### Diagnostics
+- **Diagnose-Endpoints.ps1**: Created comprehensive endpoint diagnostic script
+- **Diagnose-VMAudio.ps1**: Created VM-specific audio diagnostic
+- **Test-HostReady.ps1**: Created pre-flight system readiness checker
+
+## Verification
+
+### Build Status
+- **Kernel**: ✅ Compiles with 0 warnings, 0 errors
+- **APO**: ✅ Build successful
+- **HSA**: ✅ Build successful
+
+### Driver Initialization
 ```
-Leyline: PcNewPort(TopologyRender) SUCCESS
-LeylineTopo: QueryInterface -> IID_IMiniportTopology (ACCEPTED)
-LeylineTopo: Init SUCCESS
-LeylineTopo: GetDescription SUCCESS
-Leyline: TopologyRender::Init SUCCESS
-Leyline: Registering TopologyRender Subdevice
-Leyline: StartDevice COMPLETED SUCCESSFULLY (With Topology)
+Leyline: StartDevice COMPLETED SUCCESSFULLY
+Leyline: Registered Subdevices:
+  - WaveRender (Output)
+  - WaveCapture (Input)
+  - TopologyRender
+  - TopologyCapture
+Leyline: Physical Connections:
+  - WaveRender -> TopologyRender
+  - TopologyCapture -> WaveCapture
 ```
 
-**Key Achievements:**
-- ✅ `PcNewPort(CLSID_PortTopology)` - Creates topology port without errors
-- ✅ `QueryInterface(IID_IMiniportTopology)` - Returns valid miniport interface
-- ✅ `topology_init` - All parameters validated, initialization succeeds
-- ✅ `topology_get_description` - Returns valid PCFILTER_DESCRIPTOR
-- ✅ `PcRegisterSubdevice` - Topology subdevice registered with PortCls
-- ✅ Full driver initialization completes without errors
+### Blocking Issue
+- ❌ Audio Endpoints: 0 found in Windows Audio subsystem
+- ❌ MMDevices Registry: No Leyline entries
+- 🔴 **CRITICAL**: Driver works at kernel level but Windows Audio Service doesn't enumerate endpoints
 
-## What Fixed the Issue
-
-1. **GUID Corrections (Session #38)**
-   - Fixed `KSNODETYPE_SPEAKER` and `KSNODETYPE_MICROPHONE` to correct Windows SDK values
-   - Critical for topology pin categorization
-
-2. **Build Pipeline Fixes (Session #39)**
-   - Corrected driver deployment paths (`$ProjectRoot/target/release/`)
-   - Ensured fresh builds with `cargo clean` before compilation
-   - Fixed all script paths to use absolute `$ProjectRoot` references
-
-3. **COM Interface Handling**
-   - Correct interface query responses
-   - Proper `STATUS_NOINTERFACE` for unsupported interfaces
-   - Vtable layout matches PortCls expectations
-
-4. **Valid Descriptor Structure**
-   - Correct pin counts and connections
-   - Valid category GUIDs
-   - Non-null data ranges
-
-## Technical Details
-
-### DbgPrint Instrumentation (Added in Session #39)
-Comprehensive diagnostics now capture full initialization:
-- `topology_query_interface` logs all interface queries
-- `topology_init` validates parameters and tracks success/failure
-- `topology_get_description` logs descriptor returns
-- `adapter.rs` provides step-by-step topology initialization logging
-
-### Script Path Fixes
-All scripts now use absolute `$ProjectRoot` paths:
-- `Install-VM.ps1` - All `target/` and `package/` paths fixed
-- `Install.ps1` - All package operations use absolute paths
-- `Uninstall.ps1` - Package cleanup uses absolute paths
+## Zero-Warning Proof
+```
+Compiling leyline-kernel v0.1.0 (C:\LeylineAudioDriver\crates\leyline-kernel)
+    Finished `release` profile [optimized] target(s) in 0.80s
+```
 
 ## Plain Text Commit Message [COPY-PASTE]
-feat: achieve full topology initialization
+```
+feat: Complete WaveRT topology registration, harden uninstall script
 
-The 0xC00002B9 (STATUS_REQUEST_NOT_ACCEPTED) error is COMPLETELY RESOLVED.
-Driver now loads successfully with full topology support.
+- Add TopologyCapture miniport registration (was missing)
+- Enable physical connections between WaveRT and Topology
+- Harden Uninstall.ps1 with SWD\DEVGEN device cleanup
+- Add driver store purge with /force /uninstall flags
+- Create comprehensive endpoint diagnostics
+- Fix PSScriptAnalyzer warnings
 
-Verified success:
-- PcNewPort(CLSID_PortTopology) SUCCESS
-- QueryInterface(IID_IMiniportTopology) ACCEPTED
-- topology_init SUCCESS
-- topology_get_description SUCCESS
-- PcRegisterSubdevice SUCCESS
-- StartDevice COMPLETED SUCCESSFULLY (With Topology)
+Driver initializes all 4 subdevices successfully but audio endpoints
+do not appear in Windows. Suspected SWD\DEVGEN enumeration issue.
+Requires investigation in Session #42.
+```
 
-Fixed:
-- KSNODETYPE_SPEAKER/MICROPHONE GUIDs (Session #38)
-- Build pipeline paths ($ProjectRoot/target/release/)
-- All script paths use absolute references
-- DbgPrint instrumentation for diagnostics
-
-Build: 0 warnings, 0 errors
-Status: TOPOLOGY FULLY OPERATIONAL
+## Next Session (#42) TODO
+- [ ] CRITICAL: Investigate SWD\DEVGEN vs Root\Media enumeration for audio endpoints
+- [ ] Test clean install with reboot to verify INF AddInterface processing
+- [ ] Check MMDevices registry after install
+- [ ] Try explicit IoRegisterDeviceInterface if INF method fails
+- [ ] Verify descriptor categories match INF exactly
