@@ -37,6 +37,86 @@ pub const IID_IMiniportWaveRT: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
+pub const IID_IMiniportWaveRTOutputStream: GUID = GUID {
+    Data1: 0x831FC7BC,
+    Data2: 0x6347,
+    Data3: 0x44BC,
+    Data4: [0xB4, 0x7B, 0xC0, 0xC6, 0x57, 0xB5, 0xBF, 0x73],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IMiniportWaveRTInputStream: GUID = GUID {
+    Data1: 0xCD8E756A,
+    Data2: 0x5FC7,
+    Data3: 0x4624,
+    Data4: [0x98, 0x4B, 0x2A, 0xF0, 0x29, 0x25, 0xB9, 0x1F],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IPortClsStreamResourceManager: GUID = GUID {
+    Data1: 0xE1CD9915,
+    Data2: 0xCAB1,
+    Data3: 0x4103,
+    Data4: [0xBB, 0x2F, 0x7D, 0xC0, 0x9C, 0x9B, 0xE9, 0x42],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IPortClsStreamResourceManager2: GUID = GUID {
+    Data1: 0x0D500BAE,
+    Data2: 0xD565,
+    Data3: 0x469D,
+    Data4: [0xA0, 0xE2, 0xF2, 0x83, 0x76, 0x0D, 0x71, 0x48],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IAdapterPnpManagement: GUID = GUID {
+    Data1: 0x706F2368,
+    Data2: 0x4086,
+    Data3: 0x47F5,
+    Data4: [0xB9, 0x13, 0x57, 0xB7, 0x6E, 0xED, 0x1A, 0x32],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IMiniportPnpNotify: GUID = GUID {
+    Data1: 0x6B735365,
+    Data2: 0x9487,
+    Data3: 0x464C,
+    Data4: [0x93, 0xE3, 0xFA, 0x2C, 0x63, 0x91, 0xD5, 0xA4],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IPinCount: GUID = GUID {
+    Data1: 0x5DADB7DC,
+    Data2: 0xA2CB,
+    Data3: 0x4540,
+    Data4: [0xA4, 0xA8, 0x42, 0x5E, 0xE4, 0xAE, 0x90, 0x51],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IPinName: GUID = GUID {
+    Data1: 0x29CC9AB1,
+    Data2: 0xE89D,
+    Data3: 0x413C,
+    Data4: [0xB6, 0xB2, 0xF6, 0xD5, 0x00, 0x05, 0xD0, 0x63],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IMiniportAudioEngineNode: GUID = GUID {
+    Data1: 0x2EBF536C,
+    Data2: 0xEF57,
+    Data3: 0x4C64,
+    Data4: [0xBE, 0xDC, 0x25, 0xC1, 0xA6, 0xD6, 0x68, 0xE6],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IMiniportAudioSignalProcessing: GUID = GUID {
+    Data1: 0xB532678C,
+    Data2: 0xBE50,
+    Data3: 0x472D,
+    Data4: [0x99, 0x73, 0x8A, 0x6F, 0x16, 0x59, 0x49, 0x89],
+};
+
+#[allow(non_upper_case_globals)]
 pub const IID_IPortWaveRTStream: GUID = GUID {
     Data1: 0x1809CE5A,
     Data2: 0x64BC,
@@ -195,6 +275,14 @@ pub const KSCATEGORY_TOPOLOGY_GUID: GUID = GUID {
     Data4: [0xA0, 0x50, 0x40, 0x57, 0x05, 0xC1, 0x00, 0x00],
 };
 
+#[allow(non_upper_case_globals)]
+pub const KSCATEGORY_REALTIME_GUID: GUID = GUID {
+    Data1: 0xEB115FFC,
+    Data2: 0x10C8,
+    Data3: 0x4964,
+    Data4: [0x83, 0x1D, 0x6D, 0xCB, 0x02, 0xE6, 0xF2, 0x3F],
+};
+
 // ============================================================================
 // KS Interface & Property Sets
 // ============================================================================
@@ -202,7 +290,7 @@ pub const KSCATEGORY_TOPOLOGY_GUID: GUID = GUID {
 #[allow(non_upper_case_globals)]
 pub const KSINTERFACESETID_STANDARD: GUID = GUID {
     Data1: 0x1A8766A0,
-    Data2: 0x62D0,
+    Data2: 0x62CE,
     Data3: 0x11CF,
     Data4: [0xA5, 0xD6, 0x28, 0xDB, 0x04, 0xC1, 0x00, 0x00],
 };

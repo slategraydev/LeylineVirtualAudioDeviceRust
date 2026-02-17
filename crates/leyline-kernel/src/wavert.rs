@@ -48,7 +48,7 @@ impl MiniportWaveRT {
     ) -> NTSTATUS {
         unsafe {
             DbgPrint(
-                c"Leyline: MiniportWaveRT::Init (capture=%d)\n".as_ptr(),
+                c"LeylineWaveRT: Init (capture=%d)\n".as_ptr(),
                 self.is_capture as i32,
             );
         }
@@ -57,16 +57,13 @@ impl MiniportWaveRT {
     }
 
     /// Creates a new WaveRT stream.
-    ///
-    /// # Safety
-    /// The provided format pointer must be valid for the duration of the stream's lifetime.
     pub unsafe fn new_stream(
         &mut self,
         _pin_id: u32,
         is_capture: bool,
         format: PVOID,
     ) -> *mut MiniportWaveRTStream {
-        DbgPrint(c"Leyline: MiniportWaveRT::NewStream\n".as_ptr());
+        DbgPrint(c"LeylineWaveRT: NewStream\n".as_ptr());
         if !self.is_initialized {
             return null_mut();
         }
@@ -94,6 +91,9 @@ impl MiniportWaveRT {
 #[repr(C)]
 pub struct MiniportWaveRTCom {
     pub vtable: *const IMiniportWaveRTVTable,
+    pub output_stream_vtable: *const IMiniportWaveRTOutputStreamVTable,
+    pub input_stream_vtable: *const IMiniportWaveRTInputStreamVTable,
+    pub pin_count_vtable: *const IPinCountVTable,
     pub inner: MiniportWaveRT,
     pub ref_count: u32,
 }
@@ -112,10 +112,47 @@ pub static MINIPORT_VTABLE: IMiniportWaveRTVTable = IMiniportWaveRTVTable {
     NewStream: miniport_new_stream,
 };
 
+#[link_section = ".rdata"]
+pub static OUTPUT_STREAM_VTABLE: IMiniportWaveRTOutputStreamVTable =
+    IMiniportWaveRTOutputStreamVTable {
+        base: IUnknownVTable {
+            QueryInterface: miniport_query_interface,
+            AddRef: miniport_add_ref,
+            Release: miniport_release,
+        },
+        SetWritePacket: wavert_set_write_packet,
+        GetOutputStreamPresentationPosition: wavert_get_output_stream_presentation_position,
+        GetPacketCount: wavert_get_packet_count,
+    };
+
+#[link_section = ".rdata"]
+pub static INPUT_STREAM_VTABLE: IMiniportWaveRTInputStreamVTable =
+    IMiniportWaveRTInputStreamVTable {
+        base: IUnknownVTable {
+            QueryInterface: miniport_query_interface,
+            AddRef: miniport_add_ref,
+            Release: miniport_release,
+        },
+        GetReadPacket: wavert_get_read_packet,
+    };
+
+#[link_section = ".rdata"]
+pub static WAVERT_PIN_COUNT_VTABLE: IPinCountVTable = IPinCountVTable {
+    base: IUnknownVTable {
+        QueryInterface: miniport_query_interface,
+        AddRef: miniport_add_ref,
+        Release: miniport_release,
+    },
+    PinCount: wavert_pin_count,
+};
+
 impl MiniportWaveRTCom {
     pub fn new(is_capture: bool, device_extension: *mut DeviceExtension) -> Box<Self> {
         Box::new(Self {
             vtable: &MINIPORT_VTABLE,
+            output_stream_vtable: &OUTPUT_STREAM_VTABLE,
+            input_stream_vtable: &INPUT_STREAM_VTABLE,
+            pin_count_vtable: &WAVERT_PIN_COUNT_VTABLE,
             inner: MiniportWaveRT::new(is_capture, device_extension),
             ref_count: 1,
         })
@@ -126,48 +163,72 @@ impl MiniportWaveRTCom {
 // Miniport VTable Callbacks
 // ============================================================================
 
-/// QueryInterface callback for WaveRT miniport.
-///
-/// # Safety
-/// Standard COM-like QueryInterface. Parameters must be valid pointers.
 pub unsafe extern "system" fn miniport_query_interface(
     this: *mut u8,
     iid: *const GUID,
     out: *mut *mut u8,
 ) -> NTSTATUS {
-    if iid.is_null() || out.is_null() {
+    if this.is_null() || iid.is_null() || out.is_null() {
         return STATUS_INVALID_PARAMETER;
     }
 
     let com_obj = this as *mut MiniportWaveRTCom;
+
     if crate::is_equal_guid(iid, &IID_IMiniportWaveRT)
         || crate::is_equal_guid(iid, &IID_IUnknown)
         || crate::is_equal_guid(iid, &IID_IMiniport)
     {
-        (*com_obj).ref_count += 1;
-        *out = this;
-        return STATUS_SUCCESS;
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportWaveRT\n".as_ptr());
+        *out = &((*com_obj).vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IMiniportWaveRTOutputStream) {
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportWaveRTOutputStream\n".as_ptr());
+        *out = &((*com_obj).output_stream_vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IMiniportWaveRTInputStream) {
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportWaveRTInputStream\n".as_ptr());
+        *out = &((*com_obj).input_stream_vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IPinCount) {
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IPinCount\n".as_ptr());
+        *out = &((*com_obj).pin_count_vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager)
+        || crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager2)
+        || crate::is_equal_guid(iid, &IID_IAdapterPnpManagement)
+        || crate::is_equal_guid(iid, &IID_IMiniportPnpNotify)
+        || crate::is_equal_guid(iid, &IID_IMiniportAudioSignalProcessing)
+    {
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> base interface\n".as_ptr());
+        *out = &((*com_obj).vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IMiniportAudioEngineNode) {
+        DbgPrint(
+            c"LeylineWaveRT: QueryInterface -> IMiniportAudioEngineNode (REJECTED)\n".as_ptr(),
+        );
+        *out = null_mut();
+        return STATUS_NOINTERFACE;
+    } else {
+        DbgPrint(
+            c"LeylineWaveRT: QueryInterface -> Unknown IID: {%08x-...}\n".as_ptr(),
+            (*iid).Data1,
+        );
+        *out = null_mut();
+        return STATUS_NOINTERFACE;
     }
 
-    *out = null_mut();
-    STATUS_NOINTERFACE
+    (*com_obj).ref_count += 1;
+    STATUS_SUCCESS
 }
 
-/// AddRef callback for WaveRT miniport.
-///
-/// # Safety
-/// Standard COM-like AddRef. Parameters must be valid pointers.
 pub unsafe extern "system" fn miniport_add_ref(this: *mut u8) -> u32 {
+    if this.is_null() {
+        return 0;
+    }
     let com_obj = this as *mut MiniportWaveRTCom;
     (*com_obj).ref_count += 1;
     (*com_obj).ref_count
 }
 
-/// Release callback for WaveRT miniport.
-///
-/// # Safety
-/// Standard COM-like Release. Parameters must be valid pointers.
 pub unsafe extern "system" fn miniport_release(this: *mut u8) -> u32 {
+    if this.is_null() {
+        return 0;
+    }
     let com_obj = this as *mut MiniportWaveRTCom;
     (*com_obj).ref_count -= 1;
     let count = (*com_obj).ref_count;
@@ -177,19 +238,15 @@ pub unsafe extern "system" fn miniport_release(this: *mut u8) -> u32 {
     count
 }
 
-/// GetDescription callback for WaveRT miniport.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn miniport_get_description(
     this: *mut u8,
     out_description: *mut u8,
 ) -> NTSTATUS {
+    if this.is_null() || out_description.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
     let com_obj = this as *mut MiniportWaveRTCom;
-    DbgPrint(
-        c"Leyline: MiniportWaveRT::GetDescription (capture=%d)\n".as_ptr(),
-        (*com_obj).inner.is_capture as i32,
-    );
+    DbgPrint(c"LeylineWaveRT: GetDescription called\n".as_ptr());
     let description = out_description as *mut *const PCFILTER_DESCRIPTOR;
     if (*com_obj).inner.is_capture {
         *description = &WAVE_CAPTURE_FILTER_DESCRIPTOR;
@@ -199,12 +256,8 @@ pub unsafe extern "system" fn miniport_get_description(
     STATUS_SUCCESS
 }
 
-/// DataRangeIntersection callback for WaveRT miniport.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn miniport_data_range_intersection(
-    _this: *mut u8,
+    this: *mut u8,
     _pin_id: u32,
     data_range: *mut u8,
     _matching_range: *mut u8,
@@ -212,9 +265,10 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
     data_format: *mut u8,
     actual_data_format_cb: *mut u32,
 ) -> NTSTATUS {
-    if data_range.is_null() {
+    if this.is_null() || data_range.is_null() {
         return STATUS_INVALID_PARAMETER;
     }
+    DbgPrint(c"LeylineWaveRT: DataRangeIntersection called\n".as_ptr());
 
     let ks_range = data_range as *const KSDATARANGE;
     if !crate::is_equal_guid(&(*ks_range).MajorFormat, &KSDATAFORMAT_TYPE_AUDIO) {
@@ -260,20 +314,18 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
     if !actual_data_format_cb.is_null() {
         *actual_data_format_cb = format_size;
     }
-
     STATUS_SUCCESS
 }
 
-/// Init callback for WaveRT miniport.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn miniport_init(
     this: *mut u8,
     unknown_adapter: *mut u8,
     resource_list: *mut u8,
     port: *mut u8,
 ) -> NTSTATUS {
+    if this.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
     let com_obj = this as *mut MiniportWaveRTCom;
     (*com_obj).inner.init(
         unknown_adapter as PVOID,
@@ -282,24 +334,19 @@ pub unsafe extern "system" fn miniport_init(
     )
 }
 
-/// GetDeviceDescription callback for WaveRT miniport.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn miniport_get_device_description(
     this: *mut u8,
     description: *mut u8,
 ) -> NTSTATUS {
+    if this.is_null() || description.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
     let com_obj = this as *mut MiniportWaveRTCom;
     (*com_obj)
         .inner
         .get_device_description(description as PDEVICE_DESCRIPTION)
 }
 
-/// NewStream callback for WaveRT miniport.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be valid pointers.
 pub unsafe extern "system" fn miniport_new_stream(
     this: *mut u8,
     stream: *mut *mut u8,
@@ -308,7 +355,11 @@ pub unsafe extern "system" fn miniport_new_stream(
     capture: bool,
     format: *mut u8,
 ) -> NTSTATUS {
+    if this.is_null() || stream.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
     let com_obj = this as *mut MiniportWaveRTCom;
+    DbgPrint(c"LeylineWaveRT: NewStream called\n".as_ptr());
     let stream_ptr = (*com_obj)
         .inner
         .new_stream(pin_id, capture, format as PVOID);
@@ -318,4 +369,47 @@ pub unsafe extern "system" fn miniport_new_stream(
     let stream_com = MiniportWaveRTStreamCom::new(stream_ptr);
     *stream = Box::into_raw(stream_com) as *mut u8;
     STATUS_SUCCESS
+}
+
+pub unsafe extern "system" fn wavert_pin_count(
+    _this: *mut u8,
+    pin_id: u32,
+    _filter_necessary: *mut u32,
+    _filter_current: *mut u32,
+    _filter_possible: *mut u32,
+    _global_current: *mut u32,
+    _global_possible: *mut u32,
+) {
+    DbgPrint(
+        c"LeylineWaveRT: PinCount called for pin %d\n".as_ptr(),
+        pin_id,
+    );
+}
+
+pub unsafe extern "system" fn wavert_set_write_packet(
+    _this: *mut u8,
+    _p: u32,
+    _f: u32,
+    _l: u32,
+) -> NTSTATUS {
+    STATUS_NOT_IMPLEMENTED
+}
+pub unsafe extern "system" fn wavert_get_output_stream_presentation_position(
+    _this: *mut u8,
+    _p: *mut u64,
+    _c: *mut u64,
+) -> NTSTATUS {
+    STATUS_NOT_IMPLEMENTED
+}
+pub unsafe extern "system" fn wavert_get_packet_count(_this: *mut u8, _c: *mut u32) -> NTSTATUS {
+    STATUS_NOT_IMPLEMENTED
+}
+pub unsafe extern "system" fn wavert_get_read_packet(
+    _this: *mut u8,
+    _p: *mut u32,
+    _f: *mut u32,
+    _c: *mut u64,
+    _m: *mut i32,
+) -> NTSTATUS {
+    STATUS_NOT_IMPLEMENTED
 }

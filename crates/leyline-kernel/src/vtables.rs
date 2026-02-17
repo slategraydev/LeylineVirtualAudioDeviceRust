@@ -96,3 +96,62 @@ pub struct IMiniportWaveRTStreamVTable {
     pub GetClockRegister:
         unsafe extern "system" fn(this: *mut u8, clock_register: *mut u8) -> NTSTATUS,
 }
+
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct IPinCountVTable {
+    pub base: IUnknownVTable,
+    pub PinCount: unsafe extern "system" fn(
+        this: *mut u8,
+        pin_id: u32,
+        filter_necessary: *mut u32,
+        filter_current: *mut u32,
+        filter_possible: *mut u32,
+        global_current: *mut u32,
+        global_possible: *mut u32,
+    ),
+}
+
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct IPinNameVTable {
+    pub base: IUnknownVTable,
+    pub GetPinName: unsafe extern "system" fn(
+        this: *mut u8,
+        irp: *mut u8,
+        pin: *mut u8,
+        data: *mut u8,
+    ) -> NTSTATUS,
+}
+
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct IMiniportWaveRTOutputStreamVTable {
+    pub base: IUnknownVTable,
+    pub SetWritePacket: unsafe extern "system" fn(
+        this: *mut u8,
+        packet_number: u32,
+        flags: u32,
+        eos_packet_length: u32,
+    ) -> NTSTATUS,
+    pub GetOutputStreamPresentationPosition: unsafe extern "system" fn(
+        this: *mut u8,
+        presentation_position: *mut u64,
+        performance_counter: *mut u64,
+    ) -> NTSTATUS,
+    pub GetPacketCount:
+        unsafe extern "system" fn(this: *mut u8, packet_count: *mut u32) -> NTSTATUS,
+}
+
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct IMiniportWaveRTInputStreamVTable {
+    pub base: IUnknownVTable,
+    pub GetReadPacket: unsafe extern "system" fn(
+        this: *mut u8,
+        packet_number: *mut u32,
+        flags: *mut u32,
+        performance_counter: *mut u64,
+        more_data: *mut i32,
+    ) -> NTSTATUS,
+}

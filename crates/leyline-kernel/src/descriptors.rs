@@ -92,7 +92,7 @@ pub static BRIDGE_DATARANGE: KSDATARANGE = KSDATARANGE {
     SampleSize: 0,
     Reserved: 0,
     MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-    SubFormat: KSDATAFORMAT_SUBTYPE_ANALOG,
+    SubFormat: KSDATAFORMAT_SUBTYPE_PCM, // ✅ Changed from ANALOG
     Specifier: KSDATAFORMAT_SPECIFIER_NONE_GUID,
 };
 
@@ -146,7 +146,7 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
-            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID, // ✅ Keep standard for bridge
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -169,7 +169,7 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRangesCount: 2,
             DataRanges: WAVE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
-            Communication: KSPIN_COMMUNICATION_SOURCE as i32,
+            Communication: KSPIN_COMMUNICATION_SINK as i32,
             Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
@@ -190,7 +190,7 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_IN as i32,
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
-            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID, // ✅ Keep standard for bridge
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -233,8 +233,8 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
-            Communication: KSPIN_COMMUNICATION_NONE as i32,
-            Category: &KSNODETYPE_SPEAKER as *const GUID,
+            Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
+            Category: &KSNODETYPE_SPEAKER as *const GUID, // ✅ Edge pin
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -257,8 +257,8 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_IN as i32,
-            Communication: KSPIN_COMMUNICATION_NONE as i32,
-            Category: &KSNODETYPE_MICROPHONE as *const GUID,
+            Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
+            Category: &KSNODETYPE_MICROPHONE as *const GUID, // ✅ Edge pin
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -315,11 +315,27 @@ pub static TOPO_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
 }];
 
 #[link_section = ".rdata"]
+pub static TOPO_CAPTURE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
+    FromNode: PCFILTER_NODE,
+    FromNodePin: 0, // MICROPHONE pin (index 0, KSNODETYPE_MICROPHONE)
+    ToNode: PCFILTER_NODE,
+    ToNodePin: 1, // BRIDGE pin (index 1)
+}];
+
+#[link_section = ".rdata"]
 pub static TOPO_FILTER_CATEGORIES: [GUID; 2] = [KSCATEGORY_AUDIO_GUID, KSCATEGORY_TOPOLOGY_GUID];
 #[link_section = ".rdata"]
-pub static WAVE_RENDER_CATEGORIES: [GUID; 2] = [KSCATEGORY_AUDIO_GUID, KSCATEGORY_RENDER_GUID];
+pub static WAVE_RENDER_CATEGORIES: [GUID; 3] = [
+    KSCATEGORY_AUDIO_GUID,
+    KSCATEGORY_RENDER_GUID,
+    KSCATEGORY_REALTIME_GUID,
+];
 #[link_section = ".rdata"]
-pub static WAVE_CAPTURE_CATEGORIES: [GUID; 2] = [KSCATEGORY_AUDIO_GUID, KSCATEGORY_CAPTURE_GUID];
+pub static WAVE_CAPTURE_CATEGORIES: [GUID; 3] = [
+    KSCATEGORY_AUDIO_GUID,
+    KSCATEGORY_CAPTURE_GUID,
+    KSCATEGORY_REALTIME_GUID,
+];
 
 // ============================================================================
 // Filter Descriptors
@@ -337,7 +353,7 @@ pub static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIP
     Nodes: core::ptr::null(),
     ConnectionCount: 1,
     Connections: WAVE_CONNECTIONS.as_ptr(),
-    CategoryCount: 2,
+    CategoryCount: 3,
     Categories: WAVE_RENDER_CATEGORIES.as_ptr(),
 };
 
@@ -353,7 +369,7 @@ pub static WAVE_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRI
     Nodes: core::ptr::null(),
     ConnectionCount: 1,
     Connections: WAVE_CAPTURE_CONNECTIONS.as_ptr(),
-    CategoryCount: 2,
+    CategoryCount: 3,
     Categories: WAVE_CAPTURE_CATEGORIES.as_ptr(),
 };
 
@@ -384,7 +400,7 @@ pub static TOPO_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRI
     NodeCount: 0,
     Nodes: core::ptr::null(),
     ConnectionCount: 1,
-    Connections: TOPO_CONNECTIONS.as_ptr(),
+    Connections: TOPO_CAPTURE_CONNECTIONS.as_ptr(),
     CategoryCount: 2,
     Categories: TOPO_FILTER_CATEGORIES.as_ptr(),
 };

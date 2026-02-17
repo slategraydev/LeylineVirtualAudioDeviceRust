@@ -49,6 +49,8 @@ impl MiniportTopology {
 #[repr(C)]
 pub struct MiniportTopologyCom {
     pub vtable: *const IMiniportTopologyVTable,
+    pub pin_count_vtable: *const IPinCountVTable,
+    pub pin_name_vtable: *const IPinNameVTable,
     pub inner: MiniportTopology,
     pub ref_count: u32,
 }
@@ -65,10 +67,32 @@ pub static TOPOLOGY_VTABLE: IMiniportTopologyVTable = IMiniportTopologyVTable {
     Init: topology_init,
 };
 
+#[link_section = ".rdata"]
+pub static PIN_COUNT_VTABLE: IPinCountVTable = IPinCountVTable {
+    base: IUnknownVTable {
+        QueryInterface: topology_query_interface,
+        AddRef: topology_add_ref,
+        Release: topology_release,
+    },
+    PinCount: topology_pin_count,
+};
+
+#[link_section = ".rdata"]
+pub static PIN_NAME_VTABLE: IPinNameVTable = IPinNameVTable {
+    base: IUnknownVTable {
+        QueryInterface: topology_query_interface,
+        AddRef: topology_add_ref,
+        Release: topology_release,
+    },
+    GetPinName: topology_get_pin_name,
+};
+
 impl MiniportTopologyCom {
     pub fn new(is_capture: bool) -> Box<Self> {
         Box::new(Self {
             vtable: &TOPOLOGY_VTABLE,
+            pin_count_vtable: &PIN_COUNT_VTABLE,
+            pin_name_vtable: &PIN_NAME_VTABLE,
             inner: MiniportTopology::new(is_capture),
             ref_count: 1,
         })
@@ -86,45 +110,67 @@ pub unsafe extern "system" fn topology_query_interface(
 ) -> NTSTATUS {
     // Validate parameters
     if this.is_null() || iid.is_null() || out.is_null() {
-        DbgPrint(c"LeylineTopo: QueryInterface - NULL parameter\n".as_ptr());
         return STATUS_INVALID_PARAMETER;
     }
 
-    // Log the requested interface GUID
+    let com_obj = this as *mut MiniportTopologyCom;
+
+    // Log the requested interface GUID (Simple string only)
     DbgPrint(c"LeylineTopo: QueryInterface called\n".as_ptr());
-    let guid = &*iid;
-    let _data4_slice = &guid.Data4;
 
     // Check for known interfaces and log
-    if crate::is_equal_guid(iid, &IID_IMiniportTopology) {
-        DbgPrint(c"LeylineTopo: QueryInterface -> IID_IMiniportTopology (ACCEPTED)\n".as_ptr());
-    } else if crate::is_equal_guid(iid, &IID_IUnknown) {
-        DbgPrint(c"LeylineTopo: QueryInterface -> IID_IUnknown (ACCEPTED)\n".as_ptr());
-    } else if crate::is_equal_guid(iid, &IID_IMiniport) {
-        DbgPrint(c"LeylineTopo: QueryInterface -> IID_IMiniport (ACCEPTED)\n".as_ptr());
-    } else if crate::is_equal_guid(iid, &IID_IPortTopology) {
-        DbgPrint(
-            c"LeylineTopo: QueryInterface -> IID_IPortTopology (REJECTED - not supported)\n"
-                .as_ptr(),
-        );
-    } else if crate::is_equal_guid(iid, &IID_IPort) {
-        DbgPrint(c"LeylineTopo: QueryInterface -> IID_IPort (REJECTED - not supported)\n".as_ptr());
-    } else {
-        DbgPrint(c"LeylineTopo: QueryInterface -> Unknown IID (REJECTED)\n".as_ptr());
-    }
-
-    let com_obj = this as *mut MiniportTopologyCom;
     if crate::is_equal_guid(iid, &IID_IMiniportTopology)
         || crate::is_equal_guid(iid, &IID_IUnknown)
         || crate::is_equal_guid(iid, &IID_IMiniport)
     {
-        (*com_obj).ref_count += 1;
-        *out = this;
-        return STATUS_SUCCESS;
+        DbgPrint(c"LeylineTopo: QueryInterface -> IMiniportTopology (ACCEPTED)\n".as_ptr());
+        *out = &((*com_obj).vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IPinCount) {
+        DbgPrint(c"LeylineTopo: QueryInterface -> IPinCount (ACCEPTED)\n".as_ptr());
+        *out = &((*com_obj).pin_count_vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IPinName) {
+        DbgPrint(c"LeylineTopo: QueryInterface -> IPinName (ACCEPTED)\n".as_ptr());
+        *out = &((*com_obj).pin_name_vtable) as *const _ as *mut u8;
+    } else {
+        DbgPrint(
+            c"LeylineTopo: QueryInterface -> Other IID: {%08x-...} (REJECTED)\n".as_ptr(),
+            (*iid).Data1,
+        );
+        *out = null_mut();
+        return STATUS_NOINTERFACE;
     }
 
-    *out = null_mut();
-    STATUS_NOINTERFACE
+    (*com_obj).ref_count += 1;
+    STATUS_SUCCESS
+}
+
+// ... existing code ...
+
+/// PinCount callback for Topology miniport.
+pub unsafe extern "system" fn topology_pin_count(
+    _this: *mut u8,
+    pin_id: u32,
+    _filter_necessary: *mut u32,
+    _filter_current: *mut u32,
+    _filter_possible: *mut u32,
+    _global_current: *mut u32,
+    _global_possible: *mut u32,
+) {
+    DbgPrint(
+        c"LeylineTopo: PinCount called for pin %d\n".as_ptr(),
+        pin_id,
+    );
+}
+
+/// GetPinName callback for Topology miniport.
+pub unsafe extern "system" fn topology_get_pin_name(
+    _this: *mut u8,
+    _irp: *mut u8,
+    _pin: *mut u8,
+    _data: *mut u8,
+) -> NTSTATUS {
+    DbgPrint(c"LeylineTopo: GetPinName called\n".as_ptr());
+    STATUS_NOT_IMPLEMENTED
 }
 
 /// AddRef callback for Topology miniport.

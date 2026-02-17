@@ -8,7 +8,7 @@ Class       = MEDIA
 ClassGuid   = {4d36e96c-e325-11ce-bfc1-08002be10318}
 Provider    = %ManufacturerName%
 CatalogFile = leyline.cat
-DriverVer   = 02/16/2026,1.0.1.1948
+DriverVer   = 02/16/2026,1.0.1.2242
 PnpLockdown = 1
 
 [SourceDisksNames]
@@ -55,7 +55,7 @@ HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,ThreadingModel,,Both
 ; Interface Installation (KS / Audio)
 ; ==============================================================================
 
-[Leyline_Device.NT.Interfaces]
+[Leyline_Device.NTamd64.Interfaces]
 ; Render Interfaces
 AddInterface = %KSCATEGORY_AUDIO%, "WaveRender", Leyline_WaveRenderInterface
 AddInterface = %KSCATEGORY_RENDER%, "WaveRender", Leyline_WaveRenderInterface
@@ -84,9 +84,9 @@ AddReg = Leyline_TopoCaptureInterface.AddReg
 
 [Leyline_WaveRenderInterface.AddReg]
 ; Register the APOs for this interface
-HKR,"FX\\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
-HKR,"FX\\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
-HKR,"FX\\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
+HKR,"FX\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
+HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
+HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameRender%
 HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
@@ -95,9 +95,9 @@ HKR,"EP\0",%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000101
 
 [Leyline_WaveCaptureInterface.AddReg]
 ; Register the APOs for this interface
-HKR,"FX\\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
-HKR,"FX\\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
-HKR,"FX\\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
+HKR,"FX\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
+HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
+HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameCapture%
 HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
@@ -137,7 +137,7 @@ KSCATEGORY_AUDIO   = "{6994AD04-93EF-11D0-A3CC-00A0C9223196}"
 KSCATEGORY_RENDER  = "{65E8773E-8F56-11D0-A3B9-00A0C9223196}"
 KSCATEGORY_CAPTURE = "{65E8773D-8F56-11D0-A3B9-00A0C9223196}"
 KSCATEGORY_TOPOLOGY= "{DDA54A40-1E4C-11D1-A050-405705C10000}"
-KSCATEGORY_REALTIME= "{EB115AD5-9118-4FA0-BD83-ED352215DF43}"
+KSCATEGORY_REALTIME= "{EB115FFC-10C8-4964-831D-6DCB02E6F23F}"
 KSNAME_Wave        = "Wave"
 
 ; Property Keys
@@ -149,8 +149,8 @@ PKEY_AudioDevice_EnableEndpointByDefault = "{F3E80BEF-1723-4FF2-BCC4-7F83DC5E46D
 
 ; Nodes
 KSNODETYPE_ANY         = "{00000000-0000-0000-0000-000000000000}"
-KSNODETYPE_SPEAKER     = "{DFF21CE1-F30F-11D0-A971-00AA00615293}"
-KSNODETYPE_MICROPHONE  = "{DFF21BE1-F30F-11D0-A971-00AA00615293}"
+KSNODETYPE_SPEAKER     = "{DFF21CE1-F70F-11D0-B917-00A0C9223196}"
+KSNODETYPE_MICROPHONE  = "{DFF21BE1-F70F-11D0-B917-00A0C9223196}"
 
 ; Leyline Specifics
 LeylineAPO_CLSID = "{C8D3E4F5-B6A7-4A2D-A1A3-1A2B3C4D5E6F}"
