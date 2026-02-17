@@ -297,10 +297,10 @@ pub const KSINTERFACESETID_STANDARD: GUID = GUID {
 
 #[allow(non_upper_case_globals)]
 pub const KSPROPSETID_PIN: GUID = GUID {
-    Data1: 0x8A134D40,
-    Data2: 0x0A96,
-    Data3: 0x11D0,
-    Data4: [0xAB, 0x31, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+    Data1: 0x8C134960,
+    Data2: 0x51AD,
+    Data3: 0x11CF,
+    Data4: [0x87, 0x8A, 0x94, 0xF8, 0x01, 0xC1, 0x00, 0x00],
 };
 
 #[allow(non_upper_case_globals)]
@@ -310,6 +310,16 @@ pub const KSPROPSETID_CONNECTION: GUID = GUID {
     Data3: 0x11CF,
     Data4: [0xA5, 0xD6, 0x28, 0xDB, 0x04, 0xC1, 0x00, 0x00],
 };
+
+#[allow(non_upper_case_globals)]
+pub const KSPROPSETID_General: GUID = GUID {
+    Data1: 0x1464EDA5,
+    Data2: 0x6A8F,
+    Data3: 0x11D1,
+    Data4: [0x9A, 0xA7, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+pub const KSPROPERTY_GENERAL_COMPONENTID: u32 = 0;
 
 #[allow(non_upper_case_globals)]
 pub const KSNODETYPE_SPEAKER: GUID = GUID {

@@ -9,7 +9,8 @@
 | :--- | :--- | :---: | :--- |
 | **`Install.ps1`** | Build + Install Pipeline | ✅ | Stable. |
 | **`Uninstall.ps1`** | Clean Uninstall | ✅ | Stable. |
-| **`Install-VM.ps1`** | Remote Install | ✅ | Stable. |
+| **`Install-VM.ps1`** | Remote Install | ✅ | Supports incremental builds (no forced clean). |
+| **`Automate-VM-Verification.ps1`** | End-to-End Test | ✅ | Added `-Fast` switch for hot-reload verification. |
 
 ## Observations
 - Scripts successfully handle the `Root\Media\LeylineAudio` identity.

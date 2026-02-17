@@ -399,6 +399,18 @@ certutil -addstore TrustedPublisher WDRLocalTestCert.cer
 
 Installation: pnputil /add-driver leyline.inf /install 1
 
+5.4 Automated Verification (VM)
+
+For rapid iteration, use the automated VM pipeline which handles reverting, building, and kernel debugging:
+
+Command: .\scripts\Automate-VM-Verification.ps1 -VMName "LeylineTestVM"
+
+Features:
+- Reverts VM to clean snapshot.
+- Configures kd.exe for kernel debugging.
+- Builds and deploys the driver.
+- Captures and analyzes startup logs for "Leyline" signature.
+
 
 
 6\. Testing Architecture
@@ -434,6 +446,14 @@ This section provides the exhaustive foundational knowledge required for this pr
 - [Developing a WaveRT Miniport Driver](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/developing-a-wavert-miniport-driver) - **Agent Context**: Tactical implementation guide for `IMiniportWaveRT`.
 - [WaveRT Miniport Driver Interfaces](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/wavert-miniport-driver) - **Agent Context**: Reference for mandatory COM-like interfaces.
 - [IMiniportWaveRTStream Interface](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/portcls/nn-portcls-iminiportwavertstream) - **Agent Context**: Direct DDI reference for stream control.
+
+### 6.3 VM Integration Pipeline [NEW]
+- **Script**: `scripts/Automate-VM-Verification.ps1`
+- **Purpose**: Validates the end-to-end driver installation and kernel initialization on a remote VM.
+- **Success Criteria**:
+  - VM reverts and boots successfully.
+  - Driver installs without error.
+  - Kernel logs (captured via `kd.exe`) contain "Leyline" initialization signatures.
 
 ### 7.2 Windows Audio Engineering (Low Latency & Universal)
 - [DCH Design Principles](https://learn.microsoft.com/en-us/windows-hardware/drivers/develop/dch-compliant-driver-package-example) - **Agent Context**: Ensuring the driver is Declarative, Componentized, and HSA-ready.

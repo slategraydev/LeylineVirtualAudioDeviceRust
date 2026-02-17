@@ -1,7 +1,9 @@
+#![allow(clippy::missing_safety_doc)]
+
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 //
-// This source code is provided for educational and review purposes.
+// This source code is provided for educational and review purposes. // Force rebuild
 // Redistribution and use in binary form without express permission is prohibited.
 // See LICENSE file in the project root for full terms.
 
@@ -51,6 +53,7 @@ pub struct MiniportTopologyCom {
     pub vtable: *const IMiniportTopologyVTable,
     pub pin_count_vtable: *const IPinCountVTable,
     pub pin_name_vtable: *const IPinNameVTable,
+    pub resource_manager_vtable: *const IPortClsStreamResourceManager2VTable,
     pub inner: MiniportTopology,
     pub ref_count: u32,
 }
@@ -87,12 +90,25 @@ pub static PIN_NAME_VTABLE: IPinNameVTable = IPinNameVTable {
     GetPinName: topology_get_pin_name,
 };
 
+#[link_section = ".rdata"]
+pub static TOPO_RESOURCE_MANAGER_VTABLE: IPortClsStreamResourceManager2VTable =
+    IPortClsStreamResourceManager2VTable {
+        base: IUnknownVTable {
+            QueryInterface: topology_query_interface,
+            AddRef: topology_add_ref,
+            Release: topology_release,
+        },
+        AddResource: topology_add_resource,
+        RemoveResource: topology_remove_resource,
+    };
+
 impl MiniportTopologyCom {
     pub fn new(is_capture: bool) -> Box<Self> {
         Box::new(Self {
             vtable: &TOPOLOGY_VTABLE,
             pin_count_vtable: &PIN_COUNT_VTABLE,
             pin_name_vtable: &PIN_NAME_VTABLE,
+            resource_manager_vtable: &TOPO_RESOURCE_MANAGER_VTABLE,
             inner: MiniportTopology::new(is_capture),
             ref_count: 1,
         })
@@ -110,6 +126,8 @@ impl MiniportTopologyCom {
             (this as usize - 8) as *mut Self
         } else if vtable_ptr == &PIN_NAME_VTABLE as *const _ as *const u8 {
             (this as usize - 16) as *mut Self
+        } else if vtable_ptr == &TOPO_RESOURCE_MANAGER_VTABLE as *const _ as *const u8 {
+            (this as usize - 24) as *mut Self
         } else {
             // Fallback: assume primary interface if unknown.
             this as *mut Self
@@ -146,16 +164,52 @@ pub unsafe extern "system" fn topology_query_interface(
     } else if crate::is_equal_guid(iid, &IID_IPinName) {
         DbgPrint(c"LeylineTopo: QueryInterface -> IPinName (ACCEPTED)\n".as_ptr());
         *out = &((*com_obj).pin_name_vtable) as *const _ as *mut u8;
-    } else {
+    } else if crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager)
+        || crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager2)
+    {
         DbgPrint(
-            c"LeylineTopo: QueryInterface -> Unknown: {%08x-...} (REJECTED)\n".as_ptr(),
-            (*iid).Data1,
+            c"LeylineTopo: QueryInterface -> IPortClsStreamResourceManager2 (ACCEPTED)\n".as_ptr(),
         );
+        *out = &((*com_obj).resource_manager_vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IMiniportAudioSignalProcessing) {
+        DbgPrint(c"LeylineTopo: QueryInterface -> IMiniportAudioSignalProcessing (REJECTED - NOT IMPLEMENTED)\n".as_ptr());
+        return STATUS_NOINTERFACE;
+    } else if crate::is_equal_guid(iid, &IID_IMiniportAudioEngineNode) {
+        DbgPrint(c"LeylineTopo: QueryInterface -> IMiniportAudioEngineNode (REJECTED - NOT IMPLEMENTED)\n".as_ptr());
+        return STATUS_NOINTERFACE;
+    } else {
+        DbgPrint(c"LeylineTopo: QueryInterface -> REJECTED IID: {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}\n".as_ptr(),
+            (*iid).Data1, (*iid).Data2 as core::ffi::c_uint, (*iid).Data3 as core::ffi::c_uint,
+            (*iid).Data4[0] as core::ffi::c_uint, (*iid).Data4[1] as core::ffi::c_uint, (*iid).Data4[2] as core::ffi::c_uint, (*iid).Data4[3] as core::ffi::c_uint,
+            (*iid).Data4[4] as core::ffi::c_uint, (*iid).Data4[5] as core::ffi::c_uint, (*iid).Data4[6] as core::ffi::c_uint, (*iid).Data4[7] as core::ffi::c_uint);
+
+        // AEB may query for these on the topology miniport
+        if crate::is_equal_guid(iid, &IID_IMiniportAudioSignalProcessing) {
+            DbgPrint(c"LeylineTopo: AEB queried SignalProcessing (REJECTED)\n".as_ptr());
+        }
+
         *out = null_mut();
         return STATUS_NOINTERFACE;
     }
 
     (*com_obj).ref_count += 1;
+    STATUS_SUCCESS
+}
+
+pub unsafe extern "system" fn topology_add_resource(
+    _this: *mut u8,
+    _resource_description: *mut u8,
+    _resource_handle: *mut *mut u8,
+) -> NTSTATUS {
+    DbgPrint(c"LeylineTopo: AddResource (STUB)\n".as_ptr());
+    STATUS_SUCCESS
+}
+
+pub unsafe extern "system" fn topology_remove_resource(
+    _this: *mut u8,
+    _resource_handle: *mut u8,
+) -> NTSTATUS {
+    DbgPrint(c"LeylineTopo: RemoveResource (STUB)\n".as_ptr());
     STATUS_SUCCESS
 }
 
@@ -178,6 +232,24 @@ pub unsafe extern "system" fn topology_pin_count(
     );
 }
 
+// Local KSP_PIN definition for safe access
+#[repr(C)]
+#[allow(non_snake_case)]
+#[allow(clippy::upper_case_acronyms)]
+struct KSPROPERTY {
+    pub Set: GUID,
+    pub Id: u32,
+    pub Flags: u32,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+struct KSP_PIN {
+    pub Property: KSPROPERTY,
+    pub PinId: u32,
+    pub Reserved: u32, // Union with Flags
+}
+
 /// GetPinName callback for Topology miniport.
 pub unsafe extern "system" fn topology_get_pin_name(
     this: *mut u8,
@@ -185,18 +257,21 @@ pub unsafe extern "system" fn topology_get_pin_name(
     pin: *mut u8,
     data: *mut u8,
 ) -> NTSTATUS {
+    if pin.is_null() || data.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
     let com_obj = MiniportTopologyCom::from_this(this);
-    let pin_id = *(pin as *const u32);
+    // SAFETY: KSP_PIN is a repr(C) struct matching the Windows kernel layout.
+    // We access PinId at offset 24 (following the 24-byte KSPROPERTY).
+    let ksp_pin = pin as *const KSP_PIN;
+    let pin_id = (*ksp_pin).PinId;
 
     DbgPrint(
         c"LeylineTopo: GetPinName CALLED for Pin %d (Capture=%d)\n".as_ptr(),
         pin_id,
         (*com_obj).inner.is_capture,
     );
-
-    if pin.is_null() || data.is_null() {
-        return STATUS_INVALID_PARAMETER;
-    }
 
     let out_unicode = data as *mut UNICODE_STRING;
 
@@ -207,12 +282,10 @@ pub unsafe extern "system" fn topology_get_pin_name(
         } else {
             "Leyline Capture Bridge"
         }
+    } else if pin_id == 1 {
+        "Leyline Render Pin"
     } else {
-        if pin_id == 1 {
-            "Leyline Render Pin"
-        } else {
-            "Leyline Render Bridge"
-        }
+        "Leyline Render Bridge"
     };
 
     // Allocate buffer for the string + null terminator
@@ -341,35 +414,37 @@ pub unsafe extern "system" fn topology_data_range_intersection(
         }
     }
 
-    // If data format is requested, create a minimal data format
-    if !data_format.is_null()
-        && data_format_cb >= core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32
-    {
-        let format = data_format as *mut crate::stream::KSDATAFORMAT;
-        *format = crate::stream::KSDATAFORMAT {
-            FormatSize: core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32,
-            Flags: 0,
-            SampleSize: 0,
-            Reserved: 0,
-            MajorFormat: crate::constants::KSDATAFORMAT_TYPE_AUDIO,
-            SubFormat: crate::constants::KSDATAFORMAT_SUBTYPE_ANALOG,
-            Specifier: crate::constants::KSDATAFORMAT_SPECIFIER_NONE_GUID,
-        };
-
+    if data_format.is_null() || data_format_cb == 0 {
         if !actual_data_format_cb.is_null() {
             *actual_data_format_cb = core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32;
         }
+        DbgPrint(c"LeylineTopo: -> Buffer size query (Analog Bridge)\n".as_ptr());
+        return STATUS_BUFFER_TOO_SMALL;
+    }
 
-        DbgPrint(c"LeylineTopo: -> SUCCESS: Negotiated Analog Bridge\n".as_ptr());
-        return STATUS_SUCCESS;
-    } else if !data_format.is_null() {
-        // Buffer too small
+    if data_format_cb < core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32 {
         if !actual_data_format_cb.is_null() {
             *actual_data_format_cb = core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32;
         }
         return STATUS_BUFFER_TOO_SMALL;
     }
 
+    let format = data_format as *mut crate::stream::KSDATAFORMAT;
+    *format = crate::stream::KSDATAFORMAT {
+        FormatSize: core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32,
+        Flags: 0,
+        SampleSize: 0,
+        Reserved: 0,
+        MajorFormat: crate::constants::KSDATAFORMAT_TYPE_AUDIO,
+        SubFormat: crate::constants::KSDATAFORMAT_SUBTYPE_ANALOG,
+        Specifier: crate::constants::KSDATAFORMAT_SPECIFIER_NONE_GUID,
+    };
+
+    if !actual_data_format_cb.is_null() {
+        *actual_data_format_cb = core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32;
+    }
+
+    DbgPrint(c"LeylineTopo: -> SUCCESS: Negotiated Analog Bridge\n".as_ptr());
     STATUS_SUCCESS
 }
 

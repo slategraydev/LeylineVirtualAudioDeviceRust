@@ -6,13 +6,29 @@
 // See LICENSE file in the project root for full terms.
 
 // Second, external crates.
-use wdk_sys::GUID;
+use wdk_sys::ntddk::*;
+use wdk_sys::{
+    GUID, NTSTATUS, STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_PARAMETER,
+    STATUS_SUCCESS,
+};
+
+// Local KSCOMPONENTID definition since it's missing from bindings
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSCOMPONENTID {
+    pub Component: GUID,
+    pub Manufacturer: GUID,
+    pub Product: GUID,
+    pub Name: GUID,
+}
+unsafe impl Sync for KSCOMPONENTID {}
+unsafe impl Send for KSCOMPONENTID {}
 
 // Then current crate.
 use crate::constants::*;
 use crate::stream::{
     KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCAUTOMATION_TABLE,
-    PCCONNECTION, PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR,
+    PCCONNECTION, PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR, PCPROPERTY_ITEM, PPCPROPERTY_REQUEST,
 };
 
 #[repr(C)]
@@ -90,7 +106,7 @@ pub static BRIDGE_DATARANGE: KSDATARANGE = KSDATARANGE {
     SampleSize: 0,
     Reserved: 0,
     MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-    SubFormat: KSDATAFORMAT_SUBTYPE_PCM,
+    SubFormat: KSDATAFORMAT_SUBTYPE_ANALOG,
     Specifier: KSDATAFORMAT_SPECIFIER_NONE_GUID,
 };
 
@@ -103,6 +119,58 @@ pub static WAVE_DATARANGES: [SyncPtr<KSDATARANGE>; 2] = [
 #[link_section = ".rdata"]
 pub static BRIDGE_DATARANGES: [SyncPtr<KSDATARANGE>; 1] =
     [SyncPtr(&BRIDGE_DATARANGE as *const KSDATARANGE)];
+
+#[link_section = ".rdata"]
+pub static GENERAL_PROPERTIES: [PCPROPERTY_ITEM; 1] = [PCPROPERTY_ITEM {
+    Set: &KSPROPSETID_General as *const GUID,
+    Id: KSPROPERTY_GENERAL_COMPONENTID,
+    Flags: 0,
+    Handler: Some(component_id_handler),
+}];
+
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn component_id_handler(property_request: PPCPROPERTY_REQUEST) -> NTSTATUS {
+    if property_request.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    DbgPrint(c"LeylineKernel: KSPROPERTY_GENERAL_COMPONENTID\n".as_ptr());
+
+    // AEB often queries this to verify the driver identity.
+    // PortCls PCPROPERTY_REQUEST uses ValueSize, not ValueLength.
+    if (*property_request).ValueSize == 0 {
+        (*property_request).ValueSize = core::mem::size_of::<KSCOMPONENTID>() as u32;
+        return STATUS_BUFFER_OVERFLOW;
+    }
+
+    if (*property_request).ValueSize < core::mem::size_of::<KSCOMPONENTID>() as u32 {
+        return STATUS_BUFFER_TOO_SMALL;
+    }
+
+    let component_id = (*property_request).Value as *mut KSCOMPONENTID;
+    if !component_id.is_null() {
+        (*component_id).Component = GUID_NULL; // Placeholder
+        (*component_id).Manufacturer = GUID_NULL;
+        (*component_id).Product = GUID_NULL;
+        (*component_id).Name = GUID_NULL;
+    }
+
+    STATUS_SUCCESS
+}
+
+#[link_section = ".rdata"]
+pub static COMPONENT_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+    PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
+    PropertyCount: 1,
+    Properties: GENERAL_PROPERTIES.as_ptr(),
+    MethodItemSize: 0,
+    MethodCount: 0,
+    Methods: core::ptr::null(),
+    EventItemSize: 0,
+    EventCount: 0,
+    Events: core::ptr::null(),
+    Reserved: 0,
+};
 
 #[link_section = ".rdata"]
 pub static MINIMAL_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
@@ -356,7 +424,7 @@ pub static WAVE_CAPTURE_CATEGORIES: [GUID; 3] = [
 #[link_section = ".rdata"]
 pub static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+    AutomationTable: &COMPONENT_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: WAVE_RENDER_PINS.as_ptr(),
@@ -372,7 +440,7 @@ pub static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIP
 #[link_section = ".rdata"]
 pub static WAVE_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+    AutomationTable: &COMPONENT_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: WAVE_CAPTURE_PINS.as_ptr(),
@@ -388,7 +456,7 @@ pub static WAVE_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRI
 #[link_section = ".rdata"]
 pub static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+    AutomationTable: &COMPONENT_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: TOPO_RENDER_PINS.as_ptr(),
@@ -404,7 +472,7 @@ pub static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIP
 #[link_section = ".rdata"]
 pub static TOPO_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+    AutomationTable: &COMPONENT_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: TOPO_CAPTURE_PINS.as_ptr(),

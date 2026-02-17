@@ -43,6 +43,10 @@ pub type KSDATARANGE = audio::KSDATARANGE;
 pub type PKSDATARANGE = audio::PKSDATARANGE;
 #[allow(non_camel_case_types)]
 pub type PCCONNECTION = audio::PCCONNECTION_DESCRIPTOR;
+#[allow(non_camel_case_types)]
+pub type PCPROPERTY_ITEM = audio::PCPROPERTY_ITEM;
+#[allow(non_camel_case_types)]
+pub type PPCPROPERTY_REQUEST = audio::PPCPROPERTY_REQUEST;
 
 // WaveRT Constants.
 pub const KSSTATE_RUN: i32 = audio::KSSTATE_KSSTATE_RUN;
@@ -74,6 +78,7 @@ unsafe impl Sync for KSDATARANGE_AUDIO {}
 unsafe impl Sync for PCPIN_DESCRIPTOR {}
 unsafe impl Sync for PCFILTER_DESCRIPTOR {}
 unsafe impl Sync for PCAUTOMATION_TABLE {}
+unsafe impl Sync for PCPROPERTY_ITEM {}
 
 pub trait TimeSource {
     fn query_time(&self) -> i64;

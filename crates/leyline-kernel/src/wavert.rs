@@ -1,3 +1,5 @@
+#![allow(clippy::missing_safety_doc)]
+
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 //
@@ -94,6 +96,7 @@ pub struct MiniportWaveRTCom {
     pub output_stream_vtable: *const IMiniportWaveRTOutputStreamVTable,
     pub input_stream_vtable: *const IMiniportWaveRTInputStreamVTable,
     pub pin_count_vtable: *const IPinCountVTable,
+    pub resource_manager_vtable: *const IPortClsStreamResourceManager2VTable,
     pub inner: MiniportWaveRT,
     pub ref_count: u32,
 }
@@ -146,6 +149,18 @@ pub static WAVERT_PIN_COUNT_VTABLE: IPinCountVTable = IPinCountVTable {
     PinCount: wavert_pin_count,
 };
 
+#[link_section = ".rdata"]
+pub static RESOURCE_MANAGER_VTABLE: IPortClsStreamResourceManager2VTable =
+    IPortClsStreamResourceManager2VTable {
+        base: IUnknownVTable {
+            QueryInterface: miniport_query_interface,
+            AddRef: miniport_add_ref,
+            Release: miniport_release,
+        },
+        AddResource: wavert_add_resource,
+        RemoveResource: wavert_remove_resource,
+    };
+
 impl MiniportWaveRTCom {
     pub fn new(is_capture: bool, device_extension: *mut DeviceExtension) -> Box<Self> {
         Box::new(Self {
@@ -153,6 +168,7 @@ impl MiniportWaveRTCom {
             output_stream_vtable: &OUTPUT_STREAM_VTABLE,
             input_stream_vtable: &INPUT_STREAM_VTABLE,
             pin_count_vtable: &WAVERT_PIN_COUNT_VTABLE,
+            resource_manager_vtable: &RESOURCE_MANAGER_VTABLE,
             inner: MiniportWaveRT::new(is_capture, device_extension),
             ref_count: 1,
         })
@@ -172,6 +188,8 @@ impl MiniportWaveRTCom {
             (this as usize - 16) as *mut Self
         } else if vtable_ptr == &WAVERT_PIN_COUNT_VTABLE as *const _ as *const u8 {
             (this as usize - 24) as *mut Self
+        } else if vtable_ptr == &RESOURCE_MANAGER_VTABLE as *const _ as *const u8 {
+            (this as usize - 32) as *mut Self
         } else {
             // Fallback: assume primary interface if unknown.
             this as *mut Self
@@ -183,6 +201,9 @@ impl MiniportWaveRTCom {
 // Miniport VTable Callbacks
 // ============================================================================
 
+// SAFETY: Standard COM QueryInterface.
+// 'this' is a pointer to the interface (which is a pointer to the vtable).
+// 'out' is a pointer to a void* where we must return the new interface pointer.
 pub unsafe extern "system" fn miniport_query_interface(
     this: *mut u8,
     iid: *const GUID,
@@ -199,6 +220,9 @@ pub unsafe extern "system" fn miniport_query_interface(
         || crate::is_equal_guid(iid, &IID_IMiniport)
     {
         DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportWaveRT (ACCEPTED)\n".as_ptr());
+        // SAFETY: We return the address of the `vtable` field within the struct.
+        // Since `vtable` is a `*const IMiniportWaveRTVTable`, its address is a `*const *const IMiniportWaveRTVTable`.
+        // This matches the COM requirement that an interface pointer is a pointer to a vtable pointer.
         *out = &((*com_obj).vtable) as *const _ as *mut u8;
     } else if crate::is_equal_guid(iid, &IID_IMiniportWaveRTOutputStream) {
         DbgPrint(
@@ -213,19 +237,52 @@ pub unsafe extern "system" fn miniport_query_interface(
     } else if crate::is_equal_guid(iid, &IID_IPinCount) {
         DbgPrint(c"LeylineWaveRT: QueryInterface -> IPinCount (ACCEPTED)\n".as_ptr());
         *out = &((*com_obj).pin_count_vtable) as *const _ as *mut u8;
-    } else {
-        // Log the full GUID of the rejected interface
+    } else if crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager)
+        || crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager2)
+    {
         DbgPrint(
-            c"LeylineWaveRT: QueryInterface -> REJECTED IID: {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}\n".as_ptr(),
+            c"LeylineWaveRT: QueryInterface -> IPortClsStreamResourceManager2 (ACCEPTED)\n"
+                .as_ptr(),
+        );
+        *out = &((*com_obj).resource_manager_vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IMiniportAudioSignalProcessing) {
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportAudioSignalProcessing (REJECTED - NOT IMPLEMENTED)\n".as_ptr());
+        return STATUS_NOINTERFACE;
+    } else if crate::is_equal_guid(iid, &IID_IMiniportAudioEngineNode) {
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportAudioEngineNode (REJECTED - NOT IMPLEMENTED)\n".as_ptr());
+        return STATUS_NOINTERFACE;
+    } else {
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> REJECTED IID: {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}\n".as_ptr(),
             (*iid).Data1, (*iid).Data2 as core::ffi::c_uint, (*iid).Data3 as core::ffi::c_uint,
             (*iid).Data4[0] as core::ffi::c_uint, (*iid).Data4[1] as core::ffi::c_uint, (*iid).Data4[2] as core::ffi::c_uint, (*iid).Data4[3] as core::ffi::c_uint,
             (*iid).Data4[4] as core::ffi::c_uint, (*iid).Data4[5] as core::ffi::c_uint, (*iid).Data4[6] as core::ffi::c_uint, (*iid).Data4[7] as core::ffi::c_uint
         );
+        // Special check for IID_IPinName which is usually for Topology but AEB might try here too
+        if crate::is_equal_guid(iid, &IID_IPinName) {
+            DbgPrint(c"LeylineWaveRT: AEB queried IPinName on Wave Miniport (REJECTED)\n".as_ptr());
+        }
         *out = null_mut();
         return STATUS_NOINTERFACE;
     }
 
     (*com_obj).ref_count += 1;
+    STATUS_SUCCESS
+}
+
+pub unsafe extern "system" fn wavert_add_resource(
+    _this: *mut u8,
+    _resource_description: *mut u8,
+    _resource_handle: *mut *mut u8,
+) -> NTSTATUS {
+    DbgPrint(c"LeylineWaveRT: AddResource (STUB)\n".as_ptr());
+    STATUS_SUCCESS
+}
+
+pub unsafe extern "system" fn wavert_remove_resource(
+    _this: *mut u8,
+    _resource_handle: *mut u8,
+) -> NTSTATUS {
+    DbgPrint(c"LeylineWaveRT: RemoveResource (STUB)\n".as_ptr());
     STATUS_SUCCESS
 }
 
@@ -312,7 +369,7 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
             *actual_data_format_cb = format_size;
         }
         DbgPrint(c"LeylineWaveRT: -> Buffer size query (40 bytes)\n".as_ptr());
-        return STATUS_BUFFER_OVERFLOW;
+        return STATUS_BUFFER_TOO_SMALL; // PortCls and AEB expect TOO_SMALL for size queries
     }
     if data_format_cb < format_size {
         DbgPrint(c"LeylineWaveRT: -> FAILED: Buffer too small\n".as_ptr());

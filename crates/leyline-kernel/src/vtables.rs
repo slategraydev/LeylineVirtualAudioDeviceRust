@@ -155,3 +155,15 @@ pub struct IMiniportWaveRTInputStreamVTable {
         more_data: *mut i32,
     ) -> NTSTATUS,
 }
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct IPortClsStreamResourceManager2VTable {
+    pub base: IUnknownVTable,
+    pub AddResource: unsafe extern "system" fn(
+        this: *mut u8,
+        resource_description: *mut u8,
+        resource_handle: *mut *mut u8,
+    ) -> NTSTATUS,
+    pub RemoveResource:
+        unsafe extern "system" fn(this: *mut u8, resource_handle: *mut u8) -> NTSTATUS,
+}

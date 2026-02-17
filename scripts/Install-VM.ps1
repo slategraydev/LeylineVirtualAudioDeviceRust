@@ -22,18 +22,17 @@ $cred = New-Object System.Management.Automation.PSCredential ($UserName, $secPas
 
 $vmsess = $null
 
-try
-{
+try {
     Push-Location $ProjectRoot
 
     # 1. Check VM Status
     Write-Host "[*] Checking VM: $VMName..." -ForegroundColor Cyan
     $vm = Get-VM -Name $VMName -ErrorAction SilentlyContinue
-    if (-not $vm)
-    { throw "VM '$VMName' not found."
+    if (-not $vm) {
+        throw "VM '$VMName' not found."
     }
-    if ($vm.State -ne 'Running')
-    { throw "VM '$VMName' is not running. Current state: $($vm.State)"
+    if ($vm.State -ne 'Running') {
+        throw "VM '$VMName' is not running. Current state: $($vm.State)"
     }
 
     # Create Session
@@ -49,51 +48,51 @@ try
 
     # Get timestamp before build
     $preBuildTime = $null
-    if (Test-Path $kernelBinary)
-    {
+    if (Test-Path $kernelBinary) {
         $preBuildTime = (Get-Item $kernelBinary).LastWriteTime
         Write-Host "[*] Previous build: $($preBuildTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Gray
-    } elseif (Test-Path $kernelSys)
-    {
+    }
+    elseif (Test-Path $kernelSys) {
         $preBuildTime = (Get-Item $kernelSys).LastWriteTime
         Write-Host "[*] Previous build: $($preBuildTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Gray
     }
 
-    # Force clean to ensure cargo rebuilds everything
-    Write-Host "[*] Cleaning old build artifacts..." -ForegroundColor Yellow
-    # Clean from workspace root to ensure proper cleanup
-    cargo clean --release
-    if ($LASTEXITCODE -ne 0)
-    {
-        Pop-Location
-        throw "cargo clean failed with exit code $LASTEXITCODE"
+    # Force clean to ensure cargo rebuilds everything - ONLY if requested
+    if ($clean) {
+        Write-Host "[*] Cleaning old build artifacts..." -ForegroundColor Yellow
+        # Clean from workspace root to ensure proper cleanup
+        cargo clean --release
+        if ($LASTEXITCODE -ne 0) {
+            Pop-Location
+            throw "cargo clean failed with exit code $LASTEXITCODE"
+        }
     }
     Pop-Location
 
-    # Verify clean actually removed the files
-    if (Test-Path $kernelBinary)
-    {
-        Remove-Item $kernelBinary -Force
-        Write-Host "[*] Manually removed old DLL" -ForegroundColor Gray
-    }
-    if (Test-Path $kernelSys)
-    {
-        Remove-Item $kernelSys -Force
-        Write-Host "[*] Manually removed old SYS" -ForegroundColor Gray
+    # Verify clean actually removed the files - ONLY if requested
+    if ($clean) {
+        if (Test-Path $kernelBinary) {
+            Remove-Item $kernelBinary -Force
+            Write-Host "[*] Manually removed old DLL" -ForegroundColor Gray
+        }
+        if (Test-Path $kernelSys) {
+            Remove-Item $kernelSys -Force
+            Write-Host "[*] Manually removed old SYS" -ForegroundColor Gray
+        }
     }
 
-    # Also clean stale files in crate target directory if they exist
-    $staleBinary = "$ProjectRoot/crates/leyline-kernel/target/release/leyline.dll"
-    $staleSys = "$ProjectRoot/crates/leyline-kernel/target/release/leyline.sys"
-    if (Test-Path $staleBinary)
-    {
-        Remove-Item $staleBinary -Force
-        Write-Host "[*] Removed stale DLL from crate target" -ForegroundColor Gray
-    }
-    if (Test-Path $staleSys)
-    {
-        Remove-Item $staleSys -Force
-        Write-Host "[*] Removed stale SYS from crate target" -ForegroundColor Gray
+    # Also clean stale files in crate target directory if they exist - ONLY if requested
+    if ($clean) {
+        $staleBinary = "$ProjectRoot/crates/leyline-kernel/target/release/leyline.dll"
+        $staleSys = "$ProjectRoot/crates/leyline-kernel/target/release/leyline.sys"
+        if (Test-Path $staleBinary) {
+            Remove-Item $staleBinary -Force
+            Write-Host "[*] Removed stale DLL from crate target" -ForegroundColor Gray
+        }
+        if (Test-Path $staleSys) {
+            Remove-Item $staleSys -Force
+            Write-Host "[*] Removed stale SYS from crate target" -ForegroundColor Gray
+        }
     }
 
     # Run the build
@@ -102,35 +101,30 @@ try
     $buildExitCode = $LASTEXITCODE
 
     # Show build output for debugging
-    if ($buildOutput)
-    {
+    if ($buildOutput) {
         Write-Host "[*] Build output:" -ForegroundColor Gray
         $buildOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
     }
 
-    if ($buildExitCode -ne 0)
-    {
+    if ($buildExitCode -ne 0) {
         throw "Build script failed with exit code $buildExitCode"
     }
 
     # Debug: Show what files exist in target/release
     Write-Host "[*] Listing build output directory..." -ForegroundColor Gray
     $targetDir = "$ProjectRoot/target/release"
-    if (Test-Path $targetDir)
-    {
+    if (Test-Path $targetDir) {
         $files = Get-ChildItem $targetDir -File | Where-Object { $_.Name -match "\.(dll|sys|exe)$" } | Select-Object -First 10
-        foreach ($file in $files)
-        {
+        foreach ($file in $files) {
             Write-Host "    Found: $($file.Name) ($($file.LastWriteTime.ToString('HH:mm:ss')))" -ForegroundColor Gray
         }
-    } else
-    {
+    }
+    else {
         Write-Host "    [WARNING] Target directory not found: $targetDir" -ForegroundColor Yellow
     }
 
     # PowerShell scripts don't set LASTEXITCODE properly, check if files exist instead
-    if (-not (Test-Path $kernelBinary) -and -not (Test-Path $kernelSys))
-    {
+    if (-not (Test-Path $kernelBinary) -and -not (Test-Path $kernelSys)) {
         Write-Host "[ERROR] Expected binaries not found:" -ForegroundColor Red
         Write-Host "  - $kernelBinary" -ForegroundColor Red
         Write-Host "  - $kernelSys" -ForegroundColor Red
@@ -141,24 +135,21 @@ try
     # Verify build actually produced new binary
     $postBuildTime = $null
     $actualBinary = $null
-    if (Test-Path $kernelBinary)
-    {
+    if (Test-Path $kernelBinary) {
         $postBuildTime = (Get-Item $kernelBinary).LastWriteTime
         $actualBinary = $kernelBinary
-    } elseif (Test-Path $kernelSys)
-    {
+    }
+    elseif (Test-Path $kernelSys) {
         $postBuildTime = (Get-Item $kernelSys).LastWriteTime
         $actualBinary = $kernelSys
     }
 
-    if ($preBuildTime -and $postBuildTime -le $preBuildTime)
-    {
+    if ($preBuildTime -and $postBuildTime -le $preBuildTime) {
         throw "Build did not produce new binary! Timestamp unchanged: $postBuildTime"
     }
 
     # Verify the build actually produced a NEW file (not the old one)
-    if ($preBuildTime -and $postBuildTime -eq $preBuildTime)
-    {
+    if ($preBuildTime -and $postBuildTime -eq $preBuildTime) {
         Write-Host "[ERROR] Build did not produce new binary!" -ForegroundColor Red
         Write-Host "[ERROR] Binary timestamp unchanged: $($postBuildTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Red
         Write-Host "[HINT] Try running manually:" -ForegroundColor Yellow
@@ -170,28 +161,25 @@ try
 
     $currentTime = Get-Date
     $buildAge = ($currentTime - $postBuildTime).TotalMinutes
-    if ($buildAge -gt 1)
-    {
+    if ($buildAge -gt 1) {
         Write-Host "[WARNING] New build is $([int]$buildAge) minutes old - build may have used cache" -ForegroundColor Yellow
     }
 
     Write-Host "[*] Build successful: $actualBinary" -ForegroundColor Green
     Write-Host "[*] NEW build created: $($postBuildTime.ToString('MM/dd/yyyy HH:mm:ss'))" -ForegroundColor Green
 
-    if ($preBuildTime)
-    {
+    if ($preBuildTime) {
         $timeDiff = ($postBuildTime - $preBuildTime).TotalMinutes
         Write-Host "[*] Time since previous build: $([int]$timeDiff) minutes" -ForegroundColor Gray
     }
 
-    if (-not (Test-Path "$ProjectRoot/package"))
-    { throw "Driver package not found. Run with -build."
+    if (-not (Test-Path "$ProjectRoot/package")) {
+        throw "Driver package not found. Run with -build."
     }
 
     # Verify package contains fresh binary
     $packagedSys = "$ProjectRoot/package/leyline.sys"
-    if (Test-Path $packagedSys)
-    {
+    if (Test-Path $packagedSys) {
         $packageTime = (Get-Item $packagedSys).LastWriteTime
         $sourceTime = (Get-Item $actualBinary).LastWriteTime
 
@@ -200,14 +188,13 @@ try
 
         # Allow 2 second tolerance for file system timestamps
         $timeDiff = ($packageTime - $sourceTime).TotalSeconds
-        if ($timeDiff -lt -2)
-        {
+        if ($timeDiff -lt -2) {
             Write-Host "[ERROR] Package is older than source binary by $([int]$timeDiff) seconds!" -ForegroundColor Red
             throw "Package is stale - source: $sourceTime, package: $packageTime"
         }
         Write-Host "[*] Package verified fresh (timestamp diff: $([int]$timeDiff)s)" -ForegroundColor Green
-    } else
-    {
+    }
+    else {
         throw "$ProjectRoot/package/leyline.sys not found - packaging failed"
     }
 
@@ -215,45 +202,39 @@ try
     $devgenHost = $null
     $devconHost = $null
     $possibleEwdk = @("D:\eWDK_28000", $env:eWDK_ROOT_DIR, "C:\Users\Slate\Downloads\EWDK_br_release_28000_251103-1709")
-    foreach ($p in $possibleEwdk)
-    {
-        if ($p -and (Test-Path $p))
-        {
+    foreach ($p in $possibleEwdk) {
+        if ($p -and (Test-Path $p)) {
             # Find devgen.exe
-            if (-not $devgenHost)
-            {
+            if (-not $devgenHost) {
                 $found = Get-ChildItem -Path $p -Filter "devgen.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1
-                if ($found)
-                { $devgenHost = $found
+                if ($found) {
+                    $devgenHost = $found
                 }
             }
             # Find devcon.exe
-            if (-not $devconHost)
-            {
+            if (-not $devconHost) {
                 $found = Get-ChildItem -Path $p -Filter "devcon.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1
-                if ($found)
-                { $devconHost = $found
+                if ($found) {
+                    $devconHost = $found
                 }
             }
             # Break if both found
-            if ($devgenHost -and $devconHost)
-            { break
+            if ($devgenHost -and $devconHost) {
+                break
             }
         }
     }
 
-    if ($devgenHost)
-    {
+    if ($devgenHost) {
         Write-Host "[*] Bundling DevGen from: $($devgenHost.FullName)"
         Copy-Item $devgenHost.FullName "$ProjectRoot/package\devgen.exe" -Force
     }
 
-    if ($devconHost)
-    {
+    if ($devconHost) {
         Write-Host "[*] Bundling DevCon from: $($devconHost.FullName)"
         Copy-Item $devconHost.FullName "$ProjectRoot/package\devcon.exe" -Force
-    } else
-    {
+    }
+    else {
         Write-Host "[WARNING] DevCon not found. Root\Media mode will not be available on VM." -ForegroundColor Yellow
     }
 
@@ -264,8 +245,8 @@ try
     $remotePath = "C:\LeylineInstall"
     Invoke-Command -Session $vmsess -ScriptBlock {
         param($path, $UseRootMedia)
-        if (Test-Path $path)
-        { Remove-Item $path -Recurse -Force
+        if (Test-Path $path) {
+            Remove-Item $path -Recurse -Force
         }
         New-Item -ItemType Directory -Path $path -Force | Out-Null
     } -ArgumentList $remotePath, $UseRootMedia
@@ -286,8 +267,8 @@ try
 
         Write-Host "[VM] Enabling Kernel Debug Prints (DbgPrint)..."
         $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Debug Print Filter"
-        if (-not (Test-Path $regPath))
-        { New-Item -Path $regPath -Force | Out-Null
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force | Out-Null
         }
         New-ItemProperty -Path $regPath -Name "DEFAULT" -Value 0xFFFFFFFF -PropertyType DWORD -Force | Out-Null
 
@@ -306,26 +287,23 @@ try
         Write-Host "    -> $stageResult"
 
         # Session #42: Support both SWD\DEVGEN (default) and ROOT\MEDIA (experimental) enumeration modes
-        if ($UseRootMedia)
-        {
+        if ($UseRootMedia) {
             Write-Host "[VM] [ROOT_MEDIA MODE] Creating device with devcon.exe install..."
-            if (Test-Path "devcon.exe")
-            {
+            if (Test-Path "devcon.exe") {
                 $devconResult = .\devcon.exe install "leyline.inf" "Root\Media\LeylineAudio" 2>&1
                 Write-Host "    -> Devcon result: $devconResult"
-            } else
-            {
+            }
+            else {
                 Write-Host "    -> [ERROR] devcon.exe missing in package. Cannot use Root\Media mode." -ForegroundColor Red
             }
-        } else
-        {
+        }
+        else {
             Write-Host "[VM] [SWD_DEVGEN MODE] Creating Device Node with DevGen (default)..."
-            if (Test-Path "devgen.exe")
-            {
+            if (Test-Path "devgen.exe") {
                 .\devgen.exe /add /hardwareid "Root\Media\LeylineAudio" | Out-Null
                 Write-Host "    -> Device node created."
-            } else
-            {
+            }
+            else {
                 Write-Host "    -> [WARNING] devgen.exe missing in package. Device node not created." -ForegroundColor Yellow
             }
         }
@@ -335,10 +313,10 @@ try
 
     Write-Host "`n[SUCCESS] Deployment to $VMName complete." -ForegroundColor Green
 
-} finally
-{
-    if ($vmsess)
-    { Remove-PSSession $vmsess
+}
+finally {
+    if ($vmsess) {
+        Remove-PSSession $vmsess
     }
     Set-Location $initialDir
 }
