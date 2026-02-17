@@ -11,8 +11,8 @@ use wdk_sys::GUID;
 // Then current crate.
 use crate::constants::*;
 use crate::stream::{
-    KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCCONNECTION,
-    PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR,
+    KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCAUTOMATION_TABLE,
+    PCCONNECTION, PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR,
 };
 
 #[repr(C)]
@@ -106,6 +106,20 @@ pub static WAVE_DATARANGES: [SyncPtr<KSDATARANGE>; 2] = [
 pub static BRIDGE_DATARANGES: [SyncPtr<KSDATARANGE>; 1] =
     [SyncPtr(&BRIDGE_DATARANGE as *const KSDATARANGE)];
 
+#[link_section = ".rdata"]
+pub static MINIMAL_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+    PropertyItemSize: 0,
+    PropertyCount: 0,
+    Properties: core::ptr::null(),
+    MethodItemSize: 0,
+    MethodCount: 0,
+    Methods: core::ptr::null(),
+    EventItemSize: 0,
+    EventCount: 0,
+    Events: core::ptr::null(),
+    Reserved: 0,
+};
+
 // ============================================================================
 // Pin Descriptors
 // ============================================================================
@@ -116,7 +130,7 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 4,
         MaxFilterInstanceCount: 4,
         MinFilterInstanceCount: 1,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -136,7 +150,7 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -160,7 +174,7 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 4,
         MaxFilterInstanceCount: 4,
         MinFilterInstanceCount: 1,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -180,7 +194,7 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -204,7 +218,7 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -224,7 +238,7 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -248,7 +262,7 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -268,7 +282,7 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -344,7 +358,7 @@ pub static WAVE_CAPTURE_CATEGORIES: [GUID; 3] = [
 #[link_section = ".rdata"]
 pub static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: core::ptr::null(),
+    AutomationTable: &MINIMAL_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: WAVE_RENDER_PINS.as_ptr(),
@@ -360,7 +374,7 @@ pub static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIP
 #[link_section = ".rdata"]
 pub static WAVE_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: core::ptr::null(),
+    AutomationTable: &MINIMAL_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: WAVE_CAPTURE_PINS.as_ptr(),
@@ -376,7 +390,7 @@ pub static WAVE_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRI
 #[link_section = ".rdata"]
 pub static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: core::ptr::null(),
+    AutomationTable: &MINIMAL_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: TOPO_RENDER_PINS.as_ptr(),
@@ -392,7 +406,7 @@ pub static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIP
 #[link_section = ".rdata"]
 pub static TOPO_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: core::ptr::null(),
+    AutomationTable: &MINIMAL_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: TOPO_CAPTURE_PINS.as_ptr(),

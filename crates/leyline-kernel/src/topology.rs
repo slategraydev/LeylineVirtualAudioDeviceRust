@@ -97,6 +97,24 @@ impl MiniportTopologyCom {
             ref_count: 1,
         })
     }
+
+    /// Recovers the base MiniportTopologyCom pointer from any of its interface pointers.
+    ///
+    /// # Safety
+    /// 'this' must be a valid pointer to one of the VTable fields in MiniportTopologyCom.
+    pub unsafe fn from_this(this: *mut u8) -> *mut Self {
+        let vtable_ptr = *(this as *mut *const u8);
+        if vtable_ptr == &TOPOLOGY_VTABLE as *const _ as *const u8 {
+            this as *mut Self
+        } else if vtable_ptr == &PIN_COUNT_VTABLE as *const _ as *const u8 {
+            (this as usize - 8) as *mut Self
+        } else if vtable_ptr == &PIN_NAME_VTABLE as *const _ as *const u8 {
+            (this as usize - 16) as *mut Self
+        } else {
+            // Fallback: assume primary interface if unknown.
+            this as *mut Self
+        }
+    }
 }
 
 /// QueryInterface callback for Topology miniport.
@@ -113,7 +131,7 @@ pub unsafe extern "system" fn topology_query_interface(
         return STATUS_INVALID_PARAMETER;
     }
 
-    let com_obj = this as *mut MiniportTopologyCom;
+    let com_obj = MiniportTopologyCom::from_this(this);
 
     // Log the requested interface GUID (Simple string only)
     DbgPrint(c"LeylineTopo: QueryInterface called\n".as_ptr());
@@ -148,7 +166,7 @@ pub unsafe extern "system" fn topology_query_interface(
 
 /// PinCount callback for Topology miniport.
 pub unsafe extern "system" fn topology_pin_count(
-    _this: *mut u8,
+    this: *mut u8,
     pin_id: u32,
     _filter_necessary: *mut u32,
     _filter_current: *mut u32,
@@ -156,6 +174,7 @@ pub unsafe extern "system" fn topology_pin_count(
     _global_current: *mut u32,
     _global_possible: *mut u32,
 ) {
+    let _com_obj = MiniportTopologyCom::from_this(this);
     DbgPrint(
         c"LeylineTopo: PinCount called for pin %d\n".as_ptr(),
         pin_id,
@@ -164,13 +183,57 @@ pub unsafe extern "system" fn topology_pin_count(
 
 /// GetPinName callback for Topology miniport.
 pub unsafe extern "system" fn topology_get_pin_name(
-    _this: *mut u8,
-    _irp: *mut u8,
-    _pin: *mut u8,
-    _data: *mut u8,
+    this: *mut u8,
+    irp: *mut u8,
+    pin: *mut u8,
+    data: *mut u8,
 ) -> NTSTATUS {
+    let com_obj = MiniportTopologyCom::from_this(this);
     DbgPrint(c"LeylineTopo: GetPinName called\n".as_ptr());
-    STATUS_NOT_IMPLEMENTED
+
+    if irp.is_null() || pin.is_null() || data.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    let pin_id = *(pin as *const u32);
+    let out_unicode = data as *mut UNICODE_STRING;
+
+    // Use KSNODETYPE to determine name
+    let name_prefix = if (*com_obj).inner.is_capture != 0 {
+        if pin_id == 0 {
+            "Leyline Capture Pin"
+        } else {
+            "Leyline Capture Bridge"
+        }
+    } else {
+        if pin_id == 1 {
+            "Leyline Render Pin"
+        } else {
+            "Leyline Render Bridge"
+        }
+    };
+
+    // Allocate buffer for the string (PortCls will free this)
+    let buffer_len = (name_prefix.len() * 2) as u16;
+    let buffer = ExAllocatePool2(
+        POOL_FLAG_PAGED,
+        buffer_len as u64,
+        u32::from_be_bytes(*b"LLPN"),
+    ) as *mut u16;
+
+    if buffer.is_null() {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    for (i, c) in name_prefix.encode_utf16().enumerate() {
+        *buffer.add(i) = c;
+    }
+
+    (*out_unicode).Length = buffer_len;
+    (*out_unicode).MaximumLength = buffer_len;
+    (*out_unicode).Buffer = buffer;
+
+    STATUS_SUCCESS
 }
 
 /// AddRef callback for Topology miniport.
@@ -178,7 +241,7 @@ pub unsafe extern "system" fn topology_get_pin_name(
 /// # Safety
 /// Standard COM-like AddRef. Parameters must be valid pointers.
 pub unsafe extern "system" fn topology_add_ref(this: *mut u8) -> u32 {
-    let com_obj = this as *mut MiniportTopologyCom;
+    let com_obj = MiniportTopologyCom::from_this(this);
     (*com_obj).ref_count += 1;
     (*com_obj).ref_count
 }
@@ -188,7 +251,7 @@ pub unsafe extern "system" fn topology_add_ref(this: *mut u8) -> u32 {
 /// # Safety
 /// Standard COM-like Release. Parameters must be valid pointers.
 pub unsafe extern "system" fn topology_release(this: *mut u8) -> u32 {
-    let com_obj = this as *mut MiniportTopologyCom;
+    let com_obj = MiniportTopologyCom::from_this(this);
     (*com_obj).ref_count -= 1;
     let count = (*com_obj).ref_count;
     if count == 0 {
@@ -212,7 +275,7 @@ pub unsafe extern "system" fn topology_get_description(
         return STATUS_INVALID_PARAMETER;
     }
 
-    let com_obj = this as *mut MiniportTopologyCom;
+    let com_obj = MiniportTopologyCom::from_this(this);
     let description = out_description as *mut *const PCFILTER_DESCRIPTOR;
 
     // Validate the descriptor before returning
@@ -317,7 +380,7 @@ pub unsafe extern "system" fn topology_init(
 
     DbgPrint(c"LeylineTopo: Init parameters validated\n".as_ptr());
 
-    let com_obj = this as *mut MiniportTopologyCom;
+    let com_obj = MiniportTopologyCom::from_this(this);
     let status = (*com_obj).inner.init(
         unknown_adapter as PVOID,
         resource_list as PVOID,

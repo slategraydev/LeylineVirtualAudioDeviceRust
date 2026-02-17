@@ -8,7 +8,7 @@ Class       = MEDIA
 ClassGuid   = {4d36e96c-e325-11ce-bfc1-08002be10318}
 Provider    = %ManufacturerName%
 CatalogFile = leyline.cat
-DriverVer   = 02/16/2026,1.0.1.2242
+DriverVer   = 02/16/2026,1.0.1.2343
 PnpLockdown = 1
 
 [SourceDisksNames]
@@ -25,7 +25,7 @@ DefaultDestDir = 13 ; Driver Store
 %ManufacturerName% = Standard,NTamd64
 
 [Standard.NTamd64]
-%DeviceName% = Leyline_Device, Root\LeylineAudio
+%DeviceName% = Leyline_Device, Root\Media\LeylineAudio
 
 ; ==============================================================================
 ; Device Installation
@@ -89,9 +89,13 @@ HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
 HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameRender%
-HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
+; Endpoint Properties (Flattened to Root)
+HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
+HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
+HKR,,%PKEY_AudioDevice_AlwaysEnabled%,0x00010001,0x00000001
+HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, 00,BB,01,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
 ; Force endpoint visibility: 0x00000101 = FLOW_MASK_RENDER | FLAG_ENABLE
-HKR,"EP\0",%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000101
+HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000101
 
 [Leyline_WaveCaptureInterface.AddReg]
 ; Register the APOs for this interface
@@ -100,9 +104,13 @@ HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
 HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameCapture%
-HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
+; Endpoint Properties (Flattened to Root)
+HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
+HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
+HKR,,%PKEY_AudioDevice_AlwaysEnabled%,0x00010001,0x00000001
+HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, 00,BB,01,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
 ; Force endpoint visibility: 0x00000201 = FLOW_MASK_CAPTURE | FLAG_ENABLE
-HKR,"EP\0",%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000201
+HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000201
 
 [Leyline_TopoRenderInterface.AddReg]
 HKR,,FriendlyName,,%DeviceNameRender%
@@ -145,7 +153,10 @@ PKEY_FX_StreamEffectClsid   = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},5"
 PKEY_FX_ModeEffectClsid     = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},6"
 PKEY_FX_EndpointEffectClsid = "{D04E05A6-594B-4fb6-A80D-01AF5EED7D1D},7"
 PKEY_AudioEndpoint_Association = "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},2"
+PKEY_AudioEndpoint_Supports_EventDriven_Mode = "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},9"
+PKEY_AudioDevice_AlwaysEnabled = "{F3E80BEF-1723-4FF2-BCC4-7F83DC5E46D4},2"
 PKEY_AudioDevice_EnableEndpointByDefault = "{F3E80BEF-1723-4FF2-BCC4-7F83DC5E46D4},4"
+PKEY_AudioEngine_OEMFormat = "{E4870E26-3CC5-4CD2-BA46-CA0A9A70ED04},3"
 
 ; Nodes
 KSNODETYPE_ANY         = "{00000000-0000-0000-0000-000000000000}"

@@ -80,7 +80,7 @@ try
         }
 
         # System State Purge: Remove existing and legacy devices to start from a truly blank slate
-        $legacyIds = @("Root\LeylineAudio", "Root\simpleaudiosample", "Root\SimpleAudioDriver")
+        $legacyIds = @("Root\Media\LeylineAudio", "Root\LeylineAudio", "Root\simpleaudiosample", "Root\SimpleAudioDriver")
         Get-PnpDevice -PresentOnly:$false | Where-Object {
             $hwid = $_.HardwareID
             $match = $false
@@ -185,7 +185,7 @@ try
 
         # 1. Clean up any existing instances to avoid duplicates
         Write-Host "[*] Checking for existing Leyline instances..."
-        $existing = Get-PnpDevice -PresentOnly:$false | Where-Object { $_.HardwareID -contains "Root\LeylineAudio" }
+        $existing = Get-PnpDevice -PresentOnly:$false | Where-Object { $_.HardwareID -contains "Root\Media\LeylineAudio" -or $_.HardwareID -contains "Root\LeylineAudio" }
         foreach ($dev in $existing)
         {
             Write-Host "    -> Removing old instance: $($dev.InstanceId)"
@@ -202,7 +202,7 @@ try
             {
                 # Use devcon install to create a traditional ROOT\MEDIA enumerated device
                 # This creates Instance ID like ROOT\MEDIA\0000 instead of SWD\DEVGEN\{GUID}
-                $devconResult = & $env:DEVCON_EXE install "$ProjectRoot/package/leyline.inf" "Root\LeylineAudio" 2>&1
+                $devconResult = & $env:DEVCON_EXE install "$ProjectRoot/package/leyline.inf" "Root\Media\LeylineAudio" 2>&1
                 Write-Host "    -> Devcon result: $devconResult" -ForegroundColor Gray
             } else
             {
@@ -214,7 +214,7 @@ try
             Write-Host "    Note: If endpoints don't appear, try -UseRootMedia switch." -ForegroundColor Gray
             if (Test-Path $env:DEVGEN_EXE)
             {
-                & $env:DEVGEN_EXE /add /hardwareid "Root\LeylineAudio" | Out-Null
+                & $env:DEVGEN_EXE /add /hardwareid "Root\Media\LeylineAudio" | Out-Null
             } else
             {
                 throw "devgen.exe NOT FOUND at $env:DEVGEN_EXE"
@@ -236,7 +236,7 @@ try
 
         # Final Verification
         Start-Sleep -Seconds 2
-        $finalDevices = Get-PnpDevice -PresentOnly:$true | Where-Object { $_.HardwareID -contains "Root\LeylineAudio" }
+        $finalDevices = Get-PnpDevice -PresentOnly:$true | Where-Object { $_.HardwareID -contains "Root\Media\LeylineAudio" }
 
         if ($finalDevices)
         {

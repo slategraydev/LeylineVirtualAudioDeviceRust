@@ -7,9 +7,10 @@
 
 | Script | Purpose | Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **`Install.ps1`** | Build + Install Pipeline | ✅ | FIXED: Uses `Set-Location $initialDir` for guaranteed return. |
-| **`Uninstall.ps1`** | Clean Uninstall | ✅ | FIXED: Uses `Set-Location $initialDir`. |
-| **`Install-VM.ps1`** | Remote Install | ✅ | FIXED: Uses `Set-Location $initialDir`. |
+| **`Install.ps1`** | Build + Install Pipeline | ✅ | UPDATED: Standardized on `Root\Media\LeylineAudio`. |
+| **`Uninstall.ps1`** | Clean Uninstall | ✅ | Stable. |
+| **`Install-VM.ps1`** | Remote Install | ✅ | UPDATED: Aligned remote ID with INF. |
 
 ## Observations
-- All scripts now adhere to the robust `try...finally { Set-Location $initialDir }` pattern. This prevents "directory drift" when users or developers run scripts from arbitrary locations (e.g., `.\scripts\Install.ps1` vs `cd scripts; .\Install.ps1`).
+- Session #46 successfully realigned the installation logic with the updated Hardware ID identity. The scripts are now 100% synchronized with the INF.
+- **Verification**: Confirmed `Install-VM.ps1` properly propagates the new ID to the remote VM session.

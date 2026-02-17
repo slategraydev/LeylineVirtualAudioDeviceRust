@@ -26,11 +26,6 @@ use crate::PcRegisterPhysicalConnection;
 const _POOL_TAG: u32 = u32::from_be_bytes(*b"LLAD");
 const PORT_CLASS_DEVICE_EXTENSION_SIZE: usize = 64 * size_of::<usize>();
 
-// Global storage for Physical Device Object (PDO)
-// IoRegisterDeviceInterface requires the PDO, not the FDO
-// Since there's only one device instance, we use a static variable
-static mut GLOBAL_PDO: PDEVICE_OBJECT = null_mut();
-
 #[repr(C)]
 pub struct DeviceExtension {
     pub control_device_object: *mut DEVICE_OBJECT,
@@ -113,19 +108,7 @@ extern "C" {
 
 // Session #42: Explicit audio device interface registration
 // Required because INF AddInterface is not being processed for virtual audio drivers
-extern "C" {
-    pub fn IoRegisterDeviceInterface(
-        PhysicalDeviceObject: PDEVICE_OBJECT,
-        InterfaceClassGuid: *const GUID,
-        ReferenceString: *const UNICODE_STRING, // Corrected from *const u16
-        SymbolicLinkName: *mut UNICODE_STRING,
-    ) -> NTSTATUS;
-
-    pub fn IoSetDeviceInterfaceState(
-        SymbolicLinkName: *const UNICODE_STRING,
-        Enable: u8,
-    ) -> NTSTATUS;
-}
+// --- REMOVED Session #46 (Aligned with PortCls/INF architecture) ---
 
 /// AddDevice callback for PortCls initialization.
 ///
@@ -136,16 +119,40 @@ pub unsafe extern "C" fn AddDevice(
     driver_object: PDRIVER_OBJECT,
     physical_device_object: PDEVICE_OBJECT,
 ) -> NTSTATUS {
-    DbgPrint(c"Leyline: AddDevice\n".as_ptr());
+    DbgPrint(
+        c"Leyline: AddDevice (PDO: %p)\n".as_ptr(),
+        physical_device_object,
+    );
+
+    // Diagnostic: Check the Hardware ID of the PDO
+    let mut length: u32 = 0;
+    let _ = IoGetDeviceProperty(
+        physical_device_object,
+        DEVICE_REGISTRY_PROPERTY::DevicePropertyHardwareID,
+        0,
+        core::ptr::null_mut(),
+        &mut length,
+    );
+    if length > 0 {
+        let mut buffer = alloc::vec![0u8; length as usize];
+        let status = IoGetDeviceProperty(
+            physical_device_object,
+            DEVICE_REGISTRY_PROPERTY::DevicePropertyHardwareID,
+            length,
+            buffer.as_mut_ptr() as PVOID,
+            &mut length,
+        );
+        if status == STATUS_SUCCESS {
+            // Hardware IDs are multi-sz (null separated). Just print the first one.
+            DbgPrint(
+                c"Leyline: Device Hardware ID: %ls\n".as_ptr(),
+                buffer.as_ptr() as *const u16,
+            );
+        }
+    }
 
     let total_extension_size =
         (PORT_CLASS_DEVICE_EXTENSION_SIZE + size_of::<DeviceExtension>()) as u32;
-
-    // Store PDO in static variable for StartDevice to access
-    // IoRegisterDeviceInterface requires the PDO, not the FDO
-    unsafe {
-        GLOBAL_PDO = physical_device_object;
-    }
 
     PcAddAdapterDevice(
         driver_object,
@@ -168,48 +175,7 @@ pub unsafe extern "C" fn StartDevice(
 ) -> NTSTATUS {
     let mut status: NTSTATUS;
     let dev_ext = get_device_extension(device_object);
-    DbgPrint(c"Leyline: StartDevice\n".as_ptr());
-
-    // Capture FDO for IOCTL bridge.
-    crate::FUNCTIONAL_DEVICE_OBJECT = device_object;
-
-    // --- CDO Creation ---
-    if CONTROL_DEVICE_OBJECT.is_null() {
-        let mut device_name_str = [0u16; 20];
-        let name_prefix = r"\Device\LeylineAudio";
-        for (i, c) in name_prefix.encode_utf16().enumerate() {
-            device_name_str[i] = c;
-        }
-        let mut device_name = UNICODE_STRING {
-            Length: (name_prefix.len() * 2) as u16,
-            MaximumLength: (device_name_str.len() * 2) as u16,
-            Buffer: device_name_str.as_mut_ptr(),
-        };
-
-        status = IoCreateDevice(
-            (*device_object).DriverObject,
-            size_of::<usize>() as u32,
-            &mut device_name,
-            FILE_DEVICE_UNKNOWN,
-            0,
-            0,
-            &raw mut CONTROL_DEVICE_OBJECT,
-        );
-        if status == STATUS_SUCCESS {
-            let mut link_name_str = [0u16; 25];
-            let link_prefix = r"\DosDevices\LeylineAudio";
-            for (i, c) in link_prefix.encode_utf16().enumerate() {
-                link_name_str[i] = c;
-            }
-            let mut link_name = UNICODE_STRING {
-                Length: (link_prefix.len() * 2) as u16,
-                MaximumLength: (link_name_str.len() * 2) as u16,
-                Buffer: link_name_str.as_mut_ptr(),
-            };
-            let _ = IoCreateSymbolicLink(&mut link_name, &mut device_name);
-            DbgPrint(c"Leyline: CDO Ready\n".as_ptr());
-        }
-    }
+    DbgPrint(c"Leyline: StartDevice (FDO: %p)\n".as_ptr(), device_object);
 
     // --- WaveRender Registration ---
     DbgPrint(c"Leyline: Registering WaveRender Port\n".as_ptr());
@@ -255,73 +221,7 @@ pub unsafe extern "C" fn StartDevice(
     if status != STATUS_SUCCESS {
         return status;
     }
-
-    // Session #42: Explicitly register audio device interface for WaveRender
-    // Bypass INF AddInterface which isn't being processed for virtual drivers
-    // Get PDO from static variable - IoRegisterDeviceInterface requires PDO, not FDO
-    let pdo = unsafe { GLOBAL_PDO };
-
-    // Define reference string to match INF: AddInterface = ..., "WaveRender", ...
-    let mut render_ref_str = [0u16; 15];
-    let render_ref_prefix = "WaveRender";
-    for (i, c) in render_ref_prefix.encode_utf16().enumerate() {
-        render_ref_str[i] = c;
-    }
-    let render_ref_unicode = UNICODE_STRING {
-        Length: (render_ref_prefix.len() * 2) as u16,
-        MaximumLength: (render_ref_str.len() * 2) as u16,
-        Buffer: render_ref_str.as_mut_ptr(),
-    };
-
-    let mut render_interface_string: UNICODE_STRING = unsafe { core::mem::zeroed() };
-
-    // 1. KSCATEGORY_AUDIO
-    let mut interface_status = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_AUDIO_GUID,
-            &render_ref_unicode,
-            &mut render_interface_string,
-        )
-    };
-    if interface_status == STATUS_SUCCESS {
-        unsafe {
-            IoSetDeviceInterfaceState(&render_interface_string, 1);
-        }
-        DbgPrint(c"Leyline: WaveRender Audio Interface Registered\n".as_ptr());
-    }
-
-    // 2. KSCATEGORY_RENDER
-    interface_status = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_RENDER_GUID,
-            &render_ref_unicode,
-            &mut render_interface_string,
-        )
-    };
-    if interface_status == STATUS_SUCCESS {
-        unsafe {
-            IoSetDeviceInterfaceState(&render_interface_string, 1);
-        }
-        DbgPrint(c"Leyline: WaveRender Render Interface Registered\n".as_ptr());
-    }
-
-    // 3. KSCATEGORY_REALTIME
-    interface_status = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_REALTIME_GUID,
-            &render_ref_unicode,
-            &mut render_interface_string,
-        )
-    };
-    if interface_status == STATUS_SUCCESS {
-        unsafe {
-            IoSetDeviceInterfaceState(&render_interface_string, 1);
-        }
-        DbgPrint(c"Leyline: WaveRender Realtime Interface Registered\n".as_ptr());
-    }
+    DbgPrint(c"Leyline: WaveRender Subdevice Registered\n".as_ptr());
 
     // --- WaveCapture Registration ---
     DbgPrint(c"Leyline: Registering WaveCapture Port\n".as_ptr());
@@ -360,69 +260,7 @@ pub unsafe extern "C" fn StartDevice(
         DbgPrint(c"Leyline: PcRegisterSubdevice(WaveCapture) Failed\n".as_ptr());
         return status;
     }
-
-    // Session #42: Explicitly register audio device interface for WaveCapture
-    // Define reference string to match INF: AddInterface = ..., "WaveCapture", ...
-    let mut capture_ref_str = [0u16; 15];
-    let capture_ref_prefix = "WaveCapture";
-    for (i, c) in capture_ref_prefix.encode_utf16().enumerate() {
-        capture_ref_str[i] = c;
-    }
-    let capture_ref_unicode = UNICODE_STRING {
-        Length: (capture_ref_prefix.len() * 2) as u16,
-        MaximumLength: (capture_ref_str.len() * 2) as u16,
-        Buffer: capture_ref_str.as_mut_ptr(),
-    };
-
-    let mut capture_interface_string: UNICODE_STRING = unsafe { core::mem::zeroed() };
-
-    // 1. KSCATEGORY_AUDIO
-    interface_status = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_AUDIO_GUID,
-            &capture_ref_unicode,
-            &mut capture_interface_string,
-        )
-    };
-    if interface_status == STATUS_SUCCESS {
-        unsafe {
-            IoSetDeviceInterfaceState(&capture_interface_string, 1);
-        }
-        DbgPrint(c"Leyline: WaveCapture Audio Interface Registered\n".as_ptr());
-    }
-
-    // 2. KSCATEGORY_CAPTURE
-    interface_status = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_CAPTURE_GUID,
-            &capture_ref_unicode,
-            &mut capture_interface_string,
-        )
-    };
-    if interface_status == STATUS_SUCCESS {
-        unsafe {
-            IoSetDeviceInterfaceState(&capture_interface_string, 1);
-        }
-        DbgPrint(c"Leyline: WaveCapture Capture Interface Registered\n".as_ptr());
-    }
-
-    // 3. KSCATEGORY_REALTIME
-    interface_status = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_REALTIME_GUID,
-            &capture_ref_unicode,
-            &mut capture_interface_string,
-        )
-    };
-    if interface_status == STATUS_SUCCESS {
-        unsafe {
-            IoSetDeviceInterfaceState(&capture_interface_string, 1);
-        }
-        DbgPrint(c"Leyline: WaveCapture Realtime Interface Registered\n".as_ptr());
-    }
+    DbgPrint(c"Leyline: WaveCapture Subdevice Registered\n".as_ptr());
 
     // --- Topology Registration (Render Only for Diagnosis) ---
     DbgPrint(c"Leyline: Registering TopologyRender Port\n".as_ptr());
@@ -492,46 +330,7 @@ pub unsafe extern "C" fn StartDevice(
         DbgPrint(c"Leyline: PcRegisterSubdevice(TopologyRender) Failed\n".as_ptr());
         return status;
     }
-
-    // Session #43: Explicitly register Topology interfaces
-    let mut topo_render_ref_str = [0u16; 15];
-    let topo_render_ref_prefix = "TopoRender";
-    for (i, c) in topo_render_ref_prefix.encode_utf16().enumerate() {
-        topo_render_ref_str[i] = c;
-    }
-    let topo_render_ref_unicode = UNICODE_STRING {
-        Length: (topo_render_ref_prefix.len() * 2) as u16,
-        MaximumLength: (topo_render_ref_str.len() * 2) as u16,
-        Buffer: topo_render_ref_str.as_mut_ptr(),
-    };
-
-    let mut topo_render_interface_string: UNICODE_STRING = unsafe { core::mem::zeroed() };
-
-    // Register TopoRender for AUDIO and TOPOLOGY categories
-    let _ = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_AUDIO_GUID,
-            &topo_render_ref_unicode,
-            &mut topo_render_interface_string,
-        )
-    };
-    unsafe {
-        IoSetDeviceInterfaceState(&topo_render_interface_string, 1);
-    }
-
-    let _ = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_TOPOLOGY_GUID,
-            &topo_render_ref_unicode,
-            &mut topo_render_interface_string,
-        )
-    };
-    unsafe {
-        IoSetDeviceInterfaceState(&topo_render_interface_string, 1);
-    }
-    DbgPrint(c"Leyline: TopologyRender Interfaces Registered\n".as_ptr());
+    DbgPrint(c"Leyline: TopologyRender Subdevice Registered\n".as_ptr());
 
     // --- Physical Connection: WaveRender (Pin 1) -> TopologyRender (Pin 0) ---
     DbgPrint(c"Leyline: Registering Physical Connection (Wave -> Topo)\n".as_ptr());
@@ -595,45 +394,6 @@ pub unsafe extern "C" fn StartDevice(
     }
     DbgPrint(c"Leyline: TopologyCapture Subdevice Registered\n".as_ptr());
 
-    // Session #43: Explicitly register Topology interfaces for Capture
-    let mut topo_capture_ref_str = [0u16; 15];
-    let topo_capture_ref_prefix = "TopoCapture";
-    for (i, c) in topo_capture_ref_prefix.encode_utf16().enumerate() {
-        topo_capture_ref_str[i] = c;
-    }
-    let topo_capture_ref_unicode = UNICODE_STRING {
-        Length: (topo_capture_ref_prefix.len() * 2) as u16,
-        MaximumLength: (topo_capture_ref_str.len() * 2) as u16,
-        Buffer: topo_capture_ref_str.as_mut_ptr(),
-    };
-
-    let mut topo_capture_interface_string: UNICODE_STRING = unsafe { core::mem::zeroed() };
-
-    let _ = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_AUDIO_GUID,
-            &topo_capture_ref_unicode,
-            &mut topo_capture_interface_string,
-        )
-    };
-    unsafe {
-        IoSetDeviceInterfaceState(&topo_capture_interface_string, 1);
-    }
-
-    let _ = unsafe {
-        IoRegisterDeviceInterface(
-            pdo,
-            &KSCATEGORY_TOPOLOGY_GUID,
-            &topo_capture_ref_unicode,
-            &mut topo_capture_interface_string,
-        )
-    };
-    unsafe {
-        IoSetDeviceInterfaceState(&topo_capture_interface_string, 1);
-    }
-    DbgPrint(c"Leyline: TopologyCapture Interfaces Registered\n".as_ptr());
-
     // --- Physical Connection: TopologyCapture (Pin 1) -> WaveCapture (Pin 1) ---
     DbgPrint(c"Leyline: Registering Physical Connection (Topo -> WaveCapture)\n".as_ptr());
     status = PcRegisterPhysicalConnection(
@@ -648,6 +408,45 @@ pub unsafe extern "C" fn StartDevice(
         return status;
     }
     DbgPrint(c"Leyline: Physical Connection (Topo->Wave) SUCCESS\n".as_ptr());
+
+    // --- CDO Creation (Moved to end to prevent PnP interference) ---
+    crate::FUNCTIONAL_DEVICE_OBJECT = device_object;
+    if CONTROL_DEVICE_OBJECT.is_null() {
+        let mut device_name_str = [0u16; 20];
+        let name_prefix = r"\Device\LeylineAudio";
+        for (i, c) in name_prefix.encode_utf16().enumerate() {
+            device_name_str[i] = c;
+        }
+        let mut device_name = UNICODE_STRING {
+            Length: (name_prefix.len() * 2) as u16,
+            MaximumLength: (device_name_str.len() * 2) as u16,
+            Buffer: device_name_str.as_mut_ptr(),
+        };
+
+        status = IoCreateDevice(
+            (*device_object).DriverObject,
+            size_of::<usize>() as u32,
+            &mut device_name,
+            FILE_DEVICE_UNKNOWN,
+            0,
+            0,
+            &raw mut CONTROL_DEVICE_OBJECT,
+        );
+        if status == STATUS_SUCCESS {
+            let mut link_name_str = [0u16; 25];
+            let link_prefix = r"\DosDevices\LeylineAudio";
+            for (i, c) in link_prefix.encode_utf16().enumerate() {
+                link_name_str[i] = c;
+            }
+            let mut link_name = UNICODE_STRING {
+                Length: (link_prefix.len() * 2) as u16,
+                MaximumLength: (link_name_str.len() * 2) as u16,
+                Buffer: link_name_str.as_mut_ptr(),
+            };
+            let _ = IoCreateSymbolicLink(&mut link_name, &mut device_name);
+            DbgPrint(c"Leyline: CDO Ready\n".as_ptr());
+        }
+    }
 
     if status == STATUS_SUCCESS {
         DbgPrint(c"Leyline: ==================================================\n".as_ptr());

@@ -297,7 +297,7 @@ try
         certutil -addstore -f TrustedPublisher leyline.cer | Out-Null
 
         Write-Host "[VM] Cleaning old instances..."
-        Get-PnpDevice -PresentOnly:$false | Where-Object { $_.HardwareID -contains "Root\LeylineAudio" } | ForEach-Object {
+        Get-PnpDevice -PresentOnly:$false | Where-Object { $_.HardwareID -contains "Root\Media\LeylineAudio" -or $_.HardwareID -contains "Root\LeylineAudio" } | ForEach-Object {
             pnputil /remove-device $_.InstanceId | Out-Null
         }
 
@@ -311,7 +311,7 @@ try
             Write-Host "[VM] [ROOT_MEDIA MODE] Creating device with devcon.exe install..."
             if (Test-Path "devcon.exe")
             {
-                $devconResult = .\devcon.exe install "leyline.inf" "Root\LeylineAudio" 2>&1
+                $devconResult = .\devcon.exe install "leyline.inf" "Root\Media\LeylineAudio" 2>&1
                 Write-Host "    -> Devcon result: $devconResult"
             } else
             {
@@ -322,7 +322,7 @@ try
             Write-Host "[VM] [SWD_DEVGEN MODE] Creating Device Node with DevGen (default)..."
             if (Test-Path "devgen.exe")
             {
-                .\devgen.exe /add /hardwareid "Root\LeylineAudio" | Out-Null
+                .\devgen.exe /add /hardwareid "Root\Media\LeylineAudio" | Out-Null
                 Write-Host "    -> Device node created."
             } else
             {

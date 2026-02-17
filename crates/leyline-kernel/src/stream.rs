@@ -30,6 +30,8 @@ pub type PCFILTER_DESCRIPTOR = audio::PCFILTER_DESCRIPTOR;
 #[allow(non_camel_case_types)]
 pub type PCPIN_DESCRIPTOR = audio::PCPIN_DESCRIPTOR;
 #[allow(non_camel_case_types)]
+pub type PCAUTOMATION_TABLE = audio::PCAUTOMATION_TABLE;
+#[allow(non_camel_case_types)]
 pub type WAVEFORMATEX = audio::WAVEFORMATEX;
 #[allow(non_camel_case_types)]
 pub type KSPIN_DESCRIPTOR = audio::KSPIN_DESCRIPTOR;
@@ -71,6 +73,7 @@ pub struct KSDATARANGE_AUDIO {
 unsafe impl Sync for KSDATARANGE_AUDIO {}
 unsafe impl Sync for PCPIN_DESCRIPTOR {}
 unsafe impl Sync for PCFILTER_DESCRIPTOR {}
+unsafe impl Sync for PCAUTOMATION_TABLE {}
 
 pub trait TimeSource {
     fn query_time(&self) -> i64;

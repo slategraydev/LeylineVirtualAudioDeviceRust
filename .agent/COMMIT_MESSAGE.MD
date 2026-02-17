@@ -1,4 +1,4 @@
-# Session #43 Commit Message: Modern Handshake Success
+# Session #46 Commit Message: Identity Alignment & Architectural Pivot
 
 **Reviewer**: Antigravity (Gemini 2.0 Flash)
 **Date**: February 16, 2026
@@ -8,19 +8,20 @@
 ## Plain Text Commit Message [COPY-PASTE]
 
 ```
-feat: achieve modern audio handshake success and fix structural GUIDs
+fix: align PnP identity and pivot to pure PortCls architecture
 
-Successfully implemented support for modern Windows 10/11 discovery 
-interfaces (IPinCount, IPinName, etc.) enabling full path verification 
-by the Audio Endpoint Builder. Corrected core GUID mismatches and 
-topology pin configurations.
+Resolved the "Silent Failure" state by aligning the driver's Hardware ID 
+to Root\Media\LeylineAudio across INF, code, and scripts. Purged manual 
+interface registration in favor of a clean PortCls-native path and 
+implemented pin naming for AEB verification.
 
 Impact:
-- Added IMiniportWaveRTOutputStream/InputStream support.
-- Fixed KSINTERFACESETID_STANDARD mismatch (0x62D0 -> 0x62CE).
-- Explicitly registered Topology PnP interfaces in adapter.rs.
-- Optimized Topology pins to BRIDGE type for AEB discovery.
-- Resolved BSODs by simplifying variadic DbgPrint logging.
+- Standardized Hardware ID to Root\Media\LeylineAudio.
+- Removed manual IoRegisterDeviceInterface calls from adapter.rs.
+- Implemented GetPinName in topology.rs with Unicode string support.
+- Flattened INF property structure for improved discovery.
+- Added PKEY_AudioEngine_OEMFormat baseline to INF.
+- Resolved 9+ compilation warnings in wavert.rs.
 
 Zero build warnings maintained.
 ```
@@ -28,7 +29,7 @@ Zero build warnings maintained.
 ---
 
 ## Technical Details
-- **Handshake**: Refactored `QueryInterface` to support 5+ new modern PortCls extensions.
-- **Topology**: Linked Wave and Topology filters via explicit `IoRegisterDeviceInterface` calls with reference strings.
-- **Safety**: Implemented strict null-pointer validation across all miniport callbacks.
-- **Build**: Achieved clean `cargo build --release` with zero warnings.
+- **Identity**: Aligned kernel `AddDevice` diagnostics with INF `[Standard.NTamd64]` section.
+- **Topology**: Enhanced `GetPinName` to return paged-pool Unicode strings for PortCls integration.
+- **Discovery**: Simplified `StartDevice` by moving CDO creation after subdevice registration.
+- **Verification**: Clean `cargo build --release` with zero warnings.

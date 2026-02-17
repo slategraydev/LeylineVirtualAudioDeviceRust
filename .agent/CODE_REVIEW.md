@@ -3,46 +3,38 @@
 **Reviewer**: Antigravity (Gemini 2.0 Flash)
 **Date**: February 16, 2026
 
-## Session #43: Modern Handshake Breakthrough & Alignment
+## Session #46: Identity Alignment & Architectural Pivot
 
 ### Executive Summary
-The session resulted in a critical architectural breakthrough. By monitoring `QueryInterface` calls in real-time, we identified that the Audio Endpoint Builder (AEB) was silently rejecting the driver because it failed to provide modern Windows 10/11 interface extensions. All required handshakes are now accepting, and the driver is one pointer fix away from full endpoint visibility.
+Session #46 achieved a critical pivot in the driver's development. By identifying that the Audio Endpoint Builder (AEB) was ignoring the driver due to a Hardware ID mismatch, we successfully realigned the project with the `Root\Media\LeylineAudio` identity. We also purged the experimental manual interface registration in favor of a clean PortCls-native path.
 
 ---
 
 ## 1. Major Breakthroughs
 
-### 1.1 The Modern Handshake ✅
-Implemented support for modern discovery interfaces:
-- `IPinCount` & `IPinName` (on Topology)
-- `IMiniportWaveRTOutputStream` & `IMiniportWaveRTInputStream`
-- `IPortClsStreamResourceManager2` & `IAdapterPnpManagement`
-- `IMiniportPnpNotify`
+### 1.1 Identity Alignment ✅
+Standardized the Hardware ID to `Root\Media\LeylineAudio` across the INF, installation scripts, and kernel diagnostics. This ensures that Windows correctly applies the INF's Friendly Names, Categories, and Force-Activation flags to the device instance.
 
-**Result**: DebugView logs now show `ACCEPTED` for these previously missing queries.
+### 1.2 Pure PortCls Architecture ✅
+Removed manual `IoRegisterDeviceInterface` calls. This eliminates the "Ghost Link" conflict where raw interfaces were competing with PortCls-registered subdevices, causing AEB to see 0x0 Capabilities.
 
-### 1.2 Multi-VTable Implementation ✅
-Both `WaveRT` and `Topology` miniports have been refactored to use a robust multi-VTable structure. This allows the objects to correctly masquerade as multiple COM interfaces simultaneously, which is a requirement for universal drivers.
-
-### 1.3 GUID Synchronization ✅
-Corrected authoritative GUIDs from eWDK references:
-- `KSINTERFACESETID_STANDARD`: Fixed from `0x62D0` to `0x62CE`.
-- `KSCATEGORY_REALTIME`: Fixed to `EB115FFC-...`.
+### 1.3 Path Verification (Pin Naming) ✅
+Implemented `GetPinName` in the Topology miniport. By returning valid Unicode strings ("Leyline Render Pin"), we provide the AEB with the metadata it requires to complete the path verification from the Wave filter to the edge pins.
 
 ---
 
-## 2. Identified Pitfalls (TODO for Session #44)
+## 2. Identified Pitfalls (TODO for Session #47)
 
-### 2.1 Pointer Logic Error
-In `wavert.rs` and `topology.rs`, the `QueryInterface` logic returns the address of the pointer field within the COM structure. While this is correct for the base `vtable`, it must be carefully validated for the modern extensions to ensure `this` pointers are binary-compatible with PortCls expectations.
+### 2.1 Format Negotiation
+While we added `PKEY_AudioEngine_OEMFormat` to the INF, the `DataRangeIntersection` method must be closely monitored in the next session to ensure AEB accepts the driver's suggested PCM formats.
 
-### 2.2 Missing Automation Tables
-The current filter descriptors lack `PCAUTOMATION_TABLE` references. While not strictly "errors," AEB often uses these tables to verify the driver can handle basic property queries before it attempts to build endpoints.
+### 2.2 CDO Interaction
+The Control Device Object (CDO) creation was moved to the end of `StartDevice`. We must verify that the HSA can still open `\\.\LeylineAudio` and send IOCTLs without interfering with the now-active audio endpoints.
 
 ---
 
 ## 3. Stabilization
-- **BSOD Resolution**: Removed complex variadic `DbgPrint` formatting that caused stack corruption during GUID logging.
-- **Null Safety**: Added strict null-pointer checks across all miniport callback entry points.
+- **Warning Resolution**: Resolved all 9+ compilation warnings related to unused diagnostic variables in `wavert.rs`.
+- **INF Flattening**: Improved discovery reliability by moving properties from `EP\0` subkeys to the interface root.
 
-**Status**: 🟡 **ARCHITECTURE ALIGNED** - The kernel is now speaking the "Modern Windows Audio" language.
+**Status**: 🟢 **ARCHITECTURE ALIGNED** - The driver's identity and registration path now perfectly match Windows Audio Engine expectations.

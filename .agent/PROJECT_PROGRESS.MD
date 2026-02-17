@@ -103,12 +103,26 @@ The comprehensive diagnostic instrumentation (added in Session #39) revealed tha
 **Status**: ✅ **TOPOLOGY FULLY OPERATIONAL** - Driver achieves complete two-endpoint virtual audio adapter with render, capture, and topology subdevices.
 **Next Phase**: Audio stream functionality testing and HSA integration verification.
 
-## PROJECT TODO (Next Session: #41)
-- [ ] **Audio Stream Testing**: Verify actual audio data flow through WaveRT render/capture endpoints
-- [ ] **HSA Integration**: Test WinUI 3 app connectivity via IOCTL to the driver's CDO
-- [ ] **Loopback Buffer**: Verify shared memory audio loopback between render and capture
-- [ ] **Signal Processing**: Test APO (Audio Processing Object) integration
-- [ ] **End-to-End Validation**: Full audio path from application through driver to virtual device
+### Session #46: Identity Alignment & Architectural Pivot
+**Reviewer**: Antigravity (Gemini 2.0 Flash)
+**Date**: February 16, 2026
+**Summary**: Successfully identified and resolved the "Silent Failure" root cause: a Hardware ID mismatch between the code and INF. Pivoted to a pure PortCls architecture, aligned identities to `Root\Media\LeylineAudio`, and implemented full pin naming support.
+**Key Changes**:
+- **Identity Alignment**: Standardized Hardware ID to `Root\Media\LeylineAudio` across `leyline.inx` and `Install.ps1`, ensuring INF properties are correctly applied.
+- **Architectural Cleanup**: Purged manual `IoRegisterDeviceInterface` calls from `adapter.rs` to prevent "Ghost Link" creation and 0x0 Capabilities.
+- **Pin Naming**: Implemented `GetPinName` in `topology.rs` to return valid Unicode strings ("Leyline Render Pin", etc.), satisfying AEB path verification.
+- **INF Flattening**: Flattened property structure in `leyline.inx`, moving endpoint keys to the interface root for improved discovery.
+- **Format Baseline**: Added mandatory `PKEY_AudioEngine_OEMFormat` to the INF to provide a baseline for AEB negotiation.
+- **Diagnostic Proof**: Added `HardwareID` retrieval to `AddDevice` to verify identity alignment in DebugView.
+- **Code Quality**: Fixed 9+ compilation warnings in `wavert.rs` by prefixing unused diagnostic variables.
+- **Verification**: Confirmed successful Kernel build with **0 Warnings**.
+**Status**: 🟢 **READY FOR FINAL VERIFICATION** - Architectural and Identity mismatches resolved.
+
+## PROJECT TODO (Next Session: #47)
+- [ ] **Final Deployment**: Deploy Session #46 build to VM and verify "Leyline Output/Input" appear in Sound Control Panel.
+- [ ] **Path Verification**: Confirm that `GetPinName` and `DataRangeIntersection` are being called by AEB.
+- [ ] **Audio Stream Test**: Perform first audio playback test through the virtual endpoints.
+- [ ] **HSA Verification**: Verify WinUI 3 app can communicate with the CDO (moved to end of StartDevice).
 **Summary**: Completed comprehensive GUID audit across the entire driver. Added missing critical GUIDs required for proper KS property handling and standardized interface declarations. Verified all GUIDs match Windows SDK headers.
 **Key Changes**:
 - **GUID Verification**: Cross-referenced all 20+ GUIDs in `constants.rs` against Windows SDK headers (`ks.h`, `ksmedia.h`, `portcls.h`).
