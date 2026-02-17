@@ -143,9 +143,9 @@ pub unsafe extern "C" fn AddDevice(
             &mut length,
         );
         if status == STATUS_SUCCESS {
-            // Hardware IDs are multi-sz (null separated). Just print the first one.
+            // Hardware IDs are multi-sz (null separated).
             DbgPrint(
-                c"Leyline: Device Hardware ID: %ls\n".as_ptr(),
+                c"Leyline: PDO Hardware ID: %ls\n".as_ptr(),
                 buffer.as_ptr() as *const u16,
             );
         }
@@ -333,9 +333,7 @@ pub unsafe extern "C" fn StartDevice(
     DbgPrint(c"Leyline: TopologyRender Subdevice Registered\n".as_ptr());
 
     // --- Physical Connection: WaveRender (Pin 1) -> TopologyRender (Pin 0) ---
-    DbgPrint(c"Leyline: Registering Physical Connection (Wave -> Topo)\n".as_ptr());
-    // KSPIN_WAVE_BRIDGE = 1
-    // KSPIN_TOPO_BRIDGE = 0
+    DbgPrint(c"Leyline: Physical Connection (WaveRender Pin 1 -> TopologyRender Pin 0)\n".as_ptr());
     status = PcRegisterPhysicalConnection(
         device_object,
         render_port as *mut _,
@@ -344,7 +342,10 @@ pub unsafe extern "C" fn StartDevice(
         0,
     );
     if status != STATUS_SUCCESS {
-        DbgPrint(c"Leyline: PcRegisterPhysicalConnection(Wave->Topo) Failed\n".as_ptr());
+        DbgPrint(
+            c"Leyline: ERROR - Physical Connection (Wave->Topo) FAILED: 0x%x\n".as_ptr(),
+            status,
+        );
         return status;
     }
     DbgPrint(c"Leyline: Physical Connection (Wave->Topo) SUCCESS\n".as_ptr());
@@ -395,16 +396,21 @@ pub unsafe extern "C" fn StartDevice(
     DbgPrint(c"Leyline: TopologyCapture Subdevice Registered\n".as_ptr());
 
     // --- Physical Connection: TopologyCapture (Pin 1) -> WaveCapture (Pin 1) ---
-    DbgPrint(c"Leyline: Registering Physical Connection (Topo -> WaveCapture)\n".as_ptr());
+    DbgPrint(
+        c"Leyline: Physical Connection (TopologyCapture Pin 1 -> WaveCapture Pin 1)\n".as_ptr(),
+    );
     status = PcRegisterPhysicalConnection(
         device_object,
         capture_topo_port as *mut _,
         1, // Topo bridge pin
         capture_port as *mut _,
-        1, // Wave bridge pin (bridge is pin 1, not pin 0)
+        1, // Wave bridge pin
     );
     if status != STATUS_SUCCESS {
-        DbgPrint(c"Leyline: PcRegisterPhysicalConnection(Topo->Wave) Failed\n".as_ptr());
+        DbgPrint(
+            c"Leyline: ERROR - Physical Connection (Topo->Wave) FAILED: 0x%x\n".as_ptr(),
+            status,
+        );
         return status;
     }
     DbgPrint(c"Leyline: Physical Connection (Topo->Wave) SUCCESS\n".as_ptr());

@@ -8,7 +8,7 @@ Class       = MEDIA
 ClassGuid   = {4d36e96c-e325-11ce-bfc1-08002be10318}
 Provider    = %ManufacturerName%
 CatalogFile = leyline.cat
-DriverVer   = 02/16/2026,1.0.1.2343
+DriverVer   = 02/17/2026,1.0.1.146
 PnpLockdown = 1
 
 [SourceDisksNames]
@@ -60,15 +60,15 @@ HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,ThreadingModel,,Both
 AddInterface = %KSCATEGORY_AUDIO%, "WaveRender", Leyline_WaveRenderInterface
 AddInterface = %KSCATEGORY_RENDER%, "WaveRender", Leyline_WaveRenderInterface
 AddInterface = %KSCATEGORY_REALTIME%, "WaveRender", Leyline_WaveRenderInterface
-AddInterface = %KSCATEGORY_AUDIO%, "TopoRender", Leyline_TopoRenderInterface
-AddInterface = %KSCATEGORY_TOPOLOGY%, "TopoRender", Leyline_TopoRenderInterface
+AddInterface = %KSCATEGORY_AUDIO%, "TopologyRender", Leyline_TopoRenderInterface
+AddInterface = %KSCATEGORY_TOPOLOGY%, "TopologyRender", Leyline_TopoRenderInterface
 
 ; Capture Interfaces
 AddInterface = %KSCATEGORY_AUDIO%, "WaveCapture", Leyline_WaveCaptureInterface
 AddInterface = %KSCATEGORY_CAPTURE%, "WaveCapture", Leyline_WaveCaptureInterface
 AddInterface = %KSCATEGORY_REALTIME%, "WaveCapture", Leyline_WaveCaptureInterface
-AddInterface = %KSCATEGORY_AUDIO%, "TopoCapture", Leyline_TopoCaptureInterface
-AddInterface = %KSCATEGORY_TOPOLOGY%, "TopoCapture", Leyline_TopoCaptureInterface
+AddInterface = %KSCATEGORY_AUDIO%, "TopologyCapture", Leyline_TopoCaptureInterface
+AddInterface = %KSCATEGORY_TOPOLOGY%, "TopologyCapture", Leyline_TopoCaptureInterface
 
 [Leyline_WaveRenderInterface]
 AddReg = Leyline_WaveRenderInterface.AddReg
@@ -89,13 +89,10 @@ HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
 HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameRender%
-; Endpoint Properties (Flattened to Root)
+; Format Baseline
+HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, FE,FF,02,00, 80,BB,00,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
+; Association (Redundant for discovery)
 HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
-HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
-HKR,,%PKEY_AudioDevice_AlwaysEnabled%,0x00010001,0x00000001
-HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, 00,BB,01,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
-; Force endpoint visibility: 0x00000101 = FLOW_MASK_RENDER | FLAG_ENABLE
-HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000101
 
 [Leyline_WaveCaptureInterface.AddReg]
 ; Register the APOs for this interface
@@ -104,19 +101,22 @@ HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
 HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameCapture%
-; Endpoint Properties (Flattened to Root)
+; Format Baseline
+HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, FE,FF,02,00, 80,BB,00,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
+; Association (Redundant for discovery)
 HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
-HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
-HKR,,%PKEY_AudioDevice_AlwaysEnabled%,0x00010001,0x00000001
-HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, 00,BB,01,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
-; Force endpoint visibility: 0x00000201 = FLOW_MASK_CAPTURE | FLAG_ENABLE
-HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000201
 
 [Leyline_TopoRenderInterface.AddReg]
 HKR,,FriendlyName,,%DeviceNameRender%
+HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
+HKR,,%PKEY_AudioDevice_AlwaysEnabled%,0x00010001,0x00000001
+HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000101
 
 [Leyline_TopoCaptureInterface.AddReg]
 HKR,,FriendlyName,,%DeviceNameCapture%
+HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
+HKR,,%PKEY_AudioDevice_AlwaysEnabled%,0x00010001,0x00000001
+HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000201
 
 ; ==============================================================================
 ; Service Installation

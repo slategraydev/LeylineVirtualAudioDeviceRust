@@ -24,8 +24,6 @@ pub struct KSINTERFACE_STANDARD {
     pub Version: u32,
 }
 
-// Simplified: Just use the GUID for now and a raw pointer if needed, or implement the struct.
-// KSPIN_INTERFACE is usually just a KSIDENTIFIER.
 #[repr(C)]
 #[allow(non_snake_case)]
 pub struct KSIDENTIFIER {
@@ -92,7 +90,7 @@ pub static BRIDGE_DATARANGE: KSDATARANGE = KSDATARANGE {
     SampleSize: 0,
     Reserved: 0,
     MajorFormat: KSDATAFORMAT_TYPE_AUDIO,
-    SubFormat: KSDATAFORMAT_SUBTYPE_PCM, // ✅ Changed from ANALOG
+    SubFormat: KSDATAFORMAT_SUBTYPE_PCM,
     Specifier: KSDATAFORMAT_SPECIFIER_NONE_GUID,
 };
 
@@ -160,7 +158,7 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
-            Category: &KSCATEGORY_AUDIO_GUID as *const GUID, // ✅ Keep standard for bridge
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -204,7 +202,7 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_IN as i32,
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
-            Category: &KSCATEGORY_AUDIO_GUID as *const GUID, // ✅ Keep standard for bridge
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -248,7 +246,7 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
-            Category: &KSNODETYPE_SPEAKER as *const GUID, // ✅ Edge pin
+            Category: &KSNODETYPE_SPEAKER as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -272,7 +270,7 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_IN as i32,
             Communication: KSPIN_COMMUNICATION_BRIDGE as i32,
-            Category: &KSNODETYPE_MICROPHONE as *const GUID, // ✅ Edge pin
+            Category: &KSNODETYPE_MICROPHONE as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -331,9 +329,9 @@ pub static TOPO_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
 #[link_section = ".rdata"]
 pub static TOPO_CAPTURE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
     FromNode: PCFILTER_NODE,
-    FromNodePin: 0, // MICROPHONE pin (index 0, KSNODETYPE_MICROPHONE)
+    FromNodePin: 0, // MICROPHONE pin
     ToNode: PCFILTER_NODE,
-    ToNodePin: 1, // BRIDGE pin (index 1)
+    ToNodePin: 1, // BRIDGE pin
 }];
 
 #[link_section = ".rdata"]

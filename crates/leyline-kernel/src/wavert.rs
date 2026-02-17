@@ -198,35 +198,28 @@ pub unsafe extern "system" fn miniport_query_interface(
         || crate::is_equal_guid(iid, &IID_IUnknown)
         || crate::is_equal_guid(iid, &IID_IMiniport)
     {
-        DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportWaveRT\n".as_ptr());
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportWaveRT (ACCEPTED)\n".as_ptr());
         *out = &((*com_obj).vtable) as *const _ as *mut u8;
     } else if crate::is_equal_guid(iid, &IID_IMiniportWaveRTOutputStream) {
-        DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportWaveRTOutputStream\n".as_ptr());
+        DbgPrint(
+            c"LeylineWaveRT: QueryInterface -> IMiniportWaveRTOutputStream (ACCEPTED)\n".as_ptr(),
+        );
         *out = &((*com_obj).output_stream_vtable) as *const _ as *mut u8;
     } else if crate::is_equal_guid(iid, &IID_IMiniportWaveRTInputStream) {
-        DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportWaveRTInputStream\n".as_ptr());
+        DbgPrint(
+            c"LeylineWaveRT: QueryInterface -> IMiniportWaveRTInputStream (ACCEPTED)\n".as_ptr(),
+        );
         *out = &((*com_obj).input_stream_vtable) as *const _ as *mut u8;
     } else if crate::is_equal_guid(iid, &IID_IPinCount) {
-        DbgPrint(c"LeylineWaveRT: QueryInterface -> IPinCount\n".as_ptr());
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IPinCount (ACCEPTED)\n".as_ptr());
         *out = &((*com_obj).pin_count_vtable) as *const _ as *mut u8;
-    } else if crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager)
-        || crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager2)
-        || crate::is_equal_guid(iid, &IID_IAdapterPnpManagement)
-        || crate::is_equal_guid(iid, &IID_IMiniportPnpNotify)
-        || crate::is_equal_guid(iid, &IID_IMiniportAudioSignalProcessing)
-    {
-        DbgPrint(c"LeylineWaveRT: QueryInterface -> base interface\n".as_ptr());
-        *out = &((*com_obj).vtable) as *const _ as *mut u8;
-    } else if crate::is_equal_guid(iid, &IID_IMiniportAudioEngineNode) {
-        DbgPrint(
-            c"LeylineWaveRT: QueryInterface -> IMiniportAudioEngineNode (REJECTED)\n".as_ptr(),
-        );
-        *out = null_mut();
-        return STATUS_NOINTERFACE;
     } else {
+        // Log the full GUID of the rejected interface
         DbgPrint(
-            c"LeylineWaveRT: QueryInterface -> Unknown IID: {%08x-...}\n".as_ptr(),
-            (*iid).Data1,
+            c"LeylineWaveRT: QueryInterface -> REJECTED IID: {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}\n".as_ptr(),
+            (*iid).Data1, (*iid).Data2 as core::ffi::c_uint, (*iid).Data3 as core::ffi::c_uint,
+            (*iid).Data4[0] as core::ffi::c_uint, (*iid).Data4[1] as core::ffi::c_uint, (*iid).Data4[2] as core::ffi::c_uint, (*iid).Data4[3] as core::ffi::c_uint,
+            (*iid).Data4[4] as core::ffi::c_uint, (*iid).Data4[5] as core::ffi::c_uint, (*iid).Data4[6] as core::ffi::c_uint, (*iid).Data4[7] as core::ffi::c_uint
         );
         *out = null_mut();
         return STATUS_NOINTERFACE;
@@ -288,23 +281,28 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
     if this.is_null() || data_range.is_null() {
         return STATUS_INVALID_PARAMETER;
     }
+
+    let ks_range = data_range as *const KSDATARANGE;
     DbgPrint(
-        c"LeylineWaveRT: DataRangeIntersection called for pin %d\n".as_ptr(),
+        c"LeylineWaveRT: DataRangeIntersection Pin %d, SubFormat: {%08x-...}\n".as_ptr(),
         pin_id,
+        (*ks_range).SubFormat.Data1,
     );
 
     let _com_obj = MiniportWaveRTCom::from_this(this);
-    let ks_range = data_range as *const KSDATARANGE;
     if !crate::is_equal_guid(&(*ks_range).MajorFormat, &KSDATAFORMAT_TYPE_AUDIO) {
+        DbgPrint(c"LeylineWaveRT: -> FAILED: Not Audio\n".as_ptr());
         return STATUS_NO_MATCH;
     }
     if !crate::is_equal_guid(&(*ks_range).Specifier, &KSDATAFORMAT_SPECIFIER_WAVEFORMATEX) {
+        DbgPrint(c"LeylineWaveRT: -> FAILED: Not WaveFormatEx Specifier\n".as_ptr());
         return STATUS_NO_MATCH;
     }
 
     let is_pcm = crate::is_equal_guid(&(*ks_range).SubFormat, &KSDATAFORMAT_SUBTYPE_PCM);
     let is_float = crate::is_equal_guid(&(*ks_range).SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT);
     if !is_pcm && !is_float {
+        DbgPrint(c"LeylineWaveRT: -> FAILED: Not PCM or Float\n".as_ptr());
         return STATUS_NO_MATCH;
     }
 
@@ -313,9 +311,11 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
         if !actual_data_format_cb.is_null() {
             *actual_data_format_cb = format_size;
         }
+        DbgPrint(c"LeylineWaveRT: -> Buffer size query (40 bytes)\n".as_ptr());
         return STATUS_BUFFER_OVERFLOW;
     }
     if data_format_cb < format_size {
+        DbgPrint(c"LeylineWaveRT: -> FAILED: Buffer too small\n".as_ptr());
         return STATUS_BUFFER_TOO_SMALL;
     }
 
@@ -338,6 +338,8 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
     if !actual_data_format_cb.is_null() {
         *actual_data_format_cb = format_size;
     }
+
+    DbgPrint(c"LeylineWaveRT: -> SUCCESS: Negotiated 48kHz Stereo\n".as_ptr());
     STATUS_SUCCESS
 }
 

@@ -133,9 +133,6 @@ pub unsafe extern "system" fn topology_query_interface(
 
     let com_obj = MiniportTopologyCom::from_this(this);
 
-    // Log the requested interface GUID (Simple string only)
-    DbgPrint(c"LeylineTopo: QueryInterface called\n".as_ptr());
-
     // Check for known interfaces and log
     if crate::is_equal_guid(iid, &IID_IMiniportTopology)
         || crate::is_equal_guid(iid, &IID_IUnknown)
@@ -151,7 +148,7 @@ pub unsafe extern "system" fn topology_query_interface(
         *out = &((*com_obj).pin_name_vtable) as *const _ as *mut u8;
     } else {
         DbgPrint(
-            c"LeylineTopo: QueryInterface -> Other IID: {%08x-...} (REJECTED)\n".as_ptr(),
+            c"LeylineTopo: QueryInterface -> Unknown: {%08x-...} (REJECTED)\n".as_ptr(),
             (*iid).Data1,
         );
         *out = null_mut();
@@ -184,18 +181,23 @@ pub unsafe extern "system" fn topology_pin_count(
 /// GetPinName callback for Topology miniport.
 pub unsafe extern "system" fn topology_get_pin_name(
     this: *mut u8,
-    irp: *mut u8,
+    _irp: *mut u8,
     pin: *mut u8,
     data: *mut u8,
 ) -> NTSTATUS {
     let com_obj = MiniportTopologyCom::from_this(this);
-    DbgPrint(c"LeylineTopo: GetPinName called\n".as_ptr());
+    let pin_id = *(pin as *const u32);
 
-    if irp.is_null() || pin.is_null() || data.is_null() {
+    DbgPrint(
+        c"LeylineTopo: GetPinName CALLED for Pin %d (Capture=%d)\n".as_ptr(),
+        pin_id,
+        (*com_obj).inner.is_capture,
+    );
+
+    if pin.is_null() || data.is_null() {
         return STATUS_INVALID_PARAMETER;
     }
 
-    let pin_id = *(pin as *const u32);
     let out_unicode = data as *mut UNICODE_STRING;
 
     // Use KSNODETYPE to determine name
@@ -213,8 +215,13 @@ pub unsafe extern "system" fn topology_get_pin_name(
         }
     };
 
-    // Allocate buffer for the string (PortCls will free this)
-    let buffer_len = (name_prefix.len() * 2) as u16;
+    // Allocate buffer for the string + null terminator
+    let chars: alloc::vec::Vec<u16> = name_prefix
+        .encode_utf16()
+        .chain(core::iter::once(0))
+        .collect();
+    let buffer_len = (chars.len() * 2) as u16;
+
     let buffer = ExAllocatePool2(
         POOL_FLAG_PAGED,
         buffer_len as u64,
@@ -225,14 +232,13 @@ pub unsafe extern "system" fn topology_get_pin_name(
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    for (i, c) in name_prefix.encode_utf16().enumerate() {
-        *buffer.add(i) = c;
-    }
+    core::ptr::copy_nonoverlapping(chars.as_ptr(), buffer, chars.len());
 
-    (*out_unicode).Length = buffer_len;
+    (*out_unicode).Length = (name_prefix.len() * 2) as u16; // Length excludes null
     (*out_unicode).MaximumLength = buffer_len;
     (*out_unicode).Buffer = buffer;
 
+    DbgPrint(c"LeylineTopo: GetPinName SUCCESS: %ls\n".as_ptr(), buffer);
     STATUS_SUCCESS
 }
 
@@ -306,6 +312,11 @@ pub unsafe extern "system" fn topology_data_range_intersection(
     data_format: *mut u8,
     actual_data_format_cb: *mut u32,
 ) -> NTSTATUS {
+    DbgPrint(
+        c"LeylineTopo: DataRangeIntersection called for pin %d\n".as_ptr(),
+        pin_id,
+    );
+
     // Topology filters have 2 pins: bridge (0) and lineout/mic (1)
     if pin_id > 1 {
         return STATUS_INVALID_PARAMETER;
@@ -349,6 +360,7 @@ pub unsafe extern "system" fn topology_data_range_intersection(
             *actual_data_format_cb = core::mem::size_of::<crate::stream::KSDATAFORMAT>() as u32;
         }
 
+        DbgPrint(c"LeylineTopo: -> SUCCESS: Negotiated Analog Bridge\n".as_ptr());
         return STATUS_SUCCESS;
     } else if !data_format.is_null() {
         // Buffer too small
