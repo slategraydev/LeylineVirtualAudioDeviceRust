@@ -9,17 +9,21 @@
 use wdk_sys::ntddk::*;
 use wdk_sys::{
     GUID, NTSTATUS, STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_PARAMETER,
-    STATUS_SUCCESS,
+    STATUS_NOT_IMPLEMENTED, STATUS_SUCCESS,
 };
 
-// Local KSCOMPONENTID definition since it's missing from bindings
+// Local KSCOMPONENTID definition matching the Windows SDK layout exactly.
+// Field order MUST match: Manufacturer, Product, Component, Name, Version, Revision.
+// Total size = 4 GUIDs (64 bytes) + 2 u32s (8 bytes) = 72 bytes.
 #[repr(C)]
 #[allow(non_snake_case)]
 pub struct KSCOMPONENTID {
-    pub Component: GUID,
     pub Manufacturer: GUID,
     pub Product: GUID,
+    pub Component: GUID,
     pub Name: GUID,
+    pub Version: u32,
+    pub Revision: u32,
 }
 unsafe impl Sync for KSCOMPONENTID {}
 unsafe impl Send for KSCOMPONENTID {}
@@ -34,6 +38,13 @@ pub struct KSJACK_DESCRIPTION {
     pub GenLocation: u32,
     pub PortConnection: u32,
     pub IsConnected: i32, // BOOL
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSJACK_DESCRIPTION2 {
+    pub DeviceStateInfo: u32,
+    pub JackCapabilities: u32,
 }
 
 // Colors
@@ -65,6 +76,14 @@ pub struct KSINTERFACE_STANDARD {
     pub InterfaceId: GUID,
     pub Reserved: u32,
     pub Version: u32,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSPROPERTY {
+    pub Set: GUID,
+    pub Id: u32,
+    pub Flags: u32,
 }
 
 #[repr(C)]
@@ -151,7 +170,7 @@ pub static BRIDGE_DATARANGES: [SyncPtr<KSDATARANGE>; 1] =
 pub static GENERAL_PROPERTIES: [PCPROPERTY_ITEM; 1] = [PCPROPERTY_ITEM {
     Set: &KSPROPSETID_General as *const GUID,
     Id: KSPROPERTY_GENERAL_COMPONENTID,
-    Flags: 0,
+    Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
     Handler: Some(component_id_handler),
 }];
 
@@ -176,10 +195,28 @@ pub unsafe extern "C" fn component_id_handler(property_request: PPCPROPERTY_REQU
 
     let component_id = (*property_request).Value as *mut KSCOMPONENTID;
     if !component_id.is_null() {
-        (*component_id).Component = GUID_NULL; // Placeholder
-        (*component_id).Manufacturer = GUID_NULL;
-        (*component_id).Product = GUID_NULL;
+        // Fields must be written in SDK order: Manufacturer, Product, Component, Name.
+        (*component_id).Manufacturer = GUID {
+            Data1: 0x534C,
+            Data2: 0x4154,
+            Data3: 0x4547,
+            Data4: [0x52, 0x41, 0x59, 0x44, 0x45, 0x56, 0x31, 0x31],
+        };
+        (*component_id).Product = GUID {
+            Data1: 0x4C45,
+            Data2: 0x594C,
+            Data3: 0x494E,
+            Data4: [0x45, 0x41, 0x55, 0x44, 0x49, 0x4F, 0x31, 0x31],
+        };
+        (*component_id).Component = GUID {
+            Data1: 0xDEADBEEF,
+            Data2: 0xCAFE,
+            Data3: 0xFEED,
+            Data4: [0x4C, 0x45, 0x59, 0x4C, 0x49, 0x4E, 0x45, 0x31],
+        };
         (*component_id).Name = GUID_NULL;
+        (*component_id).Version = 1;
+        (*component_id).Revision = 0;
     }
 
     STATUS_SUCCESS
@@ -193,31 +230,64 @@ pub unsafe extern "C" fn jack_description_handler(
         return STATUS_INVALID_PARAMETER;
     }
 
-    DbgPrint(c"Leyline: KSPROPERTY_JACK_DESCRIPTION Called\n".as_ptr());
+    // CRITICAL: The AEB's first call is always a basic-support query where
+    // ValueSize == 0 and Instance may be NULL. We MUST handle this before
+    // dereferencing Instance, otherwise we BSOD on the very first AEB query.
+    let prop_id = if !(*property_request).Instance.is_null() {
+        let ksp = (*property_request).Instance as *const KSPROPERTY;
+        (*ksp).Id
+    } else {
+        // Default to JACK_DESCRIPTION when Instance is null (basic support query).
+        KSPROPERTY_JACK_DESCRIPTION
+    };
 
-    // PortCls PCPROPERTY_REQUEST uses ValueSize, not ValueLength.
-    if (*property_request).ValueSize == 0 {
-        (*property_request).ValueSize = core::mem::size_of::<KSJACK_DESCRIPTION>() as u32;
-        DbgPrint(c"Leyline: Returning STATUS_BUFFER_OVERFLOW for size query\n".as_ptr());
-        return STATUS_BUFFER_OVERFLOW;
+    DbgPrint(
+        c"Leyline: jack_description_handler CALLED for ID %d\n".as_ptr(),
+        prop_id,
+    );
+
+    if prop_id == KSPROPERTY_JACK_DESCRIPTION {
+        if (*property_request).ValueSize == 0 {
+            (*property_request).ValueSize = core::mem::size_of::<KSJACK_DESCRIPTION>() as u32;
+            return STATUS_BUFFER_OVERFLOW;
+        }
+
+        if (*property_request).ValueSize < core::mem::size_of::<KSJACK_DESCRIPTION>() as u32 {
+            return STATUS_BUFFER_TOO_SMALL;
+        }
+
+        let jack_desc = (*property_request).Value as *mut KSJACK_DESCRIPTION;
+        if !jack_desc.is_null() {
+            (*jack_desc).ChannelMapping = 0;
+            (*jack_desc).Color = JACK_COLOR_BLACK;
+            (*jack_desc).ConnectionType = eConnType3Point5mm;
+            (*jack_desc).GeoLocation = eGeoLocRear;
+            (*jack_desc).GenLocation = eGenLocPrimaryBox;
+            (*jack_desc).PortConnection = ePortConnJack;
+            (*jack_desc).IsConnected = 1; // Always Connected
+            DbgPrint(c"Leyline: jack_description_handler SUCCESS (IsConnected=1)\n".as_ptr());
+        }
+        return STATUS_SUCCESS;
+    } else if prop_id == KSPROPERTY_JACK_DESCRIPTION2 {
+        if (*property_request).ValueSize == 0 {
+            (*property_request).ValueSize = core::mem::size_of::<KSJACK_DESCRIPTION2>() as u32;
+            return STATUS_BUFFER_OVERFLOW;
+        }
+
+        if (*property_request).ValueSize < core::mem::size_of::<KSJACK_DESCRIPTION2>() as u32 {
+            return STATUS_BUFFER_TOO_SMALL;
+        }
+
+        let jack_desc2 = (*property_request).Value as *mut KSJACK_DESCRIPTION2;
+        if !jack_desc2.is_null() {
+            (*jack_desc2).DeviceStateInfo = 0;
+            (*jack_desc2).JackCapabilities = 0;
+            DbgPrint(c"Leyline: jack_description_handler (JACK_DESCRIPTION2) SUCCESS\n".as_ptr());
+        }
+        return STATUS_SUCCESS;
     }
 
-    if (*property_request).ValueSize < core::mem::size_of::<KSJACK_DESCRIPTION>() as u32 {
-        return STATUS_BUFFER_TOO_SMALL;
-    }
-
-    let jack_desc = (*property_request).Value as *mut KSJACK_DESCRIPTION;
-    if !jack_desc.is_null() {
-        (*jack_desc).ChannelMapping = 0; // KSAUDIO_SPEAKER_STEREO (implied)
-        (*jack_desc).Color = JACK_COLOR_BLACK;
-        (*jack_desc).ConnectionType = eConnType3Point5mm;
-        (*jack_desc).GeoLocation = eGeoLocRear;
-        (*jack_desc).GenLocation = eGenLocPrimaryBox;
-        (*jack_desc).PortConnection = ePortConnJack;
-        (*jack_desc).IsConnected = 1; // TRUE - Always Connected
-    }
-
-    STATUS_SUCCESS
+    STATUS_NOT_IMPLEMENTED
 }
 
 #[allow(clippy::missing_safety_doc)]
@@ -226,53 +296,46 @@ pub unsafe extern "C" fn pin_category_handler(property_request: PPCPROPERTY_REQU
         return STATUS_INVALID_PARAMETER;
     }
 
-    if (*property_request).ValueSize == 0 {
-        (*property_request).ValueSize = core::mem::size_of::<GUID>() as u32;
-        return STATUS_BUFFER_OVERFLOW;
+    DbgPrint(c"Leyline: pin_category_handler CALLED\n".as_ptr());
+    STATUS_NOT_IMPLEMENTED
+}
+
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn pin_name_handler(property_request: PPCPROPERTY_REQUEST) -> NTSTATUS {
+    if property_request.is_null() {
+        return STATUS_INVALID_PARAMETER;
     }
 
-    if (*property_request).ValueSize < core::mem::size_of::<GUID>() as u32 {
-        return STATUS_BUFFER_TOO_SMALL;
-    }
+    DbgPrint(c"Leyline: pin_name_handler CALLED\n".as_ptr());
 
-    // We need to determine if this is the Speaker or Mic pin.
-    // The request structure gives us the PinId in the InstanceSize/Instance field usually.
-    // However, for simplicity, we can inspect the MinorTarget/Instance manually or trust PortCls.
-    // BUT! Since we attach this table to specific pins, we might need separate tables for Render vs Capture
-    // OR we can make a smart handler.
-    //
-    // Actually, KSPROPERTY_PIN_CATEGORY is often handled by PortCls automatically if the
-    // descriptor Category is set. But since we are here, let's implement it to be sure.
-    //
-    // Wait, the handler doesn't easily know WHICH pin it's attached to without context.
-    // For now, let's rely on the fact that we are attaching this to the BRIDGE pin of the specific filter.
-    //
-    // For Render Topology: Pin 1 is Speaker.
-    // For Capture Topology: Pin 0 is Microphone.
-    //
-    // Let's create two separate handlers or tables if needed.
-    // Actually, PortCls *should* handle this if we don't provide a handler but provide the GUID in the descriptor.
-    // The user's text says "Every bridge pin must expose this property".
-    // It doesn't say "must have a manual handler". It assumes PortCls handles it IF the descriptor is correct.
-    //
-    // Let's stick to JACK_DESCRIPTION for now which is definitely NOT handled by PortCls base logic for virtual devices usually.
-    // We will leave PIN_CATEGORY to PortCls (since we set it in the descriptor) but add JACK_DESCRIPTION.
-
-    STATUS_SUCCESS
+    // This property returns a Unicode string for the pin name.
+    // However, PortCls usually handles this by calling IMiniportPinName::GetPinName.
+    // If we are here, it means PortCls is asking us to handle it manually or is passing it through.
+    // For now, we'll return STATUS_NOT_IMPLEMENTED to let PortCls fall back to IPinName.
+    // If the handshake still fails, we will implement full manual string allocation here.
+    STATUS_NOT_IMPLEMENTED
 }
 
 #[link_section = ".rdata"]
-pub static TOPO_PIN_PROPERTIES: [PCPROPERTY_ITEM; 1] = [PCPROPERTY_ITEM {
-    Set: &KSPROPSETID_Jack as *const GUID,
-    Id: KSPROPERTY_JACK_DESCRIPTION,
-    Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-    Handler: Some(jack_description_handler),
-}];
+pub static TOPO_PIN_PROPERTIES: [PCPROPERTY_ITEM; 2] = [
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_Jack as *const GUID,
+        Id: KSPROPERTY_JACK_DESCRIPTION,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(jack_description_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_Jack as *const GUID,
+        Id: KSPROPERTY_JACK_DESCRIPTION2,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(jack_description_handler),
+    },
+];
 
 #[link_section = ".rdata"]
 pub static TOPO_PIN_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
     PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
-    PropertyCount: 1,
+    PropertyCount: 2,
     Properties: TOPO_PIN_PROPERTIES.as_ptr(),
     MethodItemSize: 0,
     MethodCount: 0,
@@ -311,6 +374,23 @@ pub static MINIMAL_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
     Reserved: 0,
 };
 
+#[link_section = ".rdata"]
+pub static PIN_PROPERTIES: [PCPROPERTY_ITEM; 0] = [];
+
+#[link_section = ".rdata"]
+pub static PIN_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+    PropertyItemSize: 0,
+    PropertyCount: 0,
+    Properties: core::ptr::null(),
+    MethodItemSize: 0,
+    MethodCount: 0,
+    Methods: core::ptr::null(),
+    EventItemSize: 0,
+    EventCount: 0,
+    Events: core::ptr::null(),
+    Reserved: 0,
+};
+
 // ============================================================================
 // Pin Descriptors
 // ============================================================================
@@ -321,7 +401,7 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 4,
         MaxFilterInstanceCount: 4,
         MinFilterInstanceCount: 1,
-        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -341,7 +421,7 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -365,7 +445,7 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 4,
         MaxFilterInstanceCount: 4,
         MinFilterInstanceCount: 1,
-        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -385,7 +465,7 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -409,7 +489,7 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -473,7 +553,7 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,

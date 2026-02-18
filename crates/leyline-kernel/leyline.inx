@@ -8,7 +8,7 @@ Class       = MEDIA
 ClassGuid   = {4d36e96c-e325-11ce-bfc1-08002be10318}
 Provider    = %ManufacturerName%
 CatalogFile = leyline.cat
-DriverVer   = 02/17/2026,1.0.1.1651
+DriverVer   = 02/18/2026,1.0.9.0
 PnpLockdown = 1
 
 [SourceDisksNames]
@@ -91,6 +91,8 @@ HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 HKR,,FriendlyName,,%DeviceNameRender%
 ; Format Baseline
 HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, FE,FF,02,00, 80,BB,00,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
+; Required: tells audiodg.exe this is a WaveRT event-driven endpoint
+HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
 ; Association (Redundant for discovery)
 HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
 
@@ -103,6 +105,8 @@ HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 HKR,,FriendlyName,,%DeviceNameCapture%
 ; Format Baseline
 HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, FE,FF,02,00, 80,BB,00,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
+; Required: tells audiodg.exe this is a WaveRT event-driven endpoint
+HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
 ; Association (Redundant for discovery)
 HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
 
@@ -110,13 +114,15 @@ HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
 HKR,,FriendlyName,,%DeviceNameRender%
 HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
 HKR,,%PKEY_AudioDevice_AlwaysEnabled%,0x00010001,0x00000001
-HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000101
+; 0x1 = enable render endpoint by default
+HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000001
 
 [Leyline_TopoCaptureInterface.AddReg]
 HKR,,FriendlyName,,%DeviceNameCapture%
 HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
 HKR,,%PKEY_AudioDevice_AlwaysEnabled%,0x00010001,0x00000001
-HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000201
+; 0x2 = enable capture endpoint by default
+HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000002
 
 ; ==============================================================================
 ; Service Installation

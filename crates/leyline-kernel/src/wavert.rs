@@ -469,17 +469,34 @@ pub unsafe extern "system" fn miniport_new_stream(
 pub unsafe extern "system" fn wavert_pin_count(
     this: *mut u8,
     pin_id: u32,
-    _filter_necessary: *mut u32,
-    _filter_current: *mut u32,
-    _filter_possible: *mut u32,
-    _global_current: *mut u32,
-    _global_possible: *mut u32,
+    filter_necessary: *mut u32,
+    filter_current: *mut u32,
+    filter_possible: *mut u32,
+    global_current: *mut u32,
+    global_possible: *mut u32,
 ) {
     let _com_obj = MiniportWaveRTCom::from_this(this);
     DbgPrint(
         c"LeylineWaveRT: PinCount called for pin %d\n".as_ptr(),
         pin_id,
     );
+
+    if !filter_necessary.is_null() {
+        *filter_necessary = 0;
+    }
+    if !filter_current.is_null() {
+        *filter_current = 0;
+    }
+    if !filter_possible.is_null() {
+        // WaveRT pins support multiple instances (usually 4)
+        *filter_possible = 4;
+    }
+    if !global_current.is_null() {
+        *global_current = 0;
+    }
+    if !global_possible.is_null() {
+        *global_possible = 4;
+    }
 }
 
 pub unsafe extern "system" fn wavert_set_write_packet(

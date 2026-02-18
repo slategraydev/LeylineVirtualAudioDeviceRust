@@ -230,17 +230,34 @@ pub unsafe extern "system" fn topology_remove_resource(
 pub unsafe extern "system" fn topology_pin_count(
     this: *mut u8,
     pin_id: u32,
-    _filter_necessary: *mut u32,
-    _filter_current: *mut u32,
-    _filter_possible: *mut u32,
-    _global_current: *mut u32,
-    _global_possible: *mut u32,
+    filter_necessary: *mut u32,
+    filter_current: *mut u32,
+    filter_possible: *mut u32,
+    global_current: *mut u32,
+    global_possible: *mut u32,
 ) {
     let _com_obj = MiniportTopologyCom::from_this(this);
     DbgPrint(
         c"LeylineTopo: PinCount called for pin %d\n".as_ptr(),
         pin_id,
     );
+
+    // Standard audio topology pins always have 1 possible instance.
+    if !filter_necessary.is_null() {
+        *filter_necessary = 0;
+    }
+    if !filter_current.is_null() {
+        *filter_current = 0;
+    }
+    if !filter_possible.is_null() {
+        *filter_possible = 1;
+    }
+    if !global_current.is_null() {
+        *global_current = 0;
+    }
+    if !global_possible.is_null() {
+        *global_possible = 1;
+    }
 }
 
 // Local KSP_PIN definition for safe access

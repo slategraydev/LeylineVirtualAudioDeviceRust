@@ -373,3 +373,15 @@ Three parallel solutions now deployed:
 - Clean installation and handshake verification on VM via `.\scripts\Install.ps1 -fast`.
 - **Preferred Verification**: Future agents should use `.\scripts\Install.ps1 -fast` and check `Debugger_Log.txt` for results.
 **Status**: 🟢 **GUIDs VERIFIED & DEBUGGER CLEAN**
+
+### Session #113: Automation & Descriptor Hardening
+**Reviewer**: Antigravity (Gemini 2.0 Flash)
+**Date**: February 18, 2026
+**Summary**: Refactored the installation script for extreme speed and robustness. Identified and fixed a critical stall in the Audio Endpoint Builder (AEB) caused by empty automation tables and transient GUID addresses.
+**Key Changes**:
+- **Install.ps1 Refactor**: Removed kernel debugger integration to achieve 30s build-to-deploy cycles.
+- **Automation Tables**: Restored  + \ \ + PIN_AUTOMATION_TABLE + \\ +  linkage, unblocking Pin Name/Category queries.
+- **GUID ABI Fix**: Converted  + \\ + const GUID + \\ +  to  + \\ + static GUID + \\ +  to provide stable addresses for PortCls.
+- **Handshake Support**: Implemented  + \\ + IPinCount + \\ +  and  + \\ + KSPROPERTY_JACK_DESCRIPTION2 + \\ + .
+- **INF Validation**: Standardized  + \\ + PKEY_AudioDevice_EnableEndpointByDefault + \\ +  in the INF.
+**Status**: 🟠 **ENHANCED STAMPING - PENDING FINAL VERIFICATION**

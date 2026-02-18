@@ -465,7 +465,6 @@ pub unsafe extern "C" fn StartDevice(
         DbgPrint(c"Leyline: Physical Connections:\n".as_ptr());
         DbgPrint(c"Leyline:   - WaveRender -> TopologyRender\n".as_ptr());
         DbgPrint(c"Leyline:   - TopologyCapture Pin 1 -> WaveCapture Pin 1\n".as_ptr());
-        DbgPrint(c"Leyline: END_OF_DEBUG\n".as_ptr());
         DbgPrint(c"Leyline: ==================================================\n".as_ptr());
     } else {
         DbgPrint(

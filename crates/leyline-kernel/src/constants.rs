@@ -276,7 +276,7 @@ pub const KSDATAFORMAT_SPECIFIER_NONE_GUID: GUID = GUID {
 // ============================================================================
 
 #[allow(non_upper_case_globals)]
-pub const KSCATEGORY_AUDIO_GUID: GUID = GUID {
+pub static KSCATEGORY_AUDIO_GUID: GUID = GUID {
     Data1: 0x6994AD04,
     Data2: 0x93EF,
     Data3: 0x11D0,
@@ -284,7 +284,7 @@ pub const KSCATEGORY_AUDIO_GUID: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub const KSCATEGORY_RENDER_GUID: GUID = GUID {
+pub static KSCATEGORY_RENDER_GUID: GUID = GUID {
     Data1: 0x65E8773E,
     Data2: 0x8F56,
     Data3: 0x11D0,
@@ -292,7 +292,7 @@ pub const KSCATEGORY_RENDER_GUID: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub const KSCATEGORY_CAPTURE_GUID: GUID = GUID {
+pub static KSCATEGORY_CAPTURE_GUID: GUID = GUID {
     Data1: 0x65E8773D,
     Data2: 0x8F56,
     Data3: 0x11D0,
@@ -300,7 +300,7 @@ pub const KSCATEGORY_CAPTURE_GUID: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub const KSCATEGORY_TOPOLOGY_GUID: GUID = GUID {
+pub static KSCATEGORY_TOPOLOGY_GUID: GUID = GUID {
     Data1: 0xDDA54A40,
     Data2: 0x1E4C,
     Data3: 0x11D1,
@@ -308,7 +308,7 @@ pub const KSCATEGORY_TOPOLOGY_GUID: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub const KSCATEGORY_REALTIME_GUID: GUID = GUID {
+pub static KSCATEGORY_REALTIME_GUID: GUID = GUID {
     Data1: 0xEB115FFC,
     Data2: 0x10C8,
     Data3: 0x4964,
@@ -328,7 +328,7 @@ pub const KSINTERFACESETID_STANDARD: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub const KSPROPSETID_PIN: GUID = GUID {
+pub static KSPROPSETID_PIN: GUID = GUID {
     Data1: 0x8C134960,
     Data2: 0x51AD,
     Data3: 0x11CF,
@@ -344,7 +344,7 @@ pub const KSPROPSETID_CONNECTION: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub const KSPROPSETID_General: GUID = GUID {
+pub static KSPROPSETID_General: GUID = GUID {
     Data1: 0x1464EDA5,
     Data2: 0x6A8F,
     Data3: 0x11D1,
@@ -354,7 +354,7 @@ pub const KSPROPSETID_General: GUID = GUID {
 pub const KSPROPERTY_GENERAL_COMPONENTID: u32 = 0;
 
 #[allow(non_upper_case_globals)]
-pub const KSPROPSETID_Jack: GUID = GUID {
+pub static KSPROPSETID_Jack: GUID = GUID {
     Data1: 0x4509F757,
     Data2: 0x2D46,
     Data3: 0x4637,

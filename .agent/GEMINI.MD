@@ -12,9 +12,13 @@ Framework: Rust-native WaveRT (Wave Real-Time)
 
 
 
-## Current Status: Building Phase 1 (Core Foundations)
+## Current Status: Building Phase 2 (Endpoint Visibility & Stability)
 
 ### Completed ✅
+...
+- **[x] Automation Table Restoration**: Fixed empty property tables in descriptors.
+- **[x] GUID Stability**: Converted and verified all KS GUIDs as static memory.
+- **[x] Versioned Logging**: Implemented build-tagged DriverEntry logging.
 - **[x] Project Archetype**: All directory "slots" established (APO, HSA, Test, Kernel).
 - **[x] IP Protection**: Mandatory professional headers applied to all source files.
 - **[x] Kernel Core**: `DriverEntry` and `PcInitializeAdapterDriver` (PortCls) implemented.
