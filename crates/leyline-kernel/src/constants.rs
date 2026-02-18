@@ -410,3 +410,25 @@ pub const KSPIN_WAVE_SINK: u32 = 0;
 pub const KSPIN_WAVE_BRIDGE: u32 = 1;
 pub const KSPIN_TOPO_BRIDGE: u32 = 0;
 pub const KSPIN_TOPO_LINEOUT: u32 = 1;
+
+// ============================================================================
+// Topology Nodes & Audio Properties
+// ============================================================================
+
+#[allow(non_upper_case_globals)]
+pub static KSNODETYPE_VOLUME: GUID = GUID {
+    Data1: 0xDFF22003,
+    Data2: 0xF70F,
+    Data3: 0x11D0,
+    Data4: [0xB9, 0x17, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+#[allow(non_upper_case_globals)]
+pub static KSPROPSETID_Audio: GUID = GUID {
+    Data1: 0x45FFAAA0,
+    Data2: 0x6E1B,
+    Data3: 0x11D0,
+    Data4: [0xBC, 0xF2, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00],
+};
+
+pub const KSPROPERTY_AUDIO_VOLUMELEVEL: u32 = 4;

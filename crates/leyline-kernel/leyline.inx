@@ -57,18 +57,18 @@ HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,ThreadingModel,,Both
 
 [Leyline_Device.NTamd64.Interfaces]
 ; Render Interfaces
-AddInterface = %KSCATEGORY_AUDIO%, "WaveRender", Leyline_WaveRenderInterface
-AddInterface = %KSCATEGORY_RENDER%, "WaveRender", Leyline_WaveRenderInterface
-AddInterface = %KSCATEGORY_REALTIME%, "WaveRender", Leyline_WaveRenderInterface
-AddInterface = %KSCATEGORY_AUDIO%, "TopologyRender", Leyline_TopoRenderInterface
-AddInterface = %KSCATEGORY_TOPOLOGY%, "TopologyRender", Leyline_TopoRenderInterface
+AddInterface = %KSCATEGORY_AUDIO%, WaveRender, Leyline_WaveRenderInterface
+AddInterface = %KSCATEGORY_RENDER%, WaveRender, Leyline_WaveRenderInterface
+AddInterface = %KSCATEGORY_REALTIME%, WaveRender, Leyline_WaveRenderInterface
+AddInterface = %KSCATEGORY_AUDIO%, TopologyRender, Leyline_TopoRenderInterface
+AddInterface = %KSCATEGORY_TOPOLOGY%, TopologyRender, Leyline_TopoRenderInterface
 
 ; Capture Interfaces
-AddInterface = %KSCATEGORY_AUDIO%, "WaveCapture", Leyline_WaveCaptureInterface
-AddInterface = %KSCATEGORY_CAPTURE%, "WaveCapture", Leyline_WaveCaptureInterface
-AddInterface = %KSCATEGORY_REALTIME%, "WaveCapture", Leyline_WaveCaptureInterface
-AddInterface = %KSCATEGORY_AUDIO%, "TopologyCapture", Leyline_TopoCaptureInterface
-AddInterface = %KSCATEGORY_TOPOLOGY%, "TopologyCapture", Leyline_TopoCaptureInterface
+AddInterface = %KSCATEGORY_AUDIO%, WaveCapture, Leyline_WaveCaptureInterface
+AddInterface = %KSCATEGORY_CAPTURE%, WaveCapture, Leyline_WaveCaptureInterface
+AddInterface = %KSCATEGORY_REALTIME%, WaveCapture, Leyline_WaveCaptureInterface
+AddInterface = %KSCATEGORY_AUDIO%, TopologyCapture, Leyline_TopoCaptureInterface
+AddInterface = %KSCATEGORY_TOPOLOGY%, TopologyCapture, Leyline_TopoCaptureInterface
 
 [Leyline_WaveRenderInterface]
 AddReg = Leyline_WaveRenderInterface.AddReg

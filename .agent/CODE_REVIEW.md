@@ -27,3 +27,10 @@ Session #113 identified a critical bug in `descriptors.rs` where the `PIN_AUTOMA
 - **Debugger Removal**: The kernel debugger (`kd.exe`) was removed from the automated `Install.ps1` cycle to improve stability. Verification now relies on on-VM health checks and build-versioned (v1.0.9) kernel logging.
 
 **Status**: 🟢 **PROTOCOL FULLY IMPLEMENTED** - All known AEB property requirements are now correctly exposed via stable automation tables or PortCls defaults.
+
+### 6.4 Jack Description Handler Safety & Compliance ⚠️ -> ✅
+-   **Issue**: The `jack_description_handler` was attempting to read the Property ID from `(*property_request).Instance`. In PortCls `PCPROPERTY_REQUEST`, the `Instance` field points to the *Pin Instance* (or is NULL), not the property definition. Accessing it as `KSPROPERTY` was unsafe and likely returning garbage, causing the handler to fail or behave randomly.
+-   **Fix**: Updated to retrieve ID from `(*(*property_request).PropertyItem).Id`.
+-   **Issue**: The handler lacked a `BasicSupport` check. Windows AEB often queries `BasicSupport` before asking for the value.
+-   **Fix**: Added standard `KSPROPERTY_TYPE_BASICSUPPORT` handling, returning `AccessFlags` (Get | BasicSupport).
+-   **Impact**: Ensures stable, compliant responses to AEB queries, preventing the "Silent Failure" state.

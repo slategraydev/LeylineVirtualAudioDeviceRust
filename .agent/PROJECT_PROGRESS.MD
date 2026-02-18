@@ -263,23 +263,24 @@ Three parallel solutions now deployed:
   - Removed unused variables (PSScriptAnalyzer warnings)
   - Added WMI force-removal fallback for stubborn devices
 - **System Verification**: Confirmed driver stages correctly, service runs, but audio endpoints not enumerated by Windows Audio subsystem
-**Root Cause Analysis (Audio Endpoints)**:
-- Driver loads: ✅ `STATUS_SUCCESS` on all initializations
-- HardwareID: ✅ Correctly set to `Root\LeylineAudio` (matches INF)
-- Driver Service: ✅ Running (STATE: 4)
-- DriverStore: ✅ `leyline.sys` staged correctly
-- Subdevices: ✅ All 4 registered (WaveRender, WaveCapture, TopologyRender, TopologyCapture)
-- Physical Connections: ✅ Both render and capture chains connected
-- **Audio Endpoints**: ❌ 0 found in MMDevices registry
-- **KS Properties**: ❌ "No Audio Properties" in diagnostic
-**Hypotheses for Audio Endpoint Failure**:
-1. **SWD\DEVGEN Enumeration Issue**: Windows may not process INF `AddInterface` entries correctly for SWD-enumerated devices. Traditional audio drivers use `Root\Media` enumerator.
+### Current Status
+- **Core Driver**: `leyline-kernel` compiles and installs.
+- **Topology**: Basic Topology Filter implemented with "Direct" connection (Wave -> Topo -> Speaker). Volume Node temporarily disabled for debugging.
+- **Connections**: Internal connections updated to use `KSPIN_COMMUNICATION_NONE`. External pins use `BRIDGE`.
+- **Status**: **BLOCKED** on Audio Endpoint Creation.
+    - `Install.ps1` verifies `AddDevice` and `StartDevice` success.
+    - Kernel Logs (`c:\klog.txt`) confirm:
+        - Helper Interfaces (`IMiniportWaveRT`, `IMiniportTopology`) are queried and accepted.
+        - Physical Connection (`Wave->Topo`) is successfully registered.
+        - `IPinCount` is queried.
+    - **Issue**: Endpoint Builder does not create the endpoint. `GetPinName` method is not logged as called despite interface query success. Property handlers (ComponentId) are not logged directly.
+    - **Hypothesis**: Subtle mismatch in Pin Descriptor flags or RefCounting/COM logic preventing full enumeration.
+`AddInterface` entries correctly for SWD-enumerated devices. Traditional audio drivers use `Root\Media` enumerator.
 2. **Missing Interface Registration**: May need explicit `IoRegisterDeviceInterface` calls in code rather than relying solely on INF `AddInterface`.
 3. **Category/GUID Mismatch**: `KSCATEGORY_AUDIO` + `KSCATEGORY_RENDER`/`KSCATEGORY_CAPTURE` may need adjustment.
 4. **PortCls Registration Order**: WaveRT miniports may need to be registered with different flags or parameters for Windows Audio Service to recognize them as endpoints.
 5. **INF AddInterface Processing**: Windows may not be re-processing AddInterface entries on driver update. Requires full driver package deletion and reinstall (now handled by updated Uninstall.ps1).
 **Status**: ✅ Driver fully operational at kernel level, ❌ Audio endpoints not visible to Windows Audio subsystem. **CRITICAL PATH**: Investigate SWD\DEVGEN vs Root\Media enumeration for audio endpoint creation.
-
 ## PROJECT TODO (Next Session: #43)
 - [ ] **CRITICAL: Root\Media Enumeration Test**: Test the `-UseRootMedia` switch in VM to verify if Root\Media enumeration creates audio endpoints
   - Run `Uninstall.ps1` → Reboot → `Install.ps1 -clean -UseRootMedia`
@@ -384,4 +385,17 @@ Three parallel solutions now deployed:
 - **GUID ABI Fix**: Converted  + \\ + const GUID + \\ +  to  + \\ + static GUID + \\ +  to provide stable addresses for PortCls.
 - **Handshake Support**: Implemented  + \\ + IPinCount + \\ +  and  + \\ + KSPROPERTY_JACK_DESCRIPTION2 + \\ + .
 - **INF Validation**: Standardized  + \\ + PKEY_AudioDevice_EnableEndpointByDefault + \\ +  in the INF.
-**Status**: 🟠 **ENHANCED STAMPING - PENDING FINAL VERIFICATION**
+
+### Session #114: Critical AEB Fixes & INF Sanitization
+**Reviewer**: Antigravity (Gemini 2.0 Flash)
+**Date**: February 18, 2026
+**Summary**: Addressed probable root causes for the "missing endpoint" issue. Identified that `jack_description_handler` was reading invalid memory (garbage IDs) because it dereferenced the `Instance` pointer instead of reading the `PropertyItem` provided by PortCls. Added missing `BasicSupport` handling which is mandatory for AEB property queries. Sanitized `leyline.inx` to remove quotes from `AddInterface` strings, matching kernel registration exactly.
+**Key Changes**:
+-   **Critical Bug Fix (`descriptors.rs`)**: Changed property ID retrieval from `(*property_request).Instance` (incorrect) to `(*(*property_request).PropertyItem).Id` (correct).
+-   **Protocol Compliance**: Implemented `KSPROPERTY_TYPE_BASICSUPPORT` handling in `jack_description_handler`. AEB queries often start with a support check.
+-   **Capability Signal**: Updated `KSJACK_DESCRIPTION2` to return `JackCapabilities = 1` (Presence Detect), explicitly signaling that the driver supports jack detection.
+-   **INF Sanitization**: Removed quotes around reference strings in `leyline.inx` (`"WaveRender"` -> `WaveRender`) to ensure exact string matching with `IoRegisterDeviceInterface`.
+**Status**: 🟠 **FIXES DEPLOYED - REBOOT REQUIRED**
+-   Build: **SUCCESS** (0 Warnings).
+-   Deployment: **SUCCESS**.
+-   Verification: Auto-check reported 0 endpoints. A full VM reboot is highly recommended to clear any cached "bad" driver state from the Audio Endpoint Builder.
