@@ -245,6 +245,18 @@ pub unsafe extern "system" fn miniport_query_interface(
                 .as_ptr(),
         );
         *out = &((*com_obj).resource_manager_vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IPowerNotify) {
+        DbgPrint(
+            c"LeylineWaveRT: QueryInterface -> IPowerNotify (REJECTED - NOT IMPLEMENTED)\n"
+                .as_ptr(),
+        );
+        return STATUS_NOINTERFACE;
+    } else if crate::is_equal_guid(iid, &IID_IAdapterPowerManagement)
+        || crate::is_equal_guid(iid, &IID_IAdapterPowerManagement2)
+        || crate::is_equal_guid(iid, &IID_IAdapterPowerManagement3)
+    {
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IAdapterPowerManagementX (REJECTED - NOT IMPLEMENTED)\n".as_ptr());
+        return STATUS_NOINTERFACE;
     } else if crate::is_equal_guid(iid, &IID_IMiniportAudioSignalProcessing) {
         DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportAudioSignalProcessing (REJECTED - NOT IMPLEMENTED)\n".as_ptr());
         return STATUS_NOINTERFACE;

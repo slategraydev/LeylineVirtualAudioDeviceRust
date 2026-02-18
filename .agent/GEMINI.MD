@@ -401,15 +401,16 @@ Installation: pnputil /add-driver leyline.inf /install 1
 
 5.4 Automated Verification (VM)
 
-For rapid iteration, use the automated VM pipeline which handles reverting, building, and kernel debugging:
+For rapid iteration, use the automated installation script which handles building, deploying, and kernel debugging:
 
-Command: .\scripts\Automate-VM-Verification.ps1 -VMName "LeylineTestVM"
+Command: `.\scripts\Install.ps1 -fast`
 
 Features:
-- Reverts VM to clean snapshot.
-- Configures kd.exe for kernel debugging.
-- Builds and deploys the driver.
-- Captures and analyzes startup logs for "Leyline" signature.
+- **Fast Mode**: Skips VM snapshot revert for <30s feedback loop.
+- **Integrated Debugger**: Launches `kd.exe` and streams logs to `Debugger_Log.txt`.
+- **Clean Mode**: Use `-clean` if you suspect stale build artifacts.
+
+Alternative (Full Pipeline): `.\scripts\Automate-VM-Verification.ps1 -VMName "LeylineTestVM"`
 
 
 

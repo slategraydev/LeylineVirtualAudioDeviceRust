@@ -101,6 +101,38 @@ pub const IID_IPinName: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
+pub const IID_IPowerNotify: GUID = GUID {
+    Data1: 0x3DD648B8,
+    Data2: 0x969F,
+    Data3: 0x11D1,
+    Data4: [0x95, 0xA9, 0x00, 0xC0, 0x4F, 0xB9, 0x25, 0xD3],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IAdapterPowerManagement: GUID = GUID {
+    Data1: 0x793417D0,
+    Data2: 0x35FE,
+    Data3: 0x11D1,
+    Data4: [0xAD, 0x08, 0x00, 0xA0, 0xC9, 0x0A, 0xB1, 0xB0],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IAdapterPowerManagement2: GUID = GUID {
+    Data1: 0xE0F92E5D,
+    Data2: 0x67F5,
+    Data3: 0x48EE,
+    Data4: [0xB5, 0x7A, 0x7D, 0x1E, 0x90, 0xC5, 0xF4, 0x3D],
+};
+
+#[allow(non_upper_case_globals)]
+pub const IID_IAdapterPowerManagement3: GUID = GUID {
+    Data1: 0xA8C7303E,
+    Data2: 0xF80C,
+    Data3: 0x4BC9,
+    Data4: [0xB2, 0xE3, 0xFB, 0x2D, 0x08, 0xBE, 0x92, 0x0F],
+};
+
+#[allow(non_upper_case_globals)]
 pub const IID_IMiniportAudioEngineNode: GUID = GUID {
     Data1: 0x2EBF536C,
     Data2: 0xEF57,
@@ -320,6 +352,26 @@ pub const KSPROPSETID_General: GUID = GUID {
 };
 
 pub const KSPROPERTY_GENERAL_COMPONENTID: u32 = 0;
+
+#[allow(non_upper_case_globals)]
+pub const KSPROPSETID_Jack: GUID = GUID {
+    Data1: 0x4509F757,
+    Data2: 0x2D46,
+    Data3: 0x4637,
+    Data4: [0x8E, 0x62, 0xCE, 0x7D, 0xB9, 0x44, 0xF5, 0x7B],
+};
+
+pub const KSPROPERTY_JACK_DESCRIPTION: u32 = 1;
+pub const KSPROPERTY_JACK_DESCRIPTION2: u32 = 2;
+
+#[allow(non_upper_case_globals)]
+pub const KSPROPERTY_PIN_CATEGORY: u32 = 0;
+pub const KSPROPERTY_PIN_NAME: u32 = 6;
+
+pub const KSPROPERTY_TYPE_GET: u32 = 0x00000001;
+pub const KSPROPERTY_TYPE_SET: u32 = 0x00000002;
+pub const KSPROPERTY_TYPE_TOPOLOGY: u32 = 0x10000000;
+pub const KSPROPERTY_TYPE_BASICSUPPORT: u32 = 0x00000200;
 
 #[allow(non_upper_case_globals)]
 pub const KSNODETYPE_SPEAKER: GUID = GUID {

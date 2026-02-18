@@ -330,3 +330,5 @@ pub unsafe fn is_equal_guid(a: *const GUID, b: &GUID) -> bool {
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
+ 
+ 

@@ -347,3 +347,29 @@ Three parallel solutions now deployed:
 - [ ] **Implementation**: Add `PCAUTOMATION_TABLE` to `descriptors.rs` to see if property handlers are the final missing key.
 - [ ] **Refinement**: Consider implementing `IPortClsStreamResourceManager` if activation remains elusive.
 
+### Session #51: Endpoint Activation - Jack Description Logic
+**Reviewer**: Antigravity (Gemini 2.0 Pro)
+**Date**: February 17, 2026
+**Summary**: Addressed the "Active Endpoint" gap by implementing the mandatory `KSPROPERTY_JACK_DESCRIPTION` property on Topology Bridge Pins. This property is critical for the Audio Endpoint Builder (AEB) to validate that a physical jack exists and is "connected."
+**Key Changes**:
+- **Property Logic**: Implemented `jack_description_handler` in `descriptors.rs` returning `IsConnected = TRUE`, `ConnectionType = 3.5mm`, `GeoLocation = Rear`.
+- **Automation Table**: Created `TOPO_PIN_AUTOMATION_TABLE` linking the handler to `KSPROPSETID_Jack`.
+- **Descriptor Update**: Attached the new automation table to `TOPO_RENDER_PINS` and `TOPO_CAPTURE_PINS` (Bridge Pin 0/1).
+- **Constant Definition**: Added `KSPROPSETID_Jack` and related constants to `constants.rs`.
+- **Verification**: Pending VM validation.
+**Status**: 🟡 **VERIFICATION IN PROGRESS**
+
+### Session #52: GUID Verification & Power Notify Support
+**Reviewer**: Antigravity (Gemini 2.0 Flash)
+**Date**: February 17, 2026
+**Summary**: Verified all core miniport GUIDs against Windows SDK standards. Identified and addressed the "REJECTED IID" `{3dd648b8...}` as `IID_IPowerNotify`. Hardened the build script against environment pollution.
+**Key Changes**:
+- **GUID Audit**: Confirmed all 20+ miniport/interface GUIDs in `constants.rs` match `portcls.h`, `ks.h`, and `ksmedia.h`.
+- **Power Management Support**: Added `IID_IPowerNotify` and `IID_IAdapterPowerManagementX` constants to `constants.rs`.
+- **Diagnostic Logging**: Updated `wavert.rs` and `topology.rs` to explicitly recognize and log power management interface queries.
+- **Build Hardening**: Updated `scripts/Install.ps1` to override `_NT_SYMBOL_PATH` and explicitly set the local package directory for symbols, resolving "ghost" path errors from previous projects.
+**Verification**:
+- Successful build via `cargo build --release`.
+- Clean installation and handshake verification on VM via `.\scripts\Install.ps1 -fast`.
+- **Preferred Verification**: Future agents should use `.\scripts\Install.ps1 -fast` and check `Debugger_Log.txt` for results.
+**Status**: 🟢 **GUIDs VERIFIED & DEBUGGER CLEAN**

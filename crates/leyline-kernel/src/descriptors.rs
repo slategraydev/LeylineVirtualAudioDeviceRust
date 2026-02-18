@@ -24,6 +24,33 @@ pub struct KSCOMPONENTID {
 unsafe impl Sync for KSCOMPONENTID {}
 unsafe impl Send for KSCOMPONENTID {}
 
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSJACK_DESCRIPTION {
+    pub ChannelMapping: u32,
+    pub Color: u32,
+    pub ConnectionType: u32,
+    pub GeoLocation: u32,
+    pub GenLocation: u32,
+    pub PortConnection: u32,
+    pub IsConnected: i32, // BOOL
+}
+
+// Colors
+pub const JACK_COLOR_BLACK: u32 = 0x00000000;
+// Connection Type
+#[allow(non_upper_case_globals)]
+pub const eConnType3Point5mm: u32 = 1;
+// GeoLocation
+#[allow(non_upper_case_globals)]
+pub const eGeoLocRear: u32 = 1;
+// GenLocation
+#[allow(non_upper_case_globals)]
+pub const eGenLocPrimaryBox: u32 = 0;
+// PortConnection
+#[allow(non_upper_case_globals)]
+pub const ePortConnJack: u32 = 0;
+
 // Then current crate.
 use crate::constants::*;
 use crate::stream::{
@@ -157,6 +184,104 @@ pub unsafe extern "C" fn component_id_handler(property_request: PPCPROPERTY_REQU
 
     STATUS_SUCCESS
 }
+
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn jack_description_handler(
+    property_request: PPCPROPERTY_REQUEST,
+) -> NTSTATUS {
+    if property_request.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    DbgPrint(c"Leyline: KSPROPERTY_JACK_DESCRIPTION Called\n".as_ptr());
+
+    // PortCls PCPROPERTY_REQUEST uses ValueSize, not ValueLength.
+    if (*property_request).ValueSize == 0 {
+        (*property_request).ValueSize = core::mem::size_of::<KSJACK_DESCRIPTION>() as u32;
+        DbgPrint(c"Leyline: Returning STATUS_BUFFER_OVERFLOW for size query\n".as_ptr());
+        return STATUS_BUFFER_OVERFLOW;
+    }
+
+    if (*property_request).ValueSize < core::mem::size_of::<KSJACK_DESCRIPTION>() as u32 {
+        return STATUS_BUFFER_TOO_SMALL;
+    }
+
+    let jack_desc = (*property_request).Value as *mut KSJACK_DESCRIPTION;
+    if !jack_desc.is_null() {
+        (*jack_desc).ChannelMapping = 0; // KSAUDIO_SPEAKER_STEREO (implied)
+        (*jack_desc).Color = JACK_COLOR_BLACK;
+        (*jack_desc).ConnectionType = eConnType3Point5mm;
+        (*jack_desc).GeoLocation = eGeoLocRear;
+        (*jack_desc).GenLocation = eGenLocPrimaryBox;
+        (*jack_desc).PortConnection = ePortConnJack;
+        (*jack_desc).IsConnected = 1; // TRUE - Always Connected
+    }
+
+    STATUS_SUCCESS
+}
+
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn pin_category_handler(property_request: PPCPROPERTY_REQUEST) -> NTSTATUS {
+    if property_request.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    if (*property_request).ValueSize == 0 {
+        (*property_request).ValueSize = core::mem::size_of::<GUID>() as u32;
+        return STATUS_BUFFER_OVERFLOW;
+    }
+
+    if (*property_request).ValueSize < core::mem::size_of::<GUID>() as u32 {
+        return STATUS_BUFFER_TOO_SMALL;
+    }
+
+    // We need to determine if this is the Speaker or Mic pin.
+    // The request structure gives us the PinId in the InstanceSize/Instance field usually.
+    // However, for simplicity, we can inspect the MinorTarget/Instance manually or trust PortCls.
+    // BUT! Since we attach this table to specific pins, we might need separate tables for Render vs Capture
+    // OR we can make a smart handler.
+    //
+    // Actually, KSPROPERTY_PIN_CATEGORY is often handled by PortCls automatically if the
+    // descriptor Category is set. But since we are here, let's implement it to be sure.
+    //
+    // Wait, the handler doesn't easily know WHICH pin it's attached to without context.
+    // For now, let's rely on the fact that we are attaching this to the BRIDGE pin of the specific filter.
+    //
+    // For Render Topology: Pin 1 is Speaker.
+    // For Capture Topology: Pin 0 is Microphone.
+    //
+    // Let's create two separate handlers or tables if needed.
+    // Actually, PortCls *should* handle this if we don't provide a handler but provide the GUID in the descriptor.
+    // The user's text says "Every bridge pin must expose this property".
+    // It doesn't say "must have a manual handler". It assumes PortCls handles it IF the descriptor is correct.
+    //
+    // Let's stick to JACK_DESCRIPTION for now which is definitely NOT handled by PortCls base logic for virtual devices usually.
+    // We will leave PIN_CATEGORY to PortCls (since we set it in the descriptor) but add JACK_DESCRIPTION.
+
+    STATUS_SUCCESS
+}
+
+#[link_section = ".rdata"]
+pub static TOPO_PIN_PROPERTIES: [PCPROPERTY_ITEM; 1] = [PCPROPERTY_ITEM {
+    Set: &KSPROPSETID_Jack as *const GUID,
+    Id: KSPROPERTY_JACK_DESCRIPTION,
+    Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+    Handler: Some(jack_description_handler),
+}];
+
+#[link_section = ".rdata"]
+pub static TOPO_PIN_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+    PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
+    PropertyCount: 1,
+    Properties: TOPO_PIN_PROPERTIES.as_ptr(),
+    MethodItemSize: 0,
+    MethodCount: 0,
+    Methods: core::ptr::null(),
+    EventItemSize: 0,
+    EventCount: 0,
+    Events: core::ptr::null(),
+    Reserved: 0,
+};
 
 #[link_section = ".rdata"]
 pub static COMPONENT_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
@@ -304,7 +429,7 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+        AutomationTable: &TOPO_PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
@@ -328,7 +453,7 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 1,
         MaxFilterInstanceCount: 1,
         MinFilterInstanceCount: 1,
-        AutomationTable: &MINIMAL_AUTOMATION_TABLE,
+        AutomationTable: &TOPO_PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 1,
             Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,

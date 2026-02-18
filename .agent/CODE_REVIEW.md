@@ -38,3 +38,35 @@ All filters now include `KSPROPERTY_GENERAL_COMPONENTID`. This satisfies the AEB
 - **Physical Routing**: Render and Capture paths are binary-connected (`Wave <-> Topo`).
 
 **Status**: 🟢 **KERNEL READY** - The next agent must focus on the "User-Mode Cliff" where interfaces are accepted but endpoints are not created.
+
+---
+
+## Session #51: The "Connected Jack" Mandate
+
+### Executive Summary
+Analysis of the AEB (Audio Endpoint Builder) algorithm revealed a critical gap: Virtual drivers MUST simulate physical connectivity. Simply declargin a "Bridge Pin" is insufficient; the driver must explicitly respond to `KSPROPERTY_JACK_DESCRIPTION` to confirm that the "jack" is physically populated.
+
+### 4.1 Topology Pin Automation
+-   **Implementation**: A dedicated `TOPO_PIN_AUTOMATION_TABLE` was created and attached to the Bridge Pins (Pin 1 on Render, Pin 0 on Capture).
+-   **Logic**: The `jack_description_handler` hardcodes `IsConnected = TRUE` (1). This is the standard behavior for "speakers built into the chassis" or always-on virtual cables.
+-   **Impact**: This satisfies the "Path Validation" step of the AEB discovery process, which discards any path leading to an unplugged jack.
+
+**Status**: 🟡 **Awaiting Verification**
+---
+
+## Session #52: Power Management & GUID Integrity
+
+### Executive Summary
+Session #52 focused on hardening the driver's interface metadata and diagnostic accuracy. By verifying the GUID set against the eWDK headers, we ensured binary compatibility for all core PortCls interactions. The identification and logging of `IID_IPowerNotify` resolves a primary "Rejected IID" noise source and prepares the driver for future power management implementation.
+
+### 5.1 GUID Consistency ✅
+Cross-referencing `constants.rs` with `portcls.h` and `ksmedia.h` confirmed that the driver is correctly declaring its miniport and interface identities. No mismatched GUIDs were found among the core set.
+
+### 5.2 Power Management Handshake
+- **Implementation**: Added `IID_IPowerNotify`, `IID_IAdapterPowerManagement`, `IID_IAdapterPowerManagement2`, and `IID_IAdapterPowerManagement3`.
+- **Logic**: Updated `QueryInterface` to explicitly return `STATUS_NOINTERFACE` for these while logging the specific requirement. This prevents "Unknown IID" errors in logs when the driver is disabled or the system enters sleep.
+
+### 5.3 Symbol Path Hardening
+Resolved a build/debug environment contamination issue where `_NT_SYMBOL_PATH` was polluting the `kd.exe` session with paths from previous projects.
+
+**Status**: 🟢 **DIAGNOSTICALLY CLEAN**

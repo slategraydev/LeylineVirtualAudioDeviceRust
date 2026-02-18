@@ -1,268 +1,319 @@
-# Leyline Audio: UBER INSTALLER (Build + Install)
-# MUST be run as Administrator.
+# Leyline Audio: ROBUST VM INSTALLER & DEBUGGER
+# Logic: Revert (VM) -> Build (Host) -> Deploy (VM) -> Install (VM) -> Monitor (Host)
+# Target: LeylineTestVM ONLY
 
 param (
-    [switch]$clean,
-    [switch]$build,
-    [switch]$package,
-    [switch]$install,
-    [switch]$UseRootMedia
+    [switch]$clean,          # Full clean build on HOST
+    [switch]$fast,           # Skip reverting VM (previously noRevert)
+    [switch]$Uninstall,      # Only perform uninstallation/scrub on VM
+    [string]$VMName = "LeylineTestVM",
+    [string]$SnapshotName = "LeylineSnapshot",
+    [string]$DebuggerPath = "C:\eWDK_28000\Program Files\Windows Kits\10\Debuggers\x64\kd.exe",
+    [int]$DebugPort = 50000,
+    [string]$DebugKey = "1.2.3.4"
 )
 
-# Default behavior: If no switches provided, do everything
-if (-not ($build -or $package -or $install))
-{
-    $build = $true; $package = $true; $install = $true
-}
-
-# Session #42: Root\Media Enumeration Mode
-# By default, use DevGen (SWD\DEVGEN). Use -UseRootMedia to test alternative enumeration.
-
-
 $ErrorActionPreference = "Stop"
-$initialDir = Get-Location
+$ProgressPreference = "SilentlyContinue" # Suppress "Removed X of Y files" progress bars
 $ProjectRoot = Resolve-Path "$PSScriptRoot\.."
-Push-Location $ProjectRoot
+$remotePath = "C:\LeylineInstall"
+$DebuggerLog = Join-Path $ProjectRoot "Debugger_Log.txt"
 
-try
-{
-    # ... (Admin and Testsigning checks remain) ...
-    # 0. Administrator Guard
-    $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-    if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
-    {
-        throw "This script MUST be run as Administrator."
+# Host Credentials for VM
+$secPassword = ConvertTo-SecureString "REDACTED_VM_PASS" -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential ("USER", $secPassword)
+
+# --- 1. VM SNAPSHOT HANDLING ---
+if (-not $fast -and -not $Uninstall) {
+    Write-Host "[*] Reverting VM '$VMName' to snapshot '$SnapshotName'..." -ForegroundColor Cyan
+    Try {
+        Restore-VMSnapshot -VMName $VMName -Name $SnapshotName -Confirm:$false
+        Start-VM -Name $VMName -ErrorAction SilentlyContinue
+    }
+    Catch {
+        Write-Warning "Snapshot revert failed. Ensure the VM and Snapshot exist."
+        Return
     }
 
-    # 0.1 Check Testsigning Status
-    $testSigning = bcdedit /enum "{current}" | Select-String "testsigning\s+Yes"
-    if (-not $testSigning)
-    {
-        Write-Host "[!] Test-signing is NOT enabled. Enabling now..." -ForegroundColor Yellow
-        bcdedit /set testsigning on
-        Write-Host "[CRITICAL] Test-signing enabled. YOU MUST REBOOT YOUR PC before this script can install drivers." -ForegroundColor Red
+    Write-Host "    Waiting for VM network/heartbeat..." -NoNewline
+    $timeout = 60
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($timer.Elapsed.TotalSeconds -lt $timeout) {
+        $vm = Get-VM -Name $VMName
+        if ($vm.State -eq 'Running' -and $vm.NetworkAdapters[0].IpAddresses.Count -gt 0) {
+            Write-Host " Ready." -ForegroundColor Green
+            break
+        }
+        Start-Sleep -Seconds 1
+        Write-Host "." -NoNewline
+    }
+    if ($timer.Elapsed.TotalSeconds -ge $timeout) {
+        Write-Warning "`nVM did not report IP within timeout. Proceeding, but connection might fail."
+    }
+    Start-Sleep -Seconds 5 # stabilizing buffer
+}
+
+# --- 2. HOST BUILD ---
+if (-not $Uninstall) {
+    Write-Host "[*] [HOST] Initializing Build Environment..." -ForegroundColor Cyan
+    . "$PSScriptRoot\LaunchBuildEnv.ps1"
+
+    if ($clean) {
+        Write-Host "    -> Performing CLEAN build (User Requested)..." -ForegroundColor Yellow
+    
+        # Kernel
+        if (Test-Path "$ProjectRoot/crates/leyline-kernel/target") { Remove-Item "$ProjectRoot/crates/leyline-kernel/target" -Recurse -Force -ErrorAction SilentlyContinue }
+        Push-Location "$ProjectRoot/crates/leyline-kernel"; cargo clean; Pop-Location
+    
+        # HSA
+        if (Test-Path "$ProjectRoot/src/HSA/bin") { Remove-Item "$ProjectRoot/src/HSA/bin" -Recurse -Force -ErrorAction SilentlyContinue }
+        if (Test-Path "$ProjectRoot/src/HSA/obj") { Remove-Item "$ProjectRoot/src/HSA/obj" -Recurse -Force -ErrorAction SilentlyContinue }
+    
+        # Package
+        if (Test-Path "$ProjectRoot/package") { Remove-Item "$ProjectRoot/package" -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    Write-Host "[*] [HOST] Compiling & Packaging..." -ForegroundColor Cyan
+    # 1. Kernel Build
+    Write-Host "    -> Building Kernel (release)..."
+    Push-Location "$ProjectRoot/crates/leyline-kernel"
+    cargo wdk build --profile release
+    if ($LASTEXITCODE -ne 0) { throw "Kernel build failed." }
+    Pop-Location
+
+    # 2. HSA Build
+    Write-Host "    -> Building HSA..."
+    dotnet build "$ProjectRoot/src/HSA/LeylineHSA.csproj" -c Release /p:Version=1.0.1.VM | Out-Null
+
+    # 3. APO Build
+    Write-Host "    -> Building APO..."
+    Push-Location "$ProjectRoot/src/APO"
+    if (Test-Path "Makefile") { nmake /f Makefile | Out-Null }
+    Pop-Location
+
+    # Package Aggregation
+    Write-Host "    -> Aggregating Artifacts..."
+    if (Test-Path "$ProjectRoot/package") { Remove-Item "$ProjectRoot/package" -Recurse -Force }
+    New-Item -ItemType Directory -Path "$ProjectRoot/package/HSA" -Force | Out-Null
+
+    $kernelPath = "$ProjectRoot/target/release/leyline.dll"
+    if (-not (Test-Path $kernelPath)) { throw "Kernel binary not found at $kernelPath" }
+
+    Copy-Item $kernelPath "$ProjectRoot/package/leyline.sys"
+    Copy-Item "$ProjectRoot/crates/leyline-kernel/leyline.inx" "$ProjectRoot/package/leyline.inf"
+    Copy-Item "$ProjectRoot/src/APO/LeylineAPO.dll" "$ProjectRoot/package/"
+    dotnet publish "$ProjectRoot/src/HSA/LeylineHSA.csproj" -c Release -r win-x64 --self-contained false -o "$ProjectRoot/package/HSA" | Out-Null
+
+    # Signing
+    Write-Host "    -> Signing artifacts..."
+    if (-not (Test-Path "$ProjectRoot/package\leyline.cer")) {
+        $cert = New-SelfSignedCertificate -Subject "Leyline Audio" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My"
+        $cert | Export-PfxCertificate -FilePath "$ProjectRoot/package\leyline.pfx" -Password (ConvertTo-SecureString -String "REDACTED_CERT_PASS" -Force -AsPlainText)
+        $cert | Export-Certificate -FilePath "$ProjectRoot/package\leyline.cer"
+    }
+    if (-not (Test-Path "$ProjectRoot/package\leyline.pfx")) {
+        Write-Host "Re-exporting PFX..."
+        $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -eq "CN=Leyline Audio" } | Select-Object -First 1
+        if ($cert) {
+            $cert | Export-PfxCertificate -FilePath "$ProjectRoot/package\leyline.pfx" -Password (ConvertTo-SecureString -String "REDACTED_CERT_PASS" -Force -AsPlainText)
+        }
+    }
+    & $env:INF2CAT_EXE /driver:"$ProjectRoot/package" /os:10_X64 | Out-Null
+
+    $pfxPath = "$ProjectRoot\package\leyline.pfx"
+    $signArgs = @("sign", "/f", $pfxPath, "/p", "REDACTED_CERT_PASS", "/fd", "SHA256")
+
+    Write-Host "    -> Signing leyline.sys..."
+    & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package\leyline.sys" | Out-Null
+    & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package\leyline.cat" | Out-Null
+    & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package\LeylineAPO.dll" | Out-Null
+    & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package\HSA\LeylineHSA.exe" | Out-Null
+
+    # --- 3. START DEBUGGER & LOG STREAM ---
+    Write-Host "[*] [HOST] Starting Debugger (kd.exe)..." -ForegroundColor Cyan
+
+    # Attempt to resolve KD path from environment if available
+    if ($env:eWDK_ROOT_DIR) {
+        $DebuggerPath = Join-Path $env:eWDK_ROOT_DIR "Program Files\Windows Kits\10\Debuggers\x64\kd.exe"
+    }
+    if (-not (Test-Path $DebuggerPath)) {
+        # Fallback paths
+        $DebuggerPath = "C:\eWDK_28000\Program Files\Windows Kits\10\Debuggers\x64\kd.exe"
+        if (-not (Test-Path $DebuggerPath)) { 
+            $DebuggerPath = "D:\eWDK_28000\Program Files\Windows Kits\10\Debuggers\x64\kd.exe" 
+        }
+    }
+
+    if (-not (Test-Path $DebuggerPath)) {
+        Write-Error "Debugger (kd.exe) not found at: $DebuggerPath"
+        throw "Debugger not found."
+    }
+
+    # Stop any existing KD processes to be safe
+    Get-Process -Name kd -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+
+    if (Test-Path $DebuggerLog) { Remove-Item $DebuggerLog -Force -ErrorAction SilentlyContinue }
+
+    Write-Host "    -> Starting KD job..."
+    
+    $logJob = Start-Job -ScriptBlock {
+        param($DebuggerPath, $DebugPort, $DebugKey, $LogPath)
+        
+        $kdArgs = @(
+            "-k", "net:port=$DebugPort,key=$DebugKey",
+            "-v",
+            "-y", "$PSScriptRoot\..\package", # Search local package first
+            "-c", "ed nt!Kd_DEFAULT_Mask 0xFFFFFFFF; g",
+            "-logo", $LogPath
+        )
+        $env:_NT_SYMBOL_PATH = "SRV*C:\Symbols*http://msdl.microsoft.com/download/symbols" # Reset to default
+        & $DebuggerPath @kdArgs
+    } -ArgumentList $DebuggerPath, $DebugPort, $DebugKey, $DebuggerLog, $PSScriptRoot
+
+    Write-Host "    -> Debugger logging to: $DebuggerLog"
+    Write-Host "    -> Waiting for debugger to initialize (2s)..."
+    Start-Sleep -Seconds 2
+    Write-Host "    -> Streaming events to console..." -ForegroundColor Green
+    if (-not (Test-Path $DebuggerLog)) {
+        New-Item -ItemType File -Path $DebuggerLog -Force | Out-Null
+    }
+}
+
+# --- 4. VM OPERATION ---
+try {
+    Write-Host "[*] Connecting to VM..." -ForegroundColor Cyan
+    $vmsess = New-PSSession -VMName $VMName -Credential $cred
+
+
+    # --- SCRUB / UNINSTALL ---
+    Invoke-Command -Session $vmsess -ScriptBlock {
+        param($path)
+        Write-Host "--- [VM] PRE-INSTALL SCRUB INITIATED ---" -ForegroundColor Magenta
+        Write-Host "    (This ensures a clean environment before installation)" -ForegroundColor Gray
+        $toolPath = "C:\eWDK\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64"
+        $devcon = Join-Path $toolPath "devcon.exe"
+
+        # 1. Kill duplicate IDs
+        if (Test-Path $devcon) {
+            & $devcon remove "Root\Media\LeylineAudio" | Out-Null
+            & $devcon remove "Root\LeylineAudio" | Out-Null
+            & $devcon remove "SWC\Leyline*" | Out-Null
+        }
+
+        # 2. PnP Check (PowerShell native)
+        Get-PnpDevice -PresentOnly:$false | Where-Object { $_.FriendlyName -like "*Leyline*" -or $_.HardwareID -contains "Root\Media\LeylineAudio" } | ForEach-Object {
+            Write-Host "     -> Removing Instance: $($_.InstanceId)"
+            pnputil /remove-device $_.InstanceId /force | Out-Null
+        }
+        
+        # 3. Service/Store Cleanup
+        $svc = Get-Service "Leyline*" -ErrorAction SilentlyContinue
+        if ($svc) { 
+            Write-Host "     -> Stopping/Deleting Service..."
+            sc.exe stop LeylineAudio | Out-Null
+            sc.exe delete LeylineAudio | Out-Null
+        }
+        
+        # 4. Driver Store - Aggressive
+        $drivers = pnputil /enum-drivers | Select-String "Original Name:\s+leyline\.inf" -Context 1
+        foreach ($d in $drivers) {
+            if ($d.Context.PreContext[0] -match "(oem\d+\.inf)") { 
+                $inf = $matches[1]
+                Write-Host "     -> Deleting driver package: $inf"
+                pnputil /delete-driver $inf /force | Out-Null 
+            }
+        }
+
+        # 5. File Cleanup (System32)
+        $sysFiles = @("C:\Windows\System32\drivers\leyline.sys", "C:\Windows\System32\LeylineAPO.dll")
+        foreach ($f in $sysFiles) {
+            if (Test-Path $f) { 
+                Write-Host "     -> Deleting system file: $f"
+                Remove-Item $f -Force -ErrorAction SilentlyContinue 
+            }
+        }
+
+        if (Test-Path $path) { Remove-Item $path -Recurse -Force }
+        New-Item -ItemType Directory -Path $path -Force | Out-Null
+        
+    } -ArgumentList $remotePath
+
+    if ($Uninstall) {
+        Write-Host "[SUCCESS] VM scrubbed/uninstalled." -ForegroundColor Green
         return
     }
 
-    Write-Host "`n--- [1/5] Initializing eWDK Environment ---" -ForegroundColor Cyan
+    # --- DEPLOY & INSTALL ---
+    Write-Host "    -> Copying files..."
+    Copy-Item -Path "$ProjectRoot/package\*" -Destination $remotePath -ToSession $vmsess -Recurse -Force
 
-    # Use the robust LaunchBuildEnv.ps1 to set up the environment
-    . "$PSScriptRoot\LaunchBuildEnv.ps1"
+    Write-Host "    -> Installing Driver on VM..."
+    Invoke-Command -Session $vmsess -ScriptBlock {
+        param($path)
+        $ErrorActionPreference = "Stop"
+        Set-Location $path
+        certutil -addstore -f root leyline.cer | Out-Null
+        certutil -addstore -f TrustedPublisher leyline.cer | Out-Null
+        
+        $devcon = "C:\eWDK\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64\devcon.exe"
+        Write-Host "       (VM) Installing driver..."
+        pnputil /add-driver "leyline.inf" /install | Out-Null
+        $res = & $devcon install "leyline.inf" "Root\Media\LeylineAudio" 2>&1
+        if ($res -match "failed") { Write-Warning "Devcon install warning/error: $res" }
+        pnputil /scan-devices | Out-Null
+    } -ArgumentList $remotePath
+}
+catch {
+    Write-Error "VM Operation failed: $_"
+}
 
-    if ($env:WDK_ROOT)
-    {
-        $binRoot = Join-Path $env:WDK_ROOT "bin\$env:WindowsTargetPlatformVersion"
-        $env:INF2CAT_EXE = Join-Path $binRoot "x86\Inf2Cat.exe"
-        $env:SIGNTOOL_EXE = Join-Path $binRoot "x64\signtool.exe"
+# --- 5. MONITOR LOOP ---
+Write-Host "`n[*] Installation triggering done. Monitoring logs..." -ForegroundColor Cyan
+Write-Host "    - Press Ctrl+C to stop debugger and exit."
+Write-Host "    - Waiting for 'END_OF_DEBUG' signal...`n"
 
-        # Fixed Devcon Path for eWDK 28000
-        $env:DEVCON_EXE = Join-Path $env:eWDK_ROOT_DIR "Program Files\Windows Kits\10\Tools\$env:WindowsTargetPlatformVersion\x64\devcon.exe"
-
-        # Add DevGen Path (Modern replacement for devcon install)
-        $env:DEVGEN_EXE = Join-Path $env:eWDK_ROOT_DIR "Program Files\Windows Kits\10\Tools\$env:WindowsTargetPlatformVersion\x64\devgen.exe"
-    }
-
-
-    Write-Host "--- [2/5] Executing Compilations ---" -ForegroundColor Cyan
-
-    if ($clean)
-    {
-        Write-Host "[!] Performing Deep Clean of all build artifacts and legacy devices..." -ForegroundColor Yellow
-        # Kernel Clean (Release Only)
-        Push-Location "crates/leyline-kernel"; cargo clean --release; Pop-Location
-        # APO Clean
-        Push-Location "src/APO"; nmake /f Makefile clean; Pop-Location
-        # HSA Clean
-        dotnet clean src/HSA/LeylineHSA.csproj -c Release | Out-Null
-        # Package Purge
-        if (Test-Path "$ProjectRoot/package")
-        { Remove-Item "$ProjectRoot/package" -Recurse -Force
-        }
-
-        # System State Purge: Remove existing and legacy devices to start from a truly blank slate
-        $legacyIds = @("Root\Media\LeylineAudio", "Root\LeylineAudio", "Root\simpleaudiosample", "Root\SimpleAudioDriver")
-        Get-PnpDevice -PresentOnly:$false | Where-Object {
-            $hwid = $_.HardwareID
-            $match = $false
-            foreach ($id in $legacyIds)
-            { if ($hwid -contains $id)
-                { $match = $true; break
-                }
+try {
+    $reader = New-Object System.IO.StreamReader([System.IO.File]::Open($DebuggerLog, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite))
+    $foundEnd = $false
+    
+    while (-not $foundEnd) {
+        $line = $reader.ReadLine()
+        if ($line -ne $null) {
+            $trimmed = $line.Trim()
+            
+            # Show connection status
+            if ($trimmed -match "Waiting to reconnect" -or $trimmed -match "Connected to") {
+                Write-Host "    [DBGENG] $trimmed" -ForegroundColor Yellow
             }
-            $match
-        } | ForEach-Object {
-            Write-Host "    -> Scrubbing Device Instance: $($_.InstanceId) ($($_.FriendlyName))"
-            pnputil /remove-device $_.InstanceId | Out-Null
-        }
-    }
 
-    # Version Update (Increments every build to force Windows to accept the update)
-    $Version = "1.0.1.$( (Get-Date).Hour * 100 + (Get-Date).Minute )"
-    Write-Host "[*] Building Version: $Version" -ForegroundColor Cyan
-    (Get-Content "crates/leyline-kernel/leyline.inx") -replace "DriverVer\s*=.*", "DriverVer   = $(Get-Date -Format 'MM/dd/yyyy'),$Version" | Set-Content "crates/leyline-kernel/leyline.inx"
-
-    if ($build)
-    {
-        Write-Host "--- [2/5] Executing Compilations ---" -ForegroundColor Cyan
-
-        # 1. Kernel Build
-        Write-Host "[*] Building Kernel..."
-        Push-Location "crates/leyline-kernel"
-        cargo wdk build --profile release
-        if ($LASTEXITCODE -ne 0)
-        { throw "Kernel Build Failed"
-        }
-        Pop-Location
-
-        # 2. HSA Build
-        Write-Host "[*] Building HSA..."
-        dotnet build src/HSA/LeylineHSA.csproj -c Release /p:Version=$Version
-        if ($LASTEXITCODE -ne 0)
-        { throw "HSA Build Failed"
-        }
-
-        # 3. APO Build
-        Write-Host "[*] Building APO..."
-        Push-Location "src/APO"
-        # Environment is already set by LaunchBuildEnv.ps1, so we can run nmake directly
-        nmake /f Makefile
-        if ($LASTEXITCODE -ne 0)
-        { throw "APO Build Failed with code $LASTEXITCODE"
-        }
-        Pop-Location
-    }
-
-    if ($package)
-    {
-        Write-Host "--- [3/5] Packaging & Signing ---" -ForegroundColor Cyan
-        if (Test-Path "$ProjectRoot/package")
-        { Remove-Item "$ProjectRoot/package" -Recurse -Force
-        }
-        New-Item -ItemType Directory -Path "$ProjectRoot/package/HSA" -Force | Out-Null
-
-        # Kernel: The Rust build produces a .dll (cdylib), but Windows drivers MUST be .sys
-        # Note: In a workspace, cargo puts output in workspace root target/, not crate target/
-        $kernelOutput = "target/release/leyline.dll"
-        if (-not (Test-Path $kernelOutput))
-        {
-            # Fallback check for .sys just in case environment handles it
-            $kernelOutput = "target/release/leyline.sys"
-        }
-
-        if (-not (Test-Path $kernelOutput))
-        { throw "Kernel build artifact NOT FOUND at $kernelOutput"
-        }
-
-        Write-Host "[*] Packaging Kernel: $kernelOutput -> $ProjectRoot/package/leyline.sys"
-        Copy-Item $kernelOutput "$ProjectRoot/package/leyline.sys"
-        Copy-Item "$ProjectRoot/crates/leyline-kernel/leyline.inx" "$ProjectRoot/package/leyline.inf"
-        Copy-Item "$ProjectRoot/src/APO/LeylineAPO.dll" "$ProjectRoot/package/"
-        dotnet publish "$ProjectRoot/src/HSA/LeylineHSA.csproj" -c Release -r win-x64 --self-contained false -o "$ProjectRoot/package/HSA" | Out-Null
-
-        # Generate Catalog and Sign
-        & $env:INF2CAT_EXE /driver:"$ProjectRoot/package" /os:10_X64,Server2016_X64
-        if (-not (Test-Path "$ProjectRoot/package\leyline.pfx"))
-        {
-            $cert = New-SelfSignedCertificate -Subject "Leyline Audio Driver" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My"
-            $cert | Export-PfxCertificate -FilePath "$ProjectRoot/package\leyline.pfx" -Password (ConvertTo-SecureString -String "REDACTED_CERT_PASS" -Force -AsPlainText)
-            $cert | Export-Certificate -FilePath "$ProjectRoot/package\leyline.cer"
-        }
-        foreach ($f in @("$ProjectRoot/package\leyline.sys", "$ProjectRoot/package\leyline.cat", "$ProjectRoot/package\LeylineAPO.dll", "$ProjectRoot/package\HSA\LeylineHSA.exe"))
-        {
-            if (Test-Path $f)
-            { & $env:SIGNTOOL_EXE sign /f "$ProjectRoot/package\leyline.pfx" /p password /fd SHA256 /t http://timestamp.digicert.com $f
+            if ($trimmed -match "Leyline" -or $trimmed -match "ERROR" -or $trimmed -match "FAILURE") {
+                Write-Host $trimmed -ForegroundColor Gray
+            }
+            if ($trimmed -match "END_OF_DEBUG") {
+                Write-Host "`n[SUCCESS] 'END_OF_DEBUG' signal received. Stopping." -ForegroundColor Green
+                $foundEnd = $true
             }
         }
+        else {
+            if ($logJob.State -ne 'Running') {
+                Write-Warning "Debugger job stopped unexpectedly."
+                Receive-Job -Job $logJob | Write-Warning
+                break
+            }
+            Start-Sleep -Milliseconds 200
+        }
     }
-
-    if ($install)
-    {
-        Write-Host "--- [4/5] System Provisioning ---" -ForegroundColor Cyan
-        certutil -addstore root "$ProjectRoot/package\leyline.cer" | Out-Null
-        certutil -addstore TrustedPublisher "$ProjectRoot/package\leyline.cer" | Out-Null
-
-        Write-Host "--- [5/5] PnP Driver Installation & Verification ---" -ForegroundColor Cyan
-
-        # 1. Clean up any existing instances to avoid duplicates
-        Write-Host "[*] Checking for existing Leyline instances..."
-        $existing = Get-PnpDevice -PresentOnly:$false | Where-Object { $_.HardwareID -contains "Root\Media\LeylineAudio" -or $_.HardwareID -contains "Root\LeylineAudio" }
-        foreach ($dev in $existing)
-        {
-            Write-Host "    -> Removing old instance: $($dev.InstanceId)"
-            pnputil /remove-device $dev.InstanceId | Out-Null
-        }
-
-        # Session #42: Enumerator Selection
-        # SWD\DEVGEN (default) vs ROOT\MEDIA (experimental for audio endpoint support)
-        if ($UseRootMedia)
-        {
-            Write-Host "[*] [ROOT_MEDIA MODE] Creating device with devcon.exe install..." -ForegroundColor Cyan
-            Write-Host "    This mode uses Root\\Media enumerator which may support audio endpoints." -ForegroundColor Gray
-            if (Test-Path $env:DEVCON_EXE)
-            {
-                # Use devcon install to create a traditional ROOT\MEDIA enumerated device
-                # This creates Instance ID like ROOT\MEDIA\0000 instead of SWD\DEVGEN\{GUID}
-                $devconResult = & $env:DEVCON_EXE install "$ProjectRoot/package/leyline.inf" "Root\Media\LeylineAudio" 2>&1
-                Write-Host "    -> Devcon result: $devconResult" -ForegroundColor Gray
-            } else
-            {
-                throw "devcon.exe NOT FOUND at $env:DEVCON_EXE. Cannot use Root\\Media mode."
-            }
-        } else
-        {
-            Write-Host "[*] [SWD_DEVGEN MODE] Creating software device node with DevGen (default)..." -ForegroundColor Cyan
-            Write-Host "    Note: If endpoints don't appear, try -UseRootMedia switch." -ForegroundColor Gray
-            if (Test-Path $env:DEVGEN_EXE)
-            {
-                & $env:DEVGEN_EXE /add /hardwareid "Root\Media\LeylineAudio" | Out-Null
-            } else
-            {
-                throw "devgen.exe NOT FOUND at $env:DEVGEN_EXE"
-            }
-        }
-
-        # 3. Install the driver package (skip for Root\Media mode as devcon install already does this)
-        if (-not $UseRootMedia)
-        {
-            Write-Host "[*] Installing driver package and associating with device..."
-            $stageResult = pnputil /add-driver "$ProjectRoot/package/leyline.inf" /install
-            Write-Host "    -> $stageResult"
-        } else
-        {
-            Write-Host "[*] [ROOT_MEDIA MODE] Driver already staged by devcon install." -ForegroundColor Gray
-            # Still need to ensure driver is in driver store
-            $stageResult = pnputil /add-driver "$ProjectRoot/package/leyline.inf" 2>&1 | Out-Null
-        }
-
-        # Final Verification
-        Start-Sleep -Seconds 2
-        $finalDevices = Get-PnpDevice -PresentOnly:$true | Where-Object { $_.HardwareID -contains "Root\Media\LeylineAudio" }
-
-        if ($finalDevices)
-        {
-            foreach ($dev in $finalDevices)
-            {
-                Write-Host "`n[SUCCESS] Found active Leyline device: $($dev.FriendlyName)" -ForegroundColor Green
-                Write-Host "          Instance ID: $($dev.InstanceId)"
-                Write-Host "          Status: $($dev.Status)"
-
-                if ($dev.Status -ne "OK")
-                {
-                    Write-Host "`n################################################################" -ForegroundColor Red
-                    Write-Host "# [CRITICAL] DEVICE ERROR: $($dev.Status)                      #" -ForegroundColor Red
-                    Write-Host "# The driver is installed but failed to start.                 #" -ForegroundColor Red
-                    Write-Host "# Check Event Viewer or run 'pnputil /enum-devices /problem'.  #" -ForegroundColor Red
-                    Write-Host "################################################################`n" -ForegroundColor Red
-                }
-            }
-        } else
-        {
-            Write-Host "`n[ERROR] Driver installed, but no active device node was found!" -ForegroundColor Red
-        }
-
-        Write-Host "`n[SUCCESS] Leyline Audio $Version Built & Installed." -ForegroundColor Green
+    $reader.Close()
+}
+finally {
+    Write-Host "`n[*] Cleaning up..." -ForegroundColor Cyan
+    if ($logJob) {
+        Stop-Job $logJob -ErrorAction SilentlyContinue
+        Remove-Job $logJob -ErrorAction SilentlyContinue
     }
-} finally
-{
-    Set-Location $initialDir
+    Get-Process -Name kd -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    if ($vmsess) { Remove-PSSession $vmsess }
+    Write-Host "    -> Log file saved at: $DebuggerLog"
+    Write-Host "[*] Done."
 }
