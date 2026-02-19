@@ -403,6 +403,9 @@ pub unsafe extern "system" fn miniport_data_range_intersection(
     (*result).WaveFormatEx.nAvgBytesPerSec =
         (*result).WaveFormatEx.nSamplesPerSec * (*result).WaveFormatEx.nBlockAlign as u32;
     (*result).WaveFormatEx.cbSize = 0;
+    // CRITICAL: SampleSize must match nBlockAlign per SYSVAD reference.
+    // A zero SampleSize can cause AEB to reject the negotiated format.
+    (*result).DataFormat.SampleSize = (*result).WaveFormatEx.nBlockAlign as u32;
 
     if !actual_data_format_cb.is_null() {
         *actual_data_format_cb = format_size;

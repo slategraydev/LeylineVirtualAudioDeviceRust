@@ -18,6 +18,18 @@ $BuildVersion = "1.0.9"
 $secPassword = ConvertTo-SecureString "REDACTED_VM_PASS" -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential ("USER", $secPassword)
 
+# --- 0. CERTIFICATE GENERATION (Pre-Build Env) ---
+# Generate outside eWDK environment to avoid PKI module conflicts
+$pfxPath = "$ProjectRoot/leyline.pfx"
+$cerPath = "$ProjectRoot/leyline.cer"
+
+if (-not (Test-Path $pfxPath)) {
+    Write-Host "[*] Generating Self-Signed Certificate..."
+    $cert = New-SelfSignedCertificate -Subject "Leyline Audio" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My"
+    $cert | Export-PfxCertificate -FilePath $pfxPath -Password (ConvertTo-SecureString -String "REDACTED_CERT_PASS" -Force -AsPlainText)
+    $cert | Export-Certificate -FilePath $cerPath
+}
+
 # --- 1. VM SNAPSHOT HANDLING ---
 if (-not $fast -and -not $Uninstall) {
     Write-Host "[*] Reverting VM '$VMName' to snapshot '$SnapshotName'..." -ForegroundColor Cyan
@@ -74,12 +86,8 @@ if (-not $Uninstall) {
     if (Test-Path "$ProjectRoot/scripts/verification/Verify-AEB-Status.ps1") { Copy-Item "$ProjectRoot/scripts/verification/Verify-AEB-Status.ps1" "$ProjectRoot/package/" }
 
     # Sign with fixed password "REDACTED_CERT_PASS"
-    $pfxPath = "$ProjectRoot/package/leyline.pfx"
-    if (-not (Test-Path $pfxPath)) {
-        $cert = New-SelfSignedCertificate -Subject "Leyline Audio" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My"
-        $cert | Export-PfxCertificate -FilePath $pfxPath -Password (ConvertTo-SecureString -String "REDACTED_CERT_PASS" -Force -AsPlainText)
-        $cert | Export-Certificate -FilePath "$ProjectRoot/package/leyline.cer"
-    }
+    # Certs generated at start of script
+    Copy-Item $cerPath "$ProjectRoot/package/leyline.cer"
 
     $signArgs = @("sign", "/f", $pfxPath, "/p", "REDACTED_CERT_PASS", "/fd", "SHA256")
     & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package/leyline.sys" | Out-Null

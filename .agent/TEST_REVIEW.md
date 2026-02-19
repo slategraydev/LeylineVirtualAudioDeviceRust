@@ -33,4 +33,12 @@ The stall has been addressed by hardening the COM interface delivery and providi
 ## Session #51 Verification Plan (TODO)
 1. **Endpoint Investigation**: Investigate why `Get-PnpDevice -Class AudioEndpoint` returns nothing despite successful handshake.
 2. **Manual Verification**: Manually check "Sound > Playback" and Device Manager "Audio Inputs and Outputs" on the VM.
-3. **Automation Table**: Implement `PCAUTOMATION_TABLE` with `KSPROPERTY_GENERAL_COMPONENTID` to see if it triggers final acceptance.
+### 3. Advanced AEB Diagnostics (New)
+- **ETW Tracing:**
+  - **Channel:** `Microsoft-Windows-Audio/Operational`
+  - **Purpose:** Verifies if AEB is enumerating endpoints.
+  - **Symptom:** If this log has **zero events** after driver install/enable, AEB is dormant/stalled.
+- **Direct COM Probe:**
+  - Script: `test_mmdev.ps1` (uses `IMMDeviceEnumerator`).
+  - **Purpose:** Confirms if the audio system sees *any* endpoints, independent of UI (Sound Control Panel).
+4. **Automation Table**: Implement `PCAUTOMATION_TABLE` with `KSPROPERTY_GENERAL_COMPONENTID` to see if it triggers final acceptance.

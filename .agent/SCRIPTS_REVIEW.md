@@ -7,9 +7,9 @@
 
 | Script | Purpose | Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **`Install.ps1`** | Build + Install Pipeline | ✅ | Stable. |
-| **`Uninstall.ps1`** | Clean Uninstall | ✅ | Stable. |
-| **`Install-VM.ps1`** | Remote Install | ✅ | Supports incremental builds (no forced clean). |
+| **`LaunchBuildEnv.ps1`** | **eWDK Setup** | ✅ | **CRITICAL:** Patched with UM/UCRT libs for `build.rs` compilation. |
+| **`Install.ps1`** | Build & Deploy | ✅ | Uses `devcon.exe`. Supports incremental `-fast`. |
+| **`Uninstall.ps1`** | Cleanup | ✅ | Removes driver & device node. |
 | **`Automate-VM-Verification.ps1`** | End-to-End Test | ✅ | Default: Fast (no revert). `-Full`: Reverts VM. |
 
 ## Observations

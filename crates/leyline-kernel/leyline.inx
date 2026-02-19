@@ -16,7 +16,7 @@ PnpLockdown = 1
 
 [SourceDisksFiles]
 leyline.sys    = 1,,
-LeylineAPO.dll = 1,,
+; LeylineAPO.dll = 1,,
 
 [DestinationDirs]
 DefaultDestDir = 13 ; Driver Store
@@ -37,19 +37,19 @@ AddReg    = Leyline_Device.AddReg
 
 [Leyline_Device.CopyFiles]
 leyline.sys
-LeylineAPO.dll
+; LeylineAPO.dll
 
 [Leyline_Device.AddReg]
-HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
-HKR,,Driver,,leyline.sys
-HKR,Drivers,SubClasses,,"wave"
-HKR,Drivers\wave\wdmaud.drv,Driver,,wdmaud.drv
-HKR,Drivers\wave\wdmaud.drv,Description,,%DeviceName%
+; HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
+; HKR,,Driver,,leyline.sys
+; HKR,Drivers,SubClasses,,"wave"
+; HKR,Drivers\wave\wdmaud.drv,Driver,,wdmaud.drv
+; HKR,Drivers\wave\wdmaud.drv,Description,,%DeviceName%
 
 ; Register the APO COM Server
-HKCR,CLSID\%LeylineAPO_CLSID%,,,"Leyline Audio Processing Object"
-HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,,,%13%\LeylineAPO.dll
-HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,ThreadingModel,,Both
+; HKCR,CLSID\%LeylineAPO_CLSID%,,,"Leyline Audio Processing Object"
+; HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,,,%13%\LeylineAPO.dll
+; HKCR,CLSID\%LeylineAPO_CLSID%\InProcServer32,ThreadingModel,,Both
 
 ; ==============================================================================
 ; Interface Installation (KS / Audio)
@@ -84,31 +84,33 @@ AddReg = Leyline_TopoCaptureInterface.AddReg
 
 [Leyline_WaveRenderInterface.AddReg]
 ; Register the APOs for this interface
-HKR,"FX\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
-HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
-HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
+; HKR,"FX\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
+; HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
+; HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameRender%
 ; Format Baseline
 HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, FE,FF,02,00, 80,BB,00,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
 ; Required: tells audiodg.exe this is a WaveRT event-driven endpoint
-HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
+; HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
 ; Association (Redundant for discovery)
 HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
+HKR,,%PKEY_AudioEndpoint_FormFactor%,0x00010001,0x00000001
 
 [Leyline_WaveCaptureInterface.AddReg]
 ; Register the APOs for this interface
-HKR,"FX\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
-HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
-HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
+; HKR,"FX\0",%PKEY_FX_StreamEffectClsid%,,%LeylineAPO_CLSID%
+; HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%LeylineAPO_CLSID%
+; HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%LeylineAPO_CLSID%
 ; Friendly Name
 HKR,,FriendlyName,,%DeviceNameCapture%
 ; Format Baseline
 HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, FE,FF,02,00, 80,BB,00,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
 ; Required: tells audiodg.exe this is a WaveRT event-driven endpoint
-HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
+; HKR,,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x00000001
 ; Association (Redundant for discovery)
 HKR,,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
+HKR,,%PKEY_AudioEndpoint_FormFactor%,0x00010001,0x00000004
 
 [Leyline_TopoRenderInterface.AddReg]
 HKR,,FriendlyName,,%DeviceNameRender%
@@ -163,6 +165,7 @@ PKEY_AudioEndpoint_Supports_EventDriven_Mode = "{1DA5D803-D492-4EDD-8C23-E0C0FFE
 PKEY_AudioDevice_AlwaysEnabled = "{F3E80BEF-1723-4FF2-BCC4-7F83DC5E46D4},2"
 PKEY_AudioDevice_EnableEndpointByDefault = "{F3E80BEF-1723-4FF2-BCC4-7F83DC5E46D4},4"
 PKEY_AudioEngine_OEMFormat = "{E4870E26-3CC5-4CD2-BA46-CA0A9A70ED04},3"
+PKEY_AudioEndpoint_FormFactor = "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},0"
 
 ; Nodes
 KSNODETYPE_ANY         = "{00000000-0000-0000-0000-000000000000}"

@@ -20,6 +20,18 @@ if (Test-Path $ewdkRoot) {
             else { [System.Environment]::SetEnvironmentVariable($name, $value, "Process") }
         }
     }
+    
+    # CRITICAL FIX: Add User Mode libraries to LIB path for build.rs compilation
+    $umLibPath = "$ewdkRoot\Program Files\Windows Kits\10\Lib\10.0.28000.0\um\x64"
+    $ucrtLibPath = "$ewdkRoot\Program Files\Windows Kits\10\Lib\10.0.28000.0\ucrt\x64"
+    
+    $currentLib = [System.Environment]::GetEnvironmentVariable("LIB", "Process")
+    $newLib = $currentLib
+    
+    if (Test-Path $umLibPath) { $newLib = "$newLib;$umLibPath" }
+    if (Test-Path $ucrtLibPath) { $newLib = "$newLib;$ucrtLibPath" }
+    
+    [System.Environment]::SetEnvironmentVariable("LIB", $newLib, "Process")
 }
 else {
     Write-Warning "eWDK not found, falling back to system paths."

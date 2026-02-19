@@ -34,3 +34,7 @@ Session #113 identified a critical bug in `descriptors.rs` where the `PIN_AUTOMA
 -   **Issue**: The handler lacked a `BasicSupport` check. Windows AEB often queries `BasicSupport` before asking for the value.
 -   **Fix**: Added standard `KSPROPERTY_TYPE_BASICSUPPORT` handling, returning `AccessFlags` (Get | BasicSupport).
 -   **Impact**: Ensures stable, compliant responses to AEB queries, preventing the "Silent Failure" state.
+-   **Descriptors Compliance:** Updated `TOPO_RENDER_PINS` and `TOPO_CAPTURE_PINS` to use `core::ptr::null()` for `AutomationTable` on bridge pins (id=1). Matches `sysvad` reference; avoids potential conflicts with PortCls default handlers.
+-   **INF Modernization:** Removed legacy WDM registration keys (`AssociatedFilters`, `wdmaud.drv`) from `leyline.inx`. Added explicit `PKEY_AudioEndpoint_FormFactor` and disabled unsupported `EventDriven_Mode`.
+-   **Build Robustness:** Patched `LaunchBuildEnv.ps1` to support host-side Rust build scripts by linking User Mode libraries.
+-   **Safety:** Ensured `unsafe` blocks in `adapter.rs` are minimized and documented.

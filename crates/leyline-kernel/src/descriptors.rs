@@ -64,6 +64,9 @@ pub const ePortConnJack: u32 = 0;
 
 // Then current crate.
 use crate::constants::*;
+use crate::constants::{
+    KSPROPERTY_PIN_PROPOSEDATAFORMAT, KSPROPERTY_PIN_PROPOSEDATAFORMAT2, KSPROPSETID_PIN,
+};
 use crate::stream::{
     KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCAUTOMATION_TABLE,
     PCCONNECTION, PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR, PCPROPERTY_ITEM, PPCPROPERTY_REQUEST,
@@ -121,9 +124,9 @@ pub static PCM_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
         Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
     },
     MaximumChannels: 2,
-    MinimumBitsPerSample: 16,
+    MinimumBitsPerSample: 8,
     MaximumBitsPerSample: 32,
-    MinimumSampleFrequency: 44100,
+    MinimumSampleFrequency: 8000,
     MaximumSampleFrequency: 192000,
 };
 
@@ -333,7 +336,13 @@ pub unsafe extern "C" fn pin_name_handler(property_request: PPCPROPERTY_REQUEST)
 }
 
 #[link_section = ".rdata"]
-pub static TOPO_PIN_PROPERTIES: [PCPROPERTY_ITEM; 2] = [
+pub static TOPO_FILTER_PROPERTIES: [PCPROPERTY_ITEM; 3] = [
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_General as *const GUID,
+        Id: KSPROPERTY_GENERAL_COMPONENTID,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(component_id_handler),
+    },
     PCPROPERTY_ITEM {
         Set: &KSPROPSETID_Jack as *const GUID,
         Id: KSPROPERTY_JACK_DESCRIPTION,
@@ -348,11 +357,101 @@ pub static TOPO_PIN_PROPERTIES: [PCPROPERTY_ITEM; 2] = [
     },
 ];
 
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn proposed_format_handler(
+    property_request: PPCPROPERTY_REQUEST,
+) -> NTSTATUS {
+    if property_request.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    if (*property_request).PropertyItem.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    DbgPrint(c"Leyline: proposed_format_handler CALLED\n".as_ptr());
+
+    let prop_id = (*(*property_request).PropertyItem).Id;
+
+    // Handle Basic Support
+    if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
+        if (*property_request).ValueSize < core::mem::size_of::<u32>() as u32 {
+            (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
+            return STATUS_BUFFER_OVERFLOW;
+        }
+        let flags = (*property_request).Value as *mut u32;
+        if !flags.is_null() {
+            *flags = if prop_id == KSPROPERTY_PIN_PROPOSEDATAFORMAT2 {
+                KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT
+            } else {
+                KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT
+            };
+        }
+        (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
+        return STATUS_SUCCESS;
+    }
+
+    if ((*property_request).Verb & KSPROPERTY_TYPE_SET) != 0 {
+        DbgPrint(c"Leyline: proposed_format_handler SET - OK\n".as_ptr());
+        return STATUS_SUCCESS;
+    }
+
+    if ((*property_request).Verb & KSPROPERTY_TYPE_GET) != 0 {
+        if prop_id == KSPROPERTY_PIN_PROPOSEDATAFORMAT2 {
+            // Return failure implies "I don't have a proposed format", which is valid.
+            // Or we can return a default format.
+            // For now, let's return STATUS_NOT_FOUND or similar to say "no proposal pending"?
+            // Or strictly speaking, if AEB asks "what format do you propose?", we can say NONE.
+            // But let's return STATUS_NOT_IMPLEMENTED to be safe for now,
+            // or better: The reference driver implementation of PropertyHandler_WaveFilter handles it.
+            return STATUS_NOT_IMPLEMENTED;
+        }
+    }
+
+    STATUS_SUCCESS
+}
+
 #[link_section = ".rdata"]
-pub static TOPO_PIN_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+pub static WAVE_FILTER_PROPERTIES: [PCPROPERTY_ITEM; 3] = [
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_General as *const GUID,
+        Id: KSPROPERTY_GENERAL_COMPONENTID,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(component_id_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_PIN as *const GUID,
+        Id: KSPROPERTY_PIN_PROPOSEDATAFORMAT,
+        Flags: KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(proposed_format_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_PIN as *const GUID,
+        Id: KSPROPERTY_PIN_PROPOSEDATAFORMAT2,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(proposed_format_handler),
+    },
+];
+
+#[link_section = ".rdata"]
+pub static WAVE_FILTER_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
     PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
-    PropertyCount: 2,
-    Properties: TOPO_PIN_PROPERTIES.as_ptr(),
+    PropertyCount: 3,
+    Properties: WAVE_FILTER_PROPERTIES.as_ptr(),
+    MethodItemSize: 0,
+    MethodCount: 0,
+    Methods: core::ptr::null(),
+    EventItemSize: 0,
+    EventCount: 0,
+    Events: core::ptr::null(),
+    Reserved: 0,
+};
+
+#[link_section = ".rdata"]
+pub static TOPO_FILTER_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+    PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
+    PropertyCount: 3,
+    Properties: TOPO_FILTER_PROPERTIES.as_ptr(),
     MethodItemSize: 0,
     MethodCount: 0,
     Methods: core::ptr::null(),
@@ -440,15 +539,16 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 1,
-            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
+            // Bridge pins don't use the standard streaming interface.
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
             Communication: KSPIN_COMMUNICATION_NONE as i32, // INTERNAL (NONE)
-            Category: &KSCATEGORY_AUDIO_GUID as *const GUID, // Or NONE?
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -484,8 +584,9 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MinFilterInstanceCount: 1,
         AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 1,
-            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
+            // Bridge pins don't use the standard streaming interface.
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
@@ -504,13 +605,13 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
 #[link_section = ".rdata"]
 pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
     PCPIN_DESCRIPTOR {
-        MaxGlobalInstanceCount: 1,
-        MaxFilterInstanceCount: 1,
-        MinFilterInstanceCount: 1,
-        AutomationTable: &PIN_AUTOMATION_TABLE,
+        MaxGlobalInstanceCount: 0,
+        MaxFilterInstanceCount: 0,
+        MinFilterInstanceCount: 0,
+        AutomationTable: core::ptr::null(), // &PIN_AUTOMATION_TABLE?
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 1,
-            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
@@ -524,19 +625,23 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         },
     },
     PCPIN_DESCRIPTOR {
-        MaxGlobalInstanceCount: 1,
-        MaxFilterInstanceCount: 1,
-        MinFilterInstanceCount: 1,
-        AutomationTable: &TOPO_PIN_AUTOMATION_TABLE,
+        MaxGlobalInstanceCount: 0,
+        MaxFilterInstanceCount: 0,
+        MinFilterInstanceCount: 0,
+        AutomationTable: core::ptr::null(), // &PIN_AUTOMATION_TABLE?
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 1,
-            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
-            Communication: KSPIN_COMMUNICATION_BRIDGE as i32, // EXTERNAL BRIDGE (Speaker)
+            // CRITICAL: Reference driver (speakertoptable.h) uses NONE, not BRIDGE.
+            // KSPIN_COMMUNICATION_BRIDGE is legacy WDM. PortCls WaveRT expects NONE
+            // for topology bridge pins, letting AEB determine connectivity from
+            // the physical connection (PcRegisterPhysicalConnection).
+            Communication: KSPIN_COMMUNICATION_NONE as i32,
             Category: &KSNODETYPE_SPEAKER as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
@@ -548,19 +653,20 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
 #[link_section = ".rdata"]
 pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
     PCPIN_DESCRIPTOR {
-        MaxGlobalInstanceCount: 1,
-        MaxFilterInstanceCount: 1,
-        MinFilterInstanceCount: 1,
-        AutomationTable: &TOPO_PIN_AUTOMATION_TABLE,
+        MaxGlobalInstanceCount: 0,
+        MaxFilterInstanceCount: 0,
+        MinFilterInstanceCount: 0,
+        AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 1,
-            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_IN as i32,
-            Communication: KSPIN_COMMUNICATION_BRIDGE as i32, // EXTERNAL BRIDGE (Mic)
+            // CRITICAL: Same fix as render - use NONE not BRIDGE.
+            Communication: KSPIN_COMMUNICATION_NONE as i32,
             Category: &KSNODETYPE_MICROPHONE as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
@@ -568,13 +674,13 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         },
     },
     PCPIN_DESCRIPTOR {
-        MaxGlobalInstanceCount: 1,
-        MaxFilterInstanceCount: 1,
-        MinFilterInstanceCount: 1,
-        AutomationTable: &PIN_AUTOMATION_TABLE,
+        MaxGlobalInstanceCount: 0,
+        MaxFilterInstanceCount: 0,
+        MinFilterInstanceCount: 0,
+        AutomationTable: core::ptr::null(),
         KsPinDescriptor: KSPIN_DESCRIPTOR {
-            InterfacesCount: 1,
-            Interfaces: KSINTERFACES.as_ptr() as *const core::ffi::c_void,
+            InterfacesCount: 0,
+            Interfaces: core::ptr::null(),
             MediumsCount: 0,
             Mediums: core::ptr::null(),
             DataRangesCount: 1,
@@ -719,39 +825,45 @@ pub static WAVE_CAPTURE_CATEGORIES: [GUID; 3] = [
 #[link_section = ".rdata"]
 pub static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &COMPONENT_AUTOMATION_TABLE,
+    AutomationTable: &WAVE_FILTER_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: WAVE_RENDER_PINS.as_ptr(),
     NodeSize: 0,
     NodeCount: 0,
     Nodes: core::ptr::null(),
-    ConnectionCount: 0,
-    Connections: core::ptr::null(),
-    CategoryCount: 3,
-    Categories: WAVE_RENDER_CATEGORIES.as_ptr(),
+    // CRITICAL: Wire in the pin-to-pin connection (Sink -> Bridge).
+    // Without this, PortCls sees two disconnected pins and AEB aborts path traversal.
+    ConnectionCount: 1,
+    Connections: WAVE_CONNECTIONS.as_ptr(),
+    // CRITICAL: Reference driver uses CategoryCount: 0. INF handles category registration.
+    CategoryCount: 0,
+    Categories: core::ptr::null(),
 };
 
 #[link_section = ".rdata"]
 pub static WAVE_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &COMPONENT_AUTOMATION_TABLE,
+    AutomationTable: &WAVE_FILTER_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: WAVE_CAPTURE_PINS.as_ptr(),
     NodeSize: 0,
     NodeCount: 0,
     Nodes: core::ptr::null(),
-    ConnectionCount: 0,
-    Connections: core::ptr::null(),
-    CategoryCount: 3,
-    Categories: WAVE_CAPTURE_CATEGORIES.as_ptr(),
+    // CRITICAL: Wire in the pin-to-pin connection (Bridge -> Sink).
+    // Capture data flows: Bridge (from topo) -> Sink (to app client).
+    ConnectionCount: 1,
+    Connections: WAVE_CAPTURE_CONNECTIONS.as_ptr(),
+    // CRITICAL: Reference driver uses CategoryCount: 0. INF handles category registration.
+    CategoryCount: 0,
+    Categories: core::ptr::null(),
 };
 
 #[link_section = ".rdata"]
 pub static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &COMPONENT_AUTOMATION_TABLE,
+    AutomationTable: &TOPO_FILTER_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: TOPO_RENDER_PINS.as_ptr(),
@@ -760,14 +872,17 @@ pub static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIP
     Nodes: core::ptr::null(),
     ConnectionCount: 1,
     Connections: TOPO_CONNECTIONS.as_ptr(),
-    CategoryCount: 2,
-    Categories: TOPO_FILTER_CATEGORIES.as_ptr(),
+    // CRITICAL: Reference driver (SpeakerTopoMiniportFilterDescriptor) sets
+    // CategoryCount: 0, Categories: NULL. Categories on the topology filter
+    // can confuse the KS filter graph enumeration. INF handles category registration.
+    CategoryCount: 0,
+    Categories: core::ptr::null(),
 };
 
 #[link_section = ".rdata"]
 pub static TOPO_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &COMPONENT_AUTOMATION_TABLE,
+    AutomationTable: &TOPO_FILTER_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: TOPO_CAPTURE_PINS.as_ptr(),
@@ -776,6 +891,7 @@ pub static TOPO_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRI
     Nodes: core::ptr::null(),
     ConnectionCount: 1,
     Connections: TOPO_CAPTURE_CONNECTIONS.as_ptr(),
-    CategoryCount: 2,
-    Categories: TOPO_FILTER_CATEGORIES.as_ptr(),
+    // Same as render: reference uses no categories on topology filter descriptors.
+    CategoryCount: 0,
+    Categories: core::ptr::null(),
 };

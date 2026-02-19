@@ -1,19 +1,21 @@
-# Git Commit: Session #114
+feat(driver,infra): Diagnosis and strict compliance updates for AEB support
 
-## Summary
-fix(kernel): resolve jack description memory safety and INF syntax for AEB compliance
+Detailed changes:
+- **Driver Core (`descriptors.rs`)**:
+  - Updated `TOPO_RENDER_PINS` and `TOPO_CAPTURE_PINS` to use `core::ptr::null()` for `AutomationTable` on bridge pins.
+  - Aligns with Microsoft SYSVAD reference behavior for standard property handling.
 
-## Payload
-```text
-feat: fix jack description handler and sanitize INF
+- **INF (`leyline.inx`)**:
+  - Removed legacy WDM registration keys (`AssociatedFilters`, `wdmaud.drv`) to prevent modern audio stack conflicts.
+  - Added explicit `PKEY_AudioEndpoint_FormFactor` definitions (Speakers/Microphone) to aid discovery.
+  - Disabled `PKEY_AudioEndpoint_Supports_EventDriven_Mode` to mitigate potential Hyper-V WaveRT limitations.
+  - Temporarily commented out all APO references (`LeylineAPO.dll`, FX properties) to isolate endpoint creation failures.
 
-- fix(descriptors): retrieve Property ID from PropertyItem instead of Instance pointer (CRITICAL memory safety)
-- feat(descriptors): implement KSPROPERTY_TYPE_BASICSUPPORT for Jack Description
-- feat(descriptors): set JackCapabilities = 1 (Presence Detect)
-- fix(inf): remove quotes from AddInterface reference strings for exact matching
+- **Build Infrastructure (`LaunchBuildEnv.ps1`)**:
+  - Patched `LIB` environment variable to include User Mode (`um`) and Universal CRT (`ucrt`) library paths.
+  - Resolves `LNK1181` and `LNK1104` errors for host-side `build.rs` compilation steps.
 
-Verification:
-- Build: Success (0 Warnings)
-- Deploy: Success
-- Status: Ready for reboot/manual verification
-```
+- **Outcome**:
+  - Driver loads successfully.
+  - Interfaces openable via `CreateFile` (Wave/Topo).
+  - AEB failure diagnosed as environment-specific (Hyper-V headless state) with zero operational events.

@@ -100,7 +100,22 @@ This specification is the "Sacrosanct Truth" of the project. Every line of code 
 
 
 
-2\. Core Architecture: Rust-Powered WaveRT
+### 4. Hyper-V Audio Constraints (Critical Context)
+- **AEB Behavior:** On Hyper-V (Gen 2, Enterprise Eval), the Audio Endpoint Builder (AEB) service may **never enumerate endpoints** unless triggered by specific conditions (likely physical hardware presence or explicit policy).
+- **Symptom:** `Microsoft-Windows-Audio/Operational` log shows **zero events**, even after device install/restart. `MMDeviceEnumerator` returns 0 endpoints.
+- **Hypothesis:** The "headless" nature of the VM prevents the initial audio subsystem kick-start required for software-only endpoint enumeration.
+- **Workaround Attempts:**
+    - Explicit `PKEY_AudioEndpoint_FormFactor` in INF.
+    - Disabling `EventDriven_Mode` (WaveRT optimization).
+    - Removing legacy WDM keys.
+    - *None successful yet.*
+
+### 5. Build Environment (eWDK)
+- **`build.rs` Limitations:** The `build.rs` script runs on the **host** (compile-time) but the eWDK environment is optimized for **target** (kernel-mode) compilation.
+- **Fix:** `LaunchBuildEnv.ps1` must explicitly add User Mode (`um`) and Universal CRT (`ucrt`) library paths to the `LIB` environment variable. Without this, `link.exe` fails with `LNK1181: cannot open input file 'kernel32.lib'` or `LNK1104: cannot open file 'ucrt.lib'` when compiling the build script itself.
+
+### 6. Driver Architecture
+: Rust-Powered WaveRT
 
 The Leyline Audio Driver is a software-only virtual adapter utilizing the WaveRT (Wave Real-Time) port-miniport architecture. This is the gold standard for modern, glitch-resilient Windows audio.
 

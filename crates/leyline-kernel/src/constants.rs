@@ -367,6 +367,8 @@ pub const KSPROPERTY_JACK_DESCRIPTION2: u32 = 2;
 #[allow(non_upper_case_globals)]
 pub const KSPROPERTY_PIN_CATEGORY: u32 = 0;
 pub const KSPROPERTY_PIN_NAME: u32 = 6;
+pub const KSPROPERTY_PIN_PROPOSEDATAFORMAT: u32 = 12;
+pub const KSPROPERTY_PIN_PROPOSEDATAFORMAT2: u32 = 17;
 
 pub const KSPROPERTY_TYPE_GET: u32 = 0x00000001;
 pub const KSPROPERTY_TYPE_SET: u32 = 0x00000002;
@@ -374,7 +376,7 @@ pub const KSPROPERTY_TYPE_TOPOLOGY: u32 = 0x10000000;
 pub const KSPROPERTY_TYPE_BASICSUPPORT: u32 = 0x00000200;
 
 #[allow(non_upper_case_globals)]
-pub const KSNODETYPE_SPEAKER: GUID = GUID {
+pub static KSNODETYPE_SPEAKER: GUID = GUID {
     Data1: 0xDFF21CE1,
     Data2: 0xF70F,
     Data3: 0x11D0,
@@ -382,7 +384,7 @@ pub const KSNODETYPE_SPEAKER: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub const KSNODETYPE_MICROPHONE: GUID = GUID {
+pub static KSNODETYPE_MICROPHONE: GUID = GUID {
     Data1: 0xDFF21BE1,
     Data2: 0xF70F,
     Data3: 0x11D0,
