@@ -71,29 +71,24 @@ if (-not $Uninstall) {
     # Build Kernel
     Push-Location "$ProjectRoot/crates/leyline-kernel"
     cargo wdk build --profile release
-    if ($LASTEXITCODE -ne 0) { throw "Kernel build failed." }
+    if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Kernel build failed." }
     Pop-Location
 
     # Aggregating & Signing
-    Write-Host "    -> Packaging and Signing..."
+    Write-Host "    -> Packaging and Signing (from cargo-wdk output)..."
     if (Test-Path "$ProjectRoot/package") { Remove-Item "$ProjectRoot/package" -Recurse -Force }
-    New-Item -ItemType Directory -Path "$ProjectRoot/package/HSA" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$ProjectRoot/package" -Force | Out-Null
     
-    Copy-Item "$ProjectRoot/target/release/leyline.dll" "$ProjectRoot/package/leyline.sys"
-    Copy-Item "$ProjectRoot/crates/leyline-kernel/leyline.inx" "$ProjectRoot/package/leyline.inf"
-    # Placeholder for APO/HSA if they exist
-    if (Test-Path "$ProjectRoot/src/APO/LeylineAPO.dll") { Copy-Item "$ProjectRoot/src/APO/LeylineAPO.dll" "$ProjectRoot/package/" }
-    if (Test-Path "$ProjectRoot/scripts/verification/Verify-AEB-Status.ps1") { Copy-Item "$ProjectRoot/scripts/verification/Verify-AEB-Status.ps1" "$ProjectRoot/package/" }
+    $wdkPackagePath = "$ProjectRoot/target/release/leyline_package"
+    if (-not (Test-Path $wdkPackagePath)) { throw "WDK Package not found at $wdkPackagePath" }
 
-    # Sign with fixed password "REDACTED_CERT_PASS"
-    # Certs generated at start of script
-    Copy-Item $cerPath "$ProjectRoot/package/leyline.cer"
+    # Copy optimized/packaged files
+    Copy-Item "$wdkPackagePath\*" "$ProjectRoot/package\" -Recurse -Force
+    Copy-Item $cerPath "$ProjectRoot/package\" -Force # Ensure cert is bundled
 
+    # Re-sign with our local cert (ensures VM trust compatibility)
     $signArgs = @("sign", "/f", $pfxPath, "/p", "REDACTED_CERT_PASS", "/fd", "SHA256")
     & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package/leyline.sys" | Out-Null
-    
-    # Inf2Cat
-    & $env:INF2CAT_EXE /driver:"$ProjectRoot/package" /os:10_X64 | Out-Null
     & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package/leyline.cat" | Out-Null
 }
 
@@ -109,8 +104,8 @@ try {
 
         Write-Host "    (VM) Cleaning environment..."
         # Stop and delete existing
-        sc.exe stop LeylineAudio | Out-Null
-        pnputil /remove-device "ROOT\MEDIA\0000" /force | Out-Null
+        sc.exe stop Leyline | Out-Null
+        pnputil /remove-device "ROOT\MEDIA\LeylineAudio" /force | Out-Null
         
         if ($isUninstall) { return }
 
@@ -145,9 +140,17 @@ try {
         $device = Get-PnpDevice -FriendlyName "*Leyline*" -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "OK" }
         if ($device) {
             Write-Host "    (VM) Found Device: $($device.FriendlyName) [Status: $($device.Status)]" -ForegroundColor Green
+            
+            # Restart Audio service to refresh endpoints
+            Write-Host "    (VM) Restarting Windows Audio Service..." -ForegroundColor Gray
+            Restart-Service "Audiosrv" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
         }
         else {
             Write-Error "    (VM) FAILED: Driver device not appearing or not OK."
+            # Debug: check service status
+            $svc = Get-Service "Leyline" -ErrorAction SilentlyContinue
+            if ($svc) { Write-Host "    (VM) Service Status: $($svc.Status)" -ForegroundColor Yellow }
         }
 
         # Endpoint Check

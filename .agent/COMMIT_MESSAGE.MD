@@ -1,21 +1,21 @@
-feat(driver,infra): Diagnosis and strict compliance updates for AEB support
+# COMMIT_MESSAGE.MD
 
-Detailed changes:
-- **Driver Core (`descriptors.rs`)**:
-  - Updated `TOPO_RENDER_PINS` and `TOPO_CAPTURE_PINS` to use `core::ptr::null()` for `AutomationTable` on bridge pins.
-  - Aligns with Microsoft SYSVAD reference behavior for standard property handling.
+## Plain Text Commit Message [COPY-PASTE]
+feat: unblock endpoint enumeration with modern discovery interfaces
 
-- **INF (`leyline.inx`)**:
-  - Removed legacy WDM registration keys (`AssociatedFilters`, `wdmaud.drv`) to prevent modern audio stack conflicts.
-  - Added explicit `PKEY_AudioEndpoint_FormFactor` definitions (Speakers/Microphone) to aid discovery.
-  - Disabled `PKEY_AudioEndpoint_Supports_EventDriven_Mode` to mitigate potential Hyper-V WaveRT limitations.
-  - Temporarily commented out all APO references (`LeylineAPO.dll`, FX properties) to isolate endpoint creation failures.
+This change resolves the "silent stall" in the Audio Endpoint Builder by implementing mandatory discovery protocols.
 
-- **Build Infrastructure (`LaunchBuildEnv.ps1`)**:
-  - Patched `LIB` environment variable to include User Mode (`um`) and Universal CRT (`ucrt`) library paths.
-  - Resolves `LNK1181` and `LNK1104` errors for host-side `build.rs` compilation steps.
+- Implemented IPinName interface in the Wave miniport to provide subdevice identity.
+- Enhanced proposed_format_handler to support extensible format negotiation (48kHz Stereo).
+- Added redundant Jack Description properties to the Wave filter for discovery robustness.
+- Standardized GetPinName vtable signatures and fixed COM type mismatches.
+- Verified build cleanliness with 0 warnings.
 
-- **Outcome**:
-  - Driver loads successfully.
-  - Interfaces openable via `CreateFile` (Wave/Topo).
-  - AEB failure diagnosed as environment-specific (Hyper-V headless state) with zero operational events.
+## Git Commit Payload
+feat: unblock endpoint enumeration with modern discovery interfaces
+
+- Forced IPinName acceptance in wavert.rs QueryInterface.
+- Implemented standard 48kHz Stereo KSDATAFORMAT_WAVEFORMATEXTENSIBLE return in descriptors.rs.
+- Promoted JACK_DESCRIPTION to WAVE_FILTER_PROPERTIES for redundant path support.
+- Fixed duplication and type mismatches in miniport implementation.
+- Zero-warning verification complete.

@@ -22,9 +22,9 @@ leyline.sys    = 1,,
 DefaultDestDir = 13 ; Driver Store
 
 [Manufacturer]
-%ManufacturerName% = Standard,NTamd64
+%ManufacturerName% = Standard,NTamd64.10.0...16299
 
-[Standard.NTamd64]
+[Standard.NTamd64.10.0...16299]
 %DeviceName% = Leyline_Device, Root\Media\LeylineAudio
 
 ; ==============================================================================

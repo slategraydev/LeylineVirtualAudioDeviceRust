@@ -1,18 +1,26 @@
 [package]
-name = "leyline-kernel"
+name = "leyline"
 version = "0.1.0"
 edition = "2021"
 authors = ["Randall Rosas (Slategray)"]
+
+[package.metadata.wdk.driver-model]
+driver-type = "WDM"
 
 [lib]
 name = "leyline"
 crate-type = ["cdylib"]
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rust_analyzer)'] }
+
 [dependencies]
-wdk = "0.2"
-wdk-sys = "0.2"
-wdk-alloc = "0.2"
+wdk = "0.4.1"
+wdk-sys = "0.5.1"
+wdk-alloc = "0.4.1"
+wdk-panic = "0.4.1"
 leyline-shared = { path = "../leyline-shared" }
 
 [build-dependencies]
-bindgen = "0.69"
+wdk-build = "0.5.1"
+bindgen = "0.71.0"

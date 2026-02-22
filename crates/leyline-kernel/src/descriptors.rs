@@ -7,10 +7,7 @@
 
 // Second, external crates.
 use wdk_sys::ntddk::*;
-use wdk_sys::{
-    GUID, NTSTATUS, STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_PARAMETER,
-    STATUS_NOT_IMPLEMENTED, STATUS_SUCCESS,
-};
+use wdk_sys::*;
 
 // Local KSCOMPONENTID definition matching the Windows SDK layout exactly.
 // Field order MUST match: Manufacturer, Product, Component, Name, Version, Revision.
@@ -64,9 +61,7 @@ pub const ePortConnJack: u32 = 0;
 
 // Then current crate.
 use crate::constants::*;
-use crate::constants::{
-    KSPROPERTY_PIN_PROPOSEDATAFORMAT, KSPROPERTY_PIN_PROPOSEDATAFORMAT2, KSPROPSETID_PIN,
-};
+// Redundant specific imports removed, leveraging crate::constants::*;
 use crate::stream::{
     KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCAUTOMATION_TABLE,
     PCCONNECTION, PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR, PCPROPERTY_ITEM, PPCPROPERTY_REQUEST,
@@ -142,9 +137,9 @@ pub static FLOAT_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
         Specifier: KSDATAFORMAT_SPECIFIER_WAVEFORMATEX,
     },
     MaximumChannels: 2,
-    MinimumBitsPerSample: 32,
+    MinimumBitsPerSample: 8,
     MaximumBitsPerSample: 32,
-    MinimumSampleFrequency: 44100,
+    MinimumSampleFrequency: 8000,
     MaximumSampleFrequency: 192000,
 };
 
@@ -244,6 +239,10 @@ pub unsafe extern "C" fn jack_description_handler(
     }
 
     let prop_id = (*(*property_request).PropertyItem).Id;
+    let mut pin_id = !0u32;
+    if (*property_request).InstanceSize >= core::mem::size_of::<u32>() as u32 {
+        pin_id = *((*property_request).Instance as *const u32);
+    }
 
     // Handle Basic Support
     if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
@@ -261,8 +260,9 @@ pub unsafe extern "C" fn jack_description_handler(
     }
 
     DbgPrint(
-        c"Leyline: jack_description_handler CALLED for ID %d\n".as_ptr(),
+        c"Leyline: jack_description_handler CALLED for ID %d, Pin %d\n".as_ptr(),
         prop_id,
+        pin_id,
     );
 
     if prop_id == KSPROPERTY_JACK_DESCRIPTION {
@@ -277,13 +277,13 @@ pub unsafe extern "C" fn jack_description_handler(
 
         let jack_desc = (*property_request).Value as *mut KSJACK_DESCRIPTION;
         if !jack_desc.is_null() {
-            (*jack_desc).ChannelMapping = 0;
+            (*jack_desc).ChannelMapping = 0x3; // KSAUDIO_SPEAKER_STEREO (FL | FR)
             (*jack_desc).Color = JACK_COLOR_BLACK;
-            (*jack_desc).ConnectionType = eConnType3Point5mm;
-            (*jack_desc).GeoLocation = eGeoLocRear;
-            (*jack_desc).GenLocation = eGenLocPrimaryBox;
-            (*jack_desc).PortConnection = ePortConnJack;
-            (*jack_desc).IsConnected = 1; // Always Connected
+            (*jack_desc).ConnectionType = 1; // eConnType3Point5mm
+            (*jack_desc).GeoLocation = 1; // eGeoLocRear
+            (*jack_desc).GenLocation = 0; // eGenLocPrimaryBox
+            (*jack_desc).PortConnection = 0; // ePortConnJack
+            (*jack_desc).IsConnected = 1; // TRUE
             DbgPrint(c"Leyline: jack_description_handler SUCCESS (IsConnected=1)\n".as_ptr());
         }
         return STATUS_SUCCESS;
@@ -300,13 +300,40 @@ pub unsafe extern "C" fn jack_description_handler(
         let jack_desc2 = (*property_request).Value as *mut KSJACK_DESCRIPTION2;
         if !jack_desc2.is_null() {
             (*jack_desc2).DeviceStateInfo = 0;
-            (*jack_desc2).JackCapabilities = 1; // Capability: Presence Detect
+            (*jack_desc2).JackCapabilities = 0; // Capability: None
             DbgPrint(c"Leyline: jack_description_handler (JACK_DESCRIPTION2) SUCCESS\n".as_ptr());
         }
         return STATUS_SUCCESS;
     }
 
     STATUS_NOT_IMPLEMENTED
+}
+
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn mute_handler(property_request: PPCPROPERTY_REQUEST) -> NTSTATUS {
+    if property_request.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    DbgPrint(c"Leyline: mute_handler CALLED\n".as_ptr());
+
+    if (*property_request).ValueSize == 0 {
+        (*property_request).ValueSize = core::mem::size_of::<i32>() as u32;
+        return STATUS_BUFFER_OVERFLOW;
+    }
+
+    if (*property_request).ValueSize < core::mem::size_of::<i32>() as u32 {
+        return STATUS_BUFFER_TOO_SMALL;
+    }
+
+    if (*property_request).Verb & KSPROPERTY_TYPE_GET != 0 {
+        let value = (*property_request).Value as *mut i32;
+        if !value.is_null() {
+            *value = 0; // Unmuted by default
+        }
+    }
+
+    STATUS_SUCCESS
 }
 
 #[allow(clippy::missing_safety_doc)]
@@ -381,11 +408,7 @@ pub unsafe extern "C" fn proposed_format_handler(
         }
         let flags = (*property_request).Value as *mut u32;
         if !flags.is_null() {
-            *flags = if prop_id == KSPROPERTY_PIN_PROPOSEDATAFORMAT2 {
-                KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT
-            } else {
-                KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT
-            };
+            *flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT;
         }
         (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
         return STATUS_SUCCESS;
@@ -396,23 +419,119 @@ pub unsafe extern "C" fn proposed_format_handler(
         return STATUS_SUCCESS;
     }
 
-    if ((*property_request).Verb & KSPROPERTY_TYPE_GET) != 0 {
-        if prop_id == KSPROPERTY_PIN_PROPOSEDATAFORMAT2 {
-            // Return failure implies "I don't have a proposed format", which is valid.
-            // Or we can return a default format.
-            // For now, let's return STATUS_NOT_FOUND or similar to say "no proposal pending"?
-            // Or strictly speaking, if AEB asks "what format do you propose?", we can say NONE.
-            // But let's return STATUS_NOT_IMPLEMENTED to be safe for now,
-            // or better: The reference driver implementation of PropertyHandler_WaveFilter handles it.
-            return STATUS_NOT_IMPLEMENTED;
+    if ((*property_request).Verb & KSPROPERTY_TYPE_GET) != 0
+        && (prop_id == KSPROPERTY_PIN_PROPOSEDATAFORMAT2 || prop_id == KSPROPERTY_PIN_PROPOSEDATAFORMAT)
+    {
+        let format_size =
+            core::mem::size_of::<crate::stream::KSDATAFORMAT_WAVEFORMATEXTENSIBLE>() as u32;
+        if (*property_request).ValueSize == 0 {
+            (*property_request).ValueSize = format_size;
+            return STATUS_BUFFER_OVERFLOW;
         }
+        if (*property_request).ValueSize < format_size {
+            // If they provided less than extensible, but enough for EX, we could fall back.
+            // But AEB usually asks for the full size.
+            return STATUS_BUFFER_TOO_SMALL;
+        }
+
+        let result =
+            (*property_request).Value as *mut crate::stream::KSDATAFORMAT_WAVEFORMATEXTENSIBLE;
+        if !result.is_null() {
+            (*result).DataFormat.FormatSize = format_size;
+            (*result).DataFormat.MajorFormat = KSDATAFORMAT_TYPE_AUDIO;
+            (*result).DataFormat.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+            (*result).DataFormat.Specifier = KSDATAFORMAT_SPECIFIER_WAVEFORMATEX; // Specifier stays the same for EXT
+
+            (*result).WaveFormatExt.Format.wFormatTag = 0xFFFE; // WAVE_FORMAT_EXTENSIBLE
+            (*result).WaveFormatExt.Format.nChannels = 2;
+            (*result).WaveFormatExt.Format.nSamplesPerSec = 48000;
+            (*result).WaveFormatExt.Format.wBitsPerSample = 16;
+            (*result).WaveFormatExt.Format.nBlockAlign = 4;
+            (*result).WaveFormatExt.Format.nAvgBytesPerSec = 48000 * 4;
+            (*result).WaveFormatExt.Format.cbSize = 22; // Size of extensible part
+
+            (*result).WaveFormatExt.Samples.wValidBitsPerSample = 16;
+            (*result).WaveFormatExt.dwChannelMask = 0x3; // KSAUDIO_SPEAKER_STEREO
+            (*result).WaveFormatExt.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+
+            (*result).DataFormat.SampleSize = 4;
+            DbgPrint(
+                c"Leyline: proposed_format_handler GET - Returning 48kHz Stereo (Extensible)\n"
+                    .as_ptr(),
+            );
+        }
+        return STATUS_SUCCESS;
     }
 
     STATUS_SUCCESS
 }
 
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn audio_effects_discovery_handler(
+    property_request: PPCPROPERTY_REQUEST,
+) -> NTSTATUS {
+    if property_request.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    if (*property_request).PropertyItem.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    // Handle Basic Support
+    if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
+        if (*property_request).ValueSize < core::mem::size_of::<u32>() as u32 {
+            (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
+            return STATUS_BUFFER_OVERFLOW;
+        }
+        let flags = (*property_request).Value as *mut u32;
+        if !flags.is_null() {
+            *flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT;
+        }
+        (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
+        return STATUS_SUCCESS;
+    }
+
+    // Start with NOT_IMPLEMENTED for GET until we have the effects list logic
+    STATUS_NOT_IMPLEMENTED
+}
+
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn audio_module_handler(property_request: PPCPROPERTY_REQUEST) -> NTSTATUS {
+    if property_request.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    if (*property_request).PropertyItem.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    let prop_id = (*(*property_request).PropertyItem).Id;
+
+    // Handle Basic Support
+    if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
+        if (*property_request).ValueSize < core::mem::size_of::<u32>() as u32 {
+            (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
+            return STATUS_BUFFER_OVERFLOW;
+        }
+        let flags = (*property_request).Value as *mut u32;
+        if !flags.is_null() {
+            *flags = if prop_id == KSPROPERTY_AUDIOMODULE_COMMAND {
+                KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT
+            } else {
+                KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT
+            };
+        }
+        (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
+        return STATUS_SUCCESS;
+    }
+
+    // Start with NOT_IMPLEMENTED
+    STATUS_NOT_IMPLEMENTED
+}
+
 #[link_section = ".rdata"]
-pub static WAVE_FILTER_PROPERTIES: [PCPROPERTY_ITEM; 3] = [
+pub static WAVE_FILTER_PROPERTIES: [PCPROPERTY_ITEM; 9] = [
     PCPROPERTY_ITEM {
         Set: &KSPROPSETID_General as *const GUID,
         Id: KSPROPERTY_GENERAL_COMPONENTID,
@@ -420,23 +539,59 @@ pub static WAVE_FILTER_PROPERTIES: [PCPROPERTY_ITEM; 3] = [
         Handler: Some(component_id_handler),
     },
     PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_PIN as *const GUID,
+        Set: &KSPROPSETID_PIN as *const GUID, // Using KSPROPSETID_PIN directly
         Id: KSPROPERTY_PIN_PROPOSEDATAFORMAT,
-        Flags: KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
         Handler: Some(proposed_format_handler),
     },
     PCPROPERTY_ITEM {
         Set: &KSPROPSETID_PIN as *const GUID,
         Id: KSPROPERTY_PIN_PROPOSEDATAFORMAT2,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
         Handler: Some(proposed_format_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_Jack as *const GUID,
+        Id: KSPROPERTY_JACK_DESCRIPTION,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(jack_description_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_Jack as *const GUID,
+        Id: KSPROPERTY_JACK_DESCRIPTION2,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(jack_description_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_AudioEffectsDiscovery as *const GUID,
+        Id: KSPROPERTY_AUDIOEFFECTSDISCOVERY_EFFECTSLIST,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(audio_effects_discovery_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_AudioModule as *const GUID,
+        Id: KSPROPERTY_AUDIOMODULE_DESCRIPTORS,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(audio_module_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_AudioModule as *const GUID,
+        Id: KSPROPERTY_AUDIOMODULE_COMMAND,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(audio_module_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_AudioModule as *const GUID,
+        Id: KSPROPERTY_AUDIOMODULE_NOTIFICATION_DEVICE_ID,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(audio_module_handler),
     },
 ];
 
 #[link_section = ".rdata"]
 pub static WAVE_FILTER_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
     PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
-    PropertyCount: 3,
+    PropertyCount: 9,
     Properties: WAVE_FILTER_PROPERTIES.as_ptr(),
     MethodItemSize: 0,
     MethodCount: 0,
@@ -446,6 +601,7 @@ pub static WAVE_FILTER_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE
     Events: core::ptr::null(),
     Reserved: 0,
 };
+
 
 #[link_section = ".rdata"]
 pub static TOPO_FILTER_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
@@ -548,7 +704,7 @@ pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
             Communication: KSPIN_COMMUNICATION_NONE as i32, // INTERNAL (NONE)
-            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
+            Category: &GUID_NULL as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -593,7 +749,7 @@ pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_IN as i32,
             Communication: KSPIN_COMMUNICATION_NONE as i32, // INTERNAL (NONE)
-            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
+            Category: &GUID_NULL as *const GUID,
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -608,7 +764,7 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 0,
         MaxFilterInstanceCount: 0,
         MinFilterInstanceCount: 0,
-        AutomationTable: core::ptr::null(), // &PIN_AUTOMATION_TABLE?
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 0,
             Interfaces: core::ptr::null(),
@@ -617,8 +773,8 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_IN as i32,
-            Communication: KSPIN_COMMUNICATION_NONE as i32, // INTERNAL (NONE)
-            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
+            Communication: KSPIN_COMMUNICATION_NONE as i32,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID, // Input from Wave
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -628,7 +784,7 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 0,
         MaxFilterInstanceCount: 0,
         MinFilterInstanceCount: 0,
-        AutomationTable: core::ptr::null(), // &PIN_AUTOMATION_TABLE?
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 0,
             Interfaces: core::ptr::null(),
@@ -637,12 +793,8 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
-            // CRITICAL: Reference driver (speakertoptable.h) uses NONE, not BRIDGE.
-            // KSPIN_COMMUNICATION_BRIDGE is legacy WDM. PortCls WaveRT expects NONE
-            // for topology bridge pins, letting AEB determine connectivity from
-            // the physical connection (PcRegisterPhysicalConnection).
             Communication: KSPIN_COMMUNICATION_NONE as i32,
-            Category: &KSNODETYPE_SPEAKER as *const GUID,
+            Category: &KSNODETYPE_SPEAKER as *const GUID, // Output to Speaker
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -656,7 +808,7 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 0,
         MaxFilterInstanceCount: 0,
         MinFilterInstanceCount: 0,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 0,
             Interfaces: core::ptr::null(),
@@ -665,9 +817,8 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_IN as i32,
-            // CRITICAL: Same fix as render - use NONE not BRIDGE.
             Communication: KSPIN_COMMUNICATION_NONE as i32,
-            Category: &KSNODETYPE_MICROPHONE as *const GUID,
+            Category: &KSNODETYPE_MICROPHONE as *const GUID, // Input from Mic
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -677,7 +828,7 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
         MaxGlobalInstanceCount: 0,
         MaxFilterInstanceCount: 0,
         MinFilterInstanceCount: 0,
-        AutomationTable: core::ptr::null(),
+        AutomationTable: &PIN_AUTOMATION_TABLE,
         KsPinDescriptor: KSPIN_DESCRIPTOR {
             InterfacesCount: 0,
             Interfaces: core::ptr::null(),
@@ -686,8 +837,8 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
             DataRangesCount: 1,
             DataRanges: BRIDGE_DATARANGES.as_ptr() as *const *mut KSDATAFORMAT,
             DataFlow: KSPIN_DATAFLOW_OUT as i32,
-            Communication: KSPIN_COMMUNICATION_NONE as i32, // INTERNAL (NONE)
-            Category: &KSCATEGORY_AUDIO_GUID as *const GUID,
+            Communication: KSPIN_COMMUNICATION_NONE as i32,
+            Category: &KSCATEGORY_AUDIO_GUID as *const GUID, // Output to Wave
             Name: core::ptr::null(),
             Reserved: 0,
             Reserved2: 0,
@@ -758,12 +909,42 @@ pub static VOLUME_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
 };
 
 #[link_section = ".rdata"]
-pub static TOPO_NODES: [crate::stream::PCNODE_DESCRIPTOR; 1] = [crate::stream::PCNODE_DESCRIPTOR {
-    Flags: 0,
-    AutomationTable: &VOLUME_AUTOMATION_TABLE,
-    Type: &KSNODETYPE_VOLUME,
-    Name: &GUID_NULL,
+pub static MUTE_PROPERTIES: [PCPROPERTY_ITEM; 1] = [PCPROPERTY_ITEM {
+    Set: &KSPROPSETID_Audio as *const GUID,
+    Id: KSPROPERTY_AUDIO_MUTE,
+    Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
+    Handler: Some(mute_handler),
 }];
+
+#[link_section = ".rdata"]
+pub static MUTE_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+    PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
+    PropertyCount: 1,
+    Properties: MUTE_PROPERTIES.as_ptr(),
+    MethodItemSize: 0,
+    MethodCount: 0,
+    Methods: core::ptr::null(),
+    EventItemSize: 0,
+    EventCount: 0,
+    Events: core::ptr::null(),
+    Reserved: 0,
+};
+
+#[link_section = ".rdata"]
+pub static TOPO_NODES: [crate::stream::PCNODE_DESCRIPTOR; 2] = [
+    crate::stream::PCNODE_DESCRIPTOR {
+        Flags: 0,
+        AutomationTable: &VOLUME_AUTOMATION_TABLE,
+        Type: &KSNODETYPE_VOLUME,
+        Name: &KSAUDFNAME_MASTER_VOLUME,
+    },
+    crate::stream::PCNODE_DESCRIPTOR {
+        Flags: 0,
+        AutomationTable: &MUTE_AUTOMATION_TABLE,
+        Type: &KSNODETYPE_MUTE,
+        Name: &KSAUDFNAME_MASTER_MUTE,
+    },
+];
 
 // ============================================================================
 // Connections & Categories
@@ -788,12 +969,26 @@ pub static WAVE_CAPTURE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
 // KSJACK_DESCRIPTION2 struct definition removed (duplicate)
 
 #[link_section = ".rdata"]
-pub static TOPO_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
-    FromNode: PCFILTER_NODE,
-    FromNodePin: KSPIN_TOPO_BRIDGE,
-    ToNode: PCFILTER_NODE,
-    ToNodePin: KSPIN_TOPO_LINEOUT,
-}];
+pub static TOPO_CONNECTIONS: [PCCONNECTION; 3] = [
+    PCCONNECTION {
+        FromNode: PCFILTER_NODE,
+        FromNodePin: KSPIN_TOPO_BRIDGE,
+        ToNode: 0, // VOLUME
+        ToNodePin: 1,
+    },
+    PCCONNECTION {
+        FromNode: 0, // VOLUME
+        FromNodePin: 0,
+        ToNode: 1, // MUTE
+        ToNodePin: 1,
+    },
+    PCCONNECTION {
+        FromNode: 1, // MUTE
+        FromNodePin: 0,
+        ToNode: PCFILTER_NODE,
+        ToNodePin: KSPIN_TOPO_LINEOUT,
+    },
+];
 
 #[link_section = ".rdata"]
 pub static TOPO_CAPTURE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
@@ -867,10 +1062,10 @@ pub static TOPO_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIP
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: TOPO_RENDER_PINS.as_ptr(),
-    NodeSize: 0,
-    NodeCount: 0,
-    Nodes: core::ptr::null(),
-    ConnectionCount: 1,
+    NodeSize: core::mem::size_of::<crate::stream::PCNODE_DESCRIPTOR>() as u32,
+    NodeCount: 2,
+    Nodes: TOPO_NODES.as_ptr(),
+    ConnectionCount: 3,
     Connections: TOPO_CONNECTIONS.as_ptr(),
     // CRITICAL: Reference driver (SpeakerTopoMiniportFilterDescriptor) sets
     // CategoryCount: 0, Categories: NULL. Categories on the topology filter

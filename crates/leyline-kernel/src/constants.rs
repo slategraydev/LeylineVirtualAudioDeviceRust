@@ -6,7 +6,7 @@
 // See LICENSE file in the project root for full terms.
 
 // Second, external crates.
-use wdk_sys::GUID;
+use wdk_sys::*;
 
 // ============================================================================
 // PortCls Class & Interface IDs
@@ -351,6 +351,22 @@ pub static KSPROPSETID_General: GUID = GUID {
     Data4: [0x9A, 0xA7, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
 };
 
+#[allow(non_upper_case_globals)]
+pub static KSPROPSETID_AudioEffectsDiscovery: GUID = GUID {
+    Data1: 0xB49EEC73,
+    Data2: 0xC88F,
+    Data3: 0x40E1,
+    Data4: [0x88, 0x48, 0xD3, 0xCE, 0x2C, 0x4B, 0x00, 0x51],
+};
+
+#[allow(non_upper_case_globals)]
+pub static KSPROPSETID_AudioModule: GUID = GUID {
+    Data1: 0xC034FDB0,
+    Data2: 0xFF4C,
+    Data3: 0x4788,
+    Data4: [0xB3, 0xB6, 0xBF, 0x3E, 0x15, 0xCD, 0xC3, 0xE9],
+};
+
 pub const KSPROPERTY_GENERAL_COMPONENTID: u32 = 0;
 
 #[allow(non_upper_case_globals)]
@@ -369,6 +385,14 @@ pub const KSPROPERTY_PIN_CATEGORY: u32 = 0;
 pub const KSPROPERTY_PIN_NAME: u32 = 6;
 pub const KSPROPERTY_PIN_PROPOSEDATAFORMAT: u32 = 12;
 pub const KSPROPERTY_PIN_PROPOSEDATAFORMAT2: u32 = 17;
+
+pub const KSPROPERTY_AUDIOEFFECTSDISCOVERY_EFFECTSLIST: u32 = 1;
+
+pub const KSPROPERTY_AUDIOMODULE_DESCRIPTORS: u32 = 1;
+pub const KSPROPERTY_AUDIOMODULE_COMMAND: u32 = 2;
+pub const KSPROPERTY_AUDIOMODULE_NOTIFICATION_DEVICE_ID: u32 = 3;
+
+pub const KSPROPERTY_SYSVAD_DEFAULTSTREAMEFFECTS: u32 = 1; // Sysvad-specific
 
 pub const KSPROPERTY_TYPE_GET: u32 = 0x00000001;
 pub const KSPROPERTY_TYPE_SET: u32 = 0x00000002;
@@ -426,6 +450,14 @@ pub static KSNODETYPE_VOLUME: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
+pub static KSNODETYPE_MUTE: GUID = GUID {
+    Data1: 0x02F1A93E,
+    Data2: 0x7E5F,
+    Data3: 0x11D2,
+    Data4: [0xA4, 0x4F, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96],
+};
+
+#[allow(non_upper_case_globals)]
 pub static KSPROPSETID_Audio: GUID = GUID {
     Data1: 0x45FFAAA0,
     Data2: 0x6E1B,
@@ -434,3 +466,20 @@ pub static KSPROPSETID_Audio: GUID = GUID {
 };
 
 pub const KSPROPERTY_AUDIO_VOLUMELEVEL: u32 = 4;
+pub const KSPROPERTY_AUDIO_MUTE: u32 = 5;
+
+#[allow(non_upper_case_globals)]
+pub static KSAUDFNAME_MASTER_VOLUME: GUID = GUID {
+    Data1: 0x185FEDE0,
+    Data2: 0x9905,
+    Data3: 0x11D1,
+    Data4: [0x95, 0xA9, 0x00, 0xC0, 0x4F, 0xB9, 0x25, 0xD3],
+};
+
+#[allow(non_upper_case_globals)]
+pub static KSAUDFNAME_MASTER_MUTE: GUID = GUID {
+    Data1: 0x185FEDE1,
+    Data2: 0x9905,
+    Data3: 0x11D1,
+    Data4: [0x95, 0xA9, 0x00, 0xC0, 0x4F, 0xB9, 0x25, 0xD3],
+};

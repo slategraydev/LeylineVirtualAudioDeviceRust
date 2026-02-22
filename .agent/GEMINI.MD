@@ -32,6 +32,7 @@ Framework: Rust-native WaveRT (Wave Real-Time)
 - **[x] Topology Implementation**: Registered Topology port, bridge pins, and internal routing.
 - **[x] Dispatch Infrastructure**: IRP hooking, CDO creation, and IOCTL dispatching.
 - **[x] Zero-Copy Loopback**: Kernel-side shared memory mapping (Render to Capture).
+- **[x] Property Handlers**: Implemented Audio Effects Discovery and Audio Modules handlers for Sysvad alignment.
 
 ### In Progress 🏗️
 - **[/] Trait Implementation**: Mapping foundational structures to `wdk` traits.

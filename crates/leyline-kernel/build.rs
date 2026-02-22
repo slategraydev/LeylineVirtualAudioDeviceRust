@@ -4,11 +4,17 @@
 use std::env;
 use std::path::PathBuf;
 
-fn main() {
+fn main() -> Result<(), wdk_build::ConfigError> {
+    wdk_build::Config::from_env_auto()?.configure_binary_build()?;
+
+    println!("cargo:rustc-link-lib=portcls");
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/audio_wrapper.h");
+
     let wdk_root = env::var("WDKContentRoot")
-        .unwrap_or_else(|_| "C:\\Program Files (x86)\\Windows Kits\\10".to_string());
+        .unwrap_or_else(|_| "D:\\eWDK_28000".to_string());
     let wdk_version =
-        env::var("WindowsTargetPlatformVersion").unwrap_or_else(|_| "10.0.26100.0".to_string());
+        env::var("WindowsTargetPlatformVersion").unwrap_or_else(|_| "10.0.28000.0".to_string());
 
     let wdk_root_trimmed = wdk_root.trim_end_matches('\\');
     let wdk_version_trimmed = wdk_version.trim_end_matches('\\');
@@ -40,7 +46,7 @@ fn main() {
         .blocklist_type("_GUID")
         .blocklist_type("ULONG")
         .blocklist_type("LONGLONG")
-        .raw_line("use wdk_sys::GUID;")
+        .raw_line("use wdk_sys::*;")
         .raw_line("pub type _GUID = GUID;")
         .raw_line("pub type ULONG = core::ffi::c_ulong;")
         .raw_line("pub type LONGLONG = core::ffi::c_longlong;")
@@ -84,18 +90,5 @@ fn main() {
         .write_to_file(&bindings_file)
         .expect("Couldn't write bindings!");
 
-    if env::var("CARGO_CFG_TEST").is_err() {
-        println!("cargo:rustc-link-arg=/subsystem:native");
-        println!("cargo:rustc-link-arg=/driver");
-        println!("cargo:rustc-link-arg=/entry:DriverEntry");
-        println!("cargo:rustc-link-arg=/NODEFAULTLIB:msvcrt");
-        println!("cargo:rustc-link-lib=ntoskrnl");
-        println!("cargo:rustc-link-lib=hal");
-        println!("cargo:rustc-link-lib=wmilib");
-        println!("cargo:rustc-link-lib=portcls");
-    }
-
-    println!("cargo:rerun-if-env-changed=WDKContentRoot");
-    println!("cargo:rerun-if-env-changed=WindowsTargetPlatformVersion");
-    println!("cargo:rerun-if-changed=src/audio_wrapper.h");
+    Ok(())
 }

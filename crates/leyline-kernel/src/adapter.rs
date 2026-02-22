@@ -21,7 +21,7 @@ use crate::stream::MiniportWaveRTStream;
 use crate::topology::MiniportTopologyCom;
 use crate::vtables::*;
 use crate::wavert::MiniportWaveRTCom;
-use crate::PcRegisterPhysicalConnection;
+use crate::{PcAddAdapterDevice, PcNewPort, PcRegisterPhysicalConnection, PcRegisterSubdevice};
 
 const _POOL_TAG: u32 = u32::from_be_bytes(*b"LLAD");
 const PORT_CLASS_DEVICE_EXTENSION_SIZE: usize = 64 * size_of::<usize>();
@@ -84,26 +84,6 @@ impl MiniportWaveRTStreamCom {
 pub unsafe fn get_device_extension(device_object: PDEVICE_OBJECT) -> *mut DeviceExtension {
     let base = (*device_object).DeviceExtension as *mut u8;
     base.add(PORT_CLASS_DEVICE_EXTENSION_SIZE) as *mut DeviceExtension
-}
-
-#[link(name = "portcls")]
-extern "C" {
-    pub fn PcAddAdapterDevice(
-        DriverObject: PDRIVER_OBJECT,
-        PhysicalDeviceObject: PDEVICE_OBJECT,
-        StartDevice: Option<unsafe extern "C" fn(PDEVICE_OBJECT, PIRP, PVOID) -> NTSTATUS>,
-        MaxObjects: u32,
-        DeviceExtensionSize: u32,
-    ) -> NTSTATUS;
-
-    pub fn PcNewPort(OutPort: *mut *mut u8, ClassId: *const GUID) -> NTSTATUS;
-
-    pub fn PcRegisterSubdevice(
-        DeviceObject: PDEVICE_OBJECT,
-        Name: *const u16,
-        Unknown: *mut u8,
-    ) -> NTSTATUS;
-
 }
 
 // Session #42: Explicit audio device interface registration

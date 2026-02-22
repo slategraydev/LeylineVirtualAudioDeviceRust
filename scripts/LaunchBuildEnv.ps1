@@ -4,10 +4,12 @@ $ErrorActionPreference = "Stop"
 $ewdkRoot = "D:\eWDK_28000"
 if (-not (Test-Path $ewdkRoot)) { $ewdkRoot = "C:\eWDK_28000" }
 if (-not (Test-Path $ewdkRoot)) { $ewdkRoot = "D:\eWDK" }
+if (-not (Test-Path $ewdkRoot)) { $ewdkRoot = "C:\eWDK" }
 
 if (Test-Path $ewdkRoot) {
     Write-Host "[*] Using eWDK at: $ewdkRoot" -ForegroundColor Gray
     $env:WDK_ROOT = "$ewdkRoot\Program Files\Windows Kits\10"
+    $env:WDKContentRoot = $env:WDK_ROOT
     $env:eWDK_ROOT_DIR = $ewdkRoot
     
     # Initialize env from SetupBuildEnv.cmd

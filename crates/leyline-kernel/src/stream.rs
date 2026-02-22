@@ -14,9 +14,7 @@ use core::ptr::null_mut;
 
 // Second, external crates.
 use wdk_sys::ntddk::*;
-use wdk_sys::{LARGE_INTEGER, NTSTATUS, PHYSICAL_ADDRESS, PMDL, PVOID, ULONG};
-pub use wdk_sys::{MM_ALLOCATE_FULLY_REQUIRED, _MEMORY_CACHING_TYPE, _MM_PAGE_PRIORITY};
-pub use wdk_sys::{STATUS_ALREADY_COMMITTED, STATUS_INSUFFICIENT_RESOURCES, STATUS_SUCCESS};
+use wdk_sys::*;
 
 // Then current crate.
 use crate::adapter::DeviceExtension;
@@ -63,6 +61,13 @@ pub const KSSTATE_STOP: i32 = audio::KSSTATE_KSSTATE_STOP;
 pub struct KSDATAFORMAT_WAVEFORMATEX {
     pub DataFormat: KSDATAFORMAT,
     pub WaveFormatEx: WAVEFORMATEX,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSDATAFORMAT_WAVEFORMATEXTENSIBLE {
+    pub DataFormat: KSDATAFORMAT,
+    pub WaveFormatExt: audio::WAVEFORMATEXTENSIBLE,
 }
 
 #[repr(C)]

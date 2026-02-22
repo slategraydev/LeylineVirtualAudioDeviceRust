@@ -96,6 +96,7 @@ pub struct MiniportWaveRTCom {
     pub output_stream_vtable: *const IMiniportWaveRTOutputStreamVTable,
     pub input_stream_vtable: *const IMiniportWaveRTInputStreamVTable,
     pub pin_count_vtable: *const IPinCountVTable,
+    pub pin_name_vtable: *const IPinNameVTable,
     pub resource_manager_vtable: *const IPortClsStreamResourceManager2VTable,
     pub inner: MiniportWaveRT,
     pub ref_count: u32,
@@ -150,6 +151,16 @@ pub static WAVERT_PIN_COUNT_VTABLE: IPinCountVTable = IPinCountVTable {
 };
 
 #[link_section = ".rdata"]
+pub static WAVERT_PIN_NAME_VTABLE: IPinNameVTable = IPinNameVTable {
+    base: IUnknownVTable {
+        QueryInterface: miniport_query_interface,
+        AddRef: miniport_add_ref,
+        Release: miniport_release,
+    },
+    GetPinName: wavert_get_pin_name,
+};
+
+#[link_section = ".rdata"]
 pub static RESOURCE_MANAGER_VTABLE: IPortClsStreamResourceManager2VTable =
     IPortClsStreamResourceManager2VTable {
         base: IUnknownVTable {
@@ -168,6 +179,7 @@ impl MiniportWaveRTCom {
             output_stream_vtable: &OUTPUT_STREAM_VTABLE,
             input_stream_vtable: &INPUT_STREAM_VTABLE,
             pin_count_vtable: &WAVERT_PIN_COUNT_VTABLE,
+            pin_name_vtable: &WAVERT_PIN_NAME_VTABLE,
             resource_manager_vtable: &RESOURCE_MANAGER_VTABLE,
             inner: MiniportWaveRT::new(is_capture, device_extension),
             ref_count: 1,
@@ -188,8 +200,10 @@ impl MiniportWaveRTCom {
             (this as usize - 16) as *mut Self
         } else if vtable_ptr == &WAVERT_PIN_COUNT_VTABLE as *const _ as *const u8 {
             (this as usize - 24) as *mut Self
-        } else if vtable_ptr == &RESOURCE_MANAGER_VTABLE as *const _ as *const u8 {
+        } else if vtable_ptr == &WAVERT_PIN_NAME_VTABLE as *const _ as *const u8 {
             (this as usize - 32) as *mut Self
+        } else if vtable_ptr == &RESOURCE_MANAGER_VTABLE as *const _ as *const u8 {
+            (this as usize - 40) as *mut Self
         } else {
             // Fallback: assume primary interface if unknown.
             this as *mut Self
@@ -220,9 +234,6 @@ pub unsafe extern "system" fn miniport_query_interface(
         || crate::is_equal_guid(iid, &IID_IMiniport)
     {
         DbgPrint(c"LeylineWaveRT: QueryInterface -> IMiniportWaveRT (ACCEPTED)\n".as_ptr());
-        // SAFETY: We return the address of the `vtable` field within the struct.
-        // Since `vtable` is a `*const IMiniportWaveRTVTable`, its address is a `*const *const IMiniportWaveRTVTable`.
-        // This matches the COM requirement that an interface pointer is a pointer to a vtable pointer.
         *out = &((*com_obj).vtable) as *const _ as *mut u8;
     } else if crate::is_equal_guid(iid, &IID_IMiniportWaveRTOutputStream) {
         DbgPrint(
@@ -237,6 +248,9 @@ pub unsafe extern "system" fn miniport_query_interface(
     } else if crate::is_equal_guid(iid, &IID_IPinCount) {
         DbgPrint(c"LeylineWaveRT: QueryInterface -> IPinCount (ACCEPTED)\n".as_ptr());
         *out = &((*com_obj).pin_count_vtable) as *const _ as *mut u8;
+    } else if crate::is_equal_guid(iid, &IID_IPinName) {
+        DbgPrint(c"LeylineWaveRT: QueryInterface -> IPinName (ACCEPTED)\n".as_ptr());
+        *out = &((*com_obj).pin_name_vtable) as *const _ as *mut u8;
     } else if crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager)
         || crate::is_equal_guid(iid, &IID_IPortClsStreamResourceManager2)
     {
@@ -269,10 +283,6 @@ pub unsafe extern "system" fn miniport_query_interface(
             (*iid).Data4[0] as core::ffi::c_uint, (*iid).Data4[1] as core::ffi::c_uint, (*iid).Data4[2] as core::ffi::c_uint, (*iid).Data4[3] as core::ffi::c_uint,
             (*iid).Data4[4] as core::ffi::c_uint, (*iid).Data4[5] as core::ffi::c_uint, (*iid).Data4[6] as core::ffi::c_uint, (*iid).Data4[7] as core::ffi::c_uint
         );
-        // Special check for IID_IPinName which is usually for Topology but AEB might try here too
-        if crate::is_equal_guid(iid, &IID_IPinName) {
-            DbgPrint(c"LeylineWaveRT: AEB queried IPinName on Wave Miniport (REJECTED)\n".as_ptr());
-        }
         *out = null_mut();
         return STATUS_NOINTERFACE;
     }
@@ -500,6 +510,83 @@ pub unsafe extern "system" fn wavert_pin_count(
     if !global_possible.is_null() {
         *global_possible = 4;
     }
+}
+
+// Local KSP_PIN definition for safe access
+#[repr(C)]
+#[allow(non_snake_case)]
+struct KSPROPERTY_LOCAL {
+    pub Set: GUID,
+    pub Id: u32,
+    pub Flags: u32,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+struct KSP_PIN_LOCAL {
+    pub Property: KSPROPERTY_LOCAL,
+    pub PinId: u32,
+    pub Reserved: u32,
+}
+
+pub unsafe extern "system" fn wavert_get_pin_name(
+    this: *mut u8,
+    _irp: *mut u8,
+    pin: *mut u8,
+    data: *mut u8,
+) -> NTSTATUS {
+    if pin.is_null() || data.is_null() {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    let com_obj = MiniportWaveRTCom::from_this(this);
+    let ksp_pin = pin as *const KSP_PIN_LOCAL;
+    let pin_id = (*ksp_pin).PinId;
+
+    DbgPrint(
+        c"LeylineWaveRT: GetPinName CALLED for Pin %d (Capture=%d)\n".as_ptr(),
+        pin_id,
+        (*com_obj).inner.is_capture as i32,
+    );
+
+    let out_unicode = data as *mut UNICODE_STRING;
+
+    let name_prefix = if (*com_obj).inner.is_capture {
+        if pin_id == 0 {
+            "Leyline Capture Pin"
+        } else {
+            "Leyline Capture Bridge"
+        }
+    } else if pin_id == 0 {
+        "Leyline Render Pin"
+    } else {
+        "Leyline Render Bridge"
+    };
+
+    let chars: alloc::vec::Vec<u16> = name_prefix
+        .encode_utf16()
+        .chain(core::iter::once(0))
+        .collect();
+    let buffer_len = (chars.len() * 2) as u16;
+
+    let buffer = ExAllocatePool2(
+        POOL_FLAG_PAGED,
+        buffer_len as u64,
+        u32::from_be_bytes(*b"LLWP"),
+    ) as *mut u16;
+
+    if buffer.is_null() {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    core::ptr::copy_nonoverlapping(chars.as_ptr(), buffer, chars.len());
+
+    (*out_unicode).Length = (name_prefix.len() * 2) as u16;
+    (*out_unicode).MaximumLength = buffer_len;
+    (*out_unicode).Buffer = buffer;
+
+    DbgPrint(c"LeylineWaveRT: GetPinName SUCCESS: %ls\n".as_ptr(), buffer);
+    STATUS_SUCCESS
 }
 
 pub unsafe extern "system" fn wavert_set_write_packet(

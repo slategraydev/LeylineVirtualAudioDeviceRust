@@ -6,7 +6,7 @@
 // See LICENSE file in the project root for full terms.
 
 // Second, external crates.
-use wdk_sys::{GUID, NTSTATUS};
+use wdk_sys::*;
 
 #[allow(non_snake_case)]
 #[repr(C)]
