@@ -12,14 +12,13 @@ param (
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Resolve-Path "$PSScriptRoot\.."
 $remotePath = "C:\LeylineInstall"
-$BuildVersion = "1.0.9"
+$BuildVersion = "1.0.150"
 
 # Host Credentials for VM
 $secPassword = ConvertTo-SecureString "REDACTED_VM_PASS" -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential ("USER", $secPassword)
 
 # --- 0. CERTIFICATE GENERATION (Pre-Build Env) ---
-# Generate outside eWDK environment to avoid PKI module conflicts
 $pfxPath = "$ProjectRoot/leyline.pfx"
 $cerPath = "$ProjectRoot/leyline.cer"
 
@@ -75,18 +74,15 @@ if (-not $Uninstall) {
     Pop-Location
 
     # Aggregating & Signing
-    Write-Host "    -> Packaging and Signing (from cargo-wdk output)..."
     if (Test-Path "$ProjectRoot/package") { Remove-Item "$ProjectRoot/package" -Recurse -Force }
     New-Item -ItemType Directory -Path "$ProjectRoot/package" -Force | Out-Null
-    
+
     $wdkPackagePath = "$ProjectRoot/target/release/leyline_package"
     if (-not (Test-Path $wdkPackagePath)) { throw "WDK Package not found at $wdkPackagePath" }
 
-    # Copy optimized/packaged files
     Copy-Item "$wdkPackagePath\*" "$ProjectRoot/package\" -Recurse -Force
-    Copy-Item $cerPath "$ProjectRoot/package\" -Force # Ensure cert is bundled
+    Copy-Item $cerPath "$ProjectRoot/package\" -Force
 
-    # Re-sign with our local cert (ensures VM trust compatibility)
     $signArgs = @("sign", "/f", $pfxPath, "/p", "REDACTED_CERT_PASS", "/fd", "SHA256")
     & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package/leyline.sys" | Out-Null
     & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package/leyline.cat" | Out-Null
@@ -97,79 +93,84 @@ try {
     Write-Host "[*] [VM] Connecting and Installing..." -ForegroundColor Cyan
     $vmsess = New-PSSession -VMName $VMName -Credential $cred
 
-    # Simplified VM Execution
     Invoke-Command -Session $vmsess -ScriptBlock {
         param($path, $isUninstall)
-        $ErrorActionPreference = "Continue" # Don't stop on minor failures
+        $ErrorActionPreference = "Continue"
 
-        Write-Host "    (VM) Cleaning environment..."
-        # Stop and delete existing
-        sc.exe stop Leyline | Out-Null
-        pnputil /remove-device "ROOT\MEDIA\LeylineAudio" /force | Out-Null
-        
-        if ($isUninstall) { return }
+        Write-Host "    (VM) Preparing environment..."
+        if ($isUninstall) { 
+            pnputil /remove-device "ROOT\MEDIA\LeylineAudio" /force | Out-Null
+            $drivers = pnputil /enum-drivers | Select-String "Original Name:\s+leyline.inf" -Context 3, 0
+            foreach ($d in $drivers) {
+                if ($d.Context.PreContext[0] -match "Published Name:\s+(oem\d+\.inf)") {
+                    pnputil /delete-driver $matches[1] /uninstall /force
+                }
+            }
+            return 
+        }
 
-        # Setup directory
         if (Test-Path $path) { Remove-Item $path -Recurse -Force }
         New-Item -ItemType Directory -Path $path -Force | Out-Null
     } -ArgumentList $remotePath, $Uninstall
 
     if ($Uninstall) { Write-Host "[SUCCESS] Uninstalled."; return }
 
-    # Copy files
     Copy-Item -Path "$ProjectRoot/package\*" -Destination $remotePath -ToSession $vmsess -Recurse -Force
 
-    # Final Install Block
     Invoke-Command -Session $vmsess -ScriptBlock {
         param($path)
         Set-Location $path
         certutil -addstore -f root leyline.cer | Out-Null
         certutil -addstore -f TrustedPublisher leyline.cer | Out-Null
 
-        Write-Host "    (VM) Registering and Starting..."
-        $devcon = "C:\eWDK\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64\devcon.exe"
+        Write-Host "    (VM) Upgrading Driver Stack..."
         
-        # Cleanup any existing instances of the root device
-        & $devcon remove "Root\Media\LeylineAudio" | Out-Null
-        
+        # 1. Add to Driver Store and INSTALL to matching devices
         pnputil /add-driver "leyline.inf" /install | Out-Null
-        & $devcon install "leyline.inf" "Root\Media\LeylineAudio" | Out-Null
-        
-        # Health Check
-        Start-Sleep -Seconds 3
-        $device = Get-PnpDevice -FriendlyName "*Leyline*" -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "OK" }
-        if ($device) {
-            Write-Host "    (VM) Found Device: $($device.FriendlyName) [Status: $($device.Status)]" -ForegroundColor Green
-            
-            # Restart Audio service to refresh endpoints
-            Write-Host "    (VM) Restarting Windows Audio Service..." -ForegroundColor Gray
-            Restart-Service "Audiosrv" -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 2
+
+        # 2. Force an update on the specific ROOT node if it exists
+        $devcon = "C:\eWDK\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64\devcon.exe"
+        if (Test-Path $devcon) {
+            & $devcon update "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
         }
         else {
-            Write-Error "    (VM) FAILED: Driver device not appearing or not OK."
-            # Debug: check service status
-            $svc = Get-Service "Leyline" -ErrorAction SilentlyContinue
-            if ($svc) { Write-Host "    (VM) Service Status: $($svc.Status)" -ForegroundColor Yellow }
+            & devcon update "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
         }
 
-        # Endpoint Check
-        $endpoints = Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render" -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 3
+        $device = Get-PnpDevice | Where-Object { $_.HardwareId -match "ROOT\\MEDIA\\LeylineAudio" } | Select-Object -First 1
+        if ($device) {
+            Write-Host "    (VM) UPGRADE SUCCESSFUL: $($device.InstanceId)" -ForegroundColor Green
+            Write-Host "    (VM) Status: $($device.Status)"
+            Restart-Service "AudioEndpointBuilder" -Force -ErrorAction SilentlyContinue
+            Restart-Service "Audiosrv" -Force -ErrorAction SilentlyContinue
+        }
+        else {
+            Write-Host "    (VM) No existing device found. Performing fresh install..."
+            if (Test-Path $devcon) {
+                & $devcon install "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
+            }
+            else {
+                & devcon install "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
+            }
+        }
+
+        # Final check
+        Write-Host "    (VM) Searching for Endpoints..."
         $foundCount = 0
+        $endpoints = Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render" -ErrorAction SilentlyContinue
         foreach ($e in $endpoints) {
             $prop = Join-Path $e.Name "Properties"
             if (Test-Path "Registry::$prop") {
                 $val = (Get-ItemProperty "Registry::$prop")."{a45c254e-df1c-4efd-8020-67d146a850e0},2"
-                if ($val -like "*Leyline*") { 
-                    Write-Host "    (VM) Found Endpoint: $val" -ForegroundColor Gray
-                    $foundCount++ 
+                if ($val -like "*Leyline*") {
+                    Write-Host "    (VM) Found Endpoint: $val" -ForegroundColor Green
+                    $foundCount++
                 }
             }
         }
-        $color = if ($foundCount -gt 0) { "Green" } else { "Red" }
-        Write-Host "    (VM) Total Leyline Audio Endpoints: $foundCount" -ForegroundColor $color
+        Write-Host "    (VM) Total Leyline Audio Endpoints: $foundCount"
     } -ArgumentList $remotePath
-
 }
 catch {
     Write-Error "VM Operation failed: $_"

@@ -194,10 +194,12 @@ pub unsafe extern "C" fn StartDevice(
         return status;
     }
 
-    let wave_render_name: [u16; 11] = [
-        0x0057, 0x0061, 0x0076, 0x0065, 0x0052, 0x0065, 0x006E, 0x0064, 0x0065, 0x0072, 0x0000,
-    ];
-    status = PcRegisterSubdevice(device_object, wave_render_name.as_ptr(), render_port);
+    let mut wave_render_name_buffer = [0u16; 11];
+    let wave_render_name_str = "WaveRender";
+    for (i, c) in wave_render_name_str.encode_utf16().enumerate() {
+        wave_render_name_buffer[i] = c;
+    }
+    status = PcRegisterSubdevice(device_object, wave_render_name_buffer.as_ptr(), render_port);
     if status != STATUS_SUCCESS {
         return status;
     }
@@ -231,11 +233,16 @@ pub unsafe extern "C" fn StartDevice(
         return status;
     }
 
-    let wave_capture_name: [u16; 12] = [
-        0x0057, 0x0061, 0x0076, 0x0065, 0x0043, 0x0061, 0x0070, 0x0074, 0x0075, 0x0072, 0x0065,
-        0x0000,
-    ];
-    status = PcRegisterSubdevice(device_object, wave_capture_name.as_ptr(), capture_port);
+    let mut wave_capture_name_buffer = [0u16; 12];
+    let wave_capture_name_str = "WaveCapture";
+    for (i, c) in wave_capture_name_str.encode_utf16().enumerate() {
+        wave_capture_name_buffer[i] = c;
+    }
+    status = PcRegisterSubdevice(
+        device_object,
+        wave_capture_name_buffer.as_ptr(),
+        capture_port,
+    );
     if status != STATUS_SUCCESS {
         DbgPrint(c"Leyline: PcRegisterSubdevice(WaveCapture) Failed\n".as_ptr());
         return status;
@@ -267,7 +274,7 @@ pub unsafe extern "C" fn StartDevice(
     (*dev_ext).render_topo_miniport = topo_miniport_ptr as *mut MiniportTopologyCom;
 
     let vtable = *(render_topo_port as *const *const *const u8);
-    // IPortTopology inherits IPort. IPort inherits IUnknown. Init is index 3.
+    // IPortTopology inherits IPort. IPortTopology inherits IUnknown. Init is index 3.
     let init_ptr = *vtable.add(3);
     let init_fn: PortInitFn = core::mem::transmute(init_ptr);
 
@@ -300,12 +307,17 @@ pub unsafe extern "C" fn StartDevice(
     }
     DbgPrint(c"Leyline: TopologyRender::Init SUCCESS\n".as_ptr());
 
-    let topo_render_name: [u16; 15] = [
-        0x0054, 0x006F, 0x0070, 0x006F, 0x006C, 0x006F, 0x0067, 0x0079, 0x0052, 0x0065, 0x006E,
-        0x0064, 0x0065, 0x0072, 0x0000, // "TopologyRender"
-    ];
+    let mut topo_render_name_buffer = [0u16; 15];
+    let topo_render_name_str = "TopologyRender";
+    for (i, c) in topo_render_name_str.encode_utf16().enumerate() {
+        topo_render_name_buffer[i] = c;
+    }
     DbgPrint(c"Leyline: Registering TopologyRender Subdevice\n".as_ptr());
-    status = PcRegisterSubdevice(device_object, topo_render_name.as_ptr(), render_topo_port);
+    status = PcRegisterSubdevice(
+        device_object,
+        topo_render_name_buffer.as_ptr(),
+        render_topo_port,
+    );
     if status != STATUS_SUCCESS {
         DbgPrint(c"Leyline: PcRegisterSubdevice(TopologyRender) Failed\n".as_ptr());
         return status;
@@ -363,12 +375,17 @@ pub unsafe extern "C" fn StartDevice(
     }
     DbgPrint(c"Leyline: TopologyCapture::Init SUCCESS\n".as_ptr());
 
-    let topo_capture_name: [u16; 16] = [
-        0x0054, 0x006F, 0x0070, 0x006F, 0x006C, 0x006F, 0x0067, 0x0079, 0x0043, 0x0061, 0x0070,
-        0x0074, 0x0075, 0x0072, 0x0065, 0x0000, // "TopologyCapture"
-    ];
+    let mut topo_capture_name_buffer = [0u16; 16];
+    let topo_capture_name_str = "TopologyCapture";
+    for (i, c) in topo_capture_name_str.encode_utf16().enumerate() {
+        topo_capture_name_buffer[i] = c;
+    }
     DbgPrint(c"Leyline: Registering TopologyCapture Subdevice\n".as_ptr());
-    status = PcRegisterSubdevice(device_object, topo_capture_name.as_ptr(), capture_topo_port);
+    status = PcRegisterSubdevice(
+        device_object,
+        topo_capture_name_buffer.as_ptr(),
+        capture_topo_port,
+    );
     if status != STATUS_SUCCESS {
         DbgPrint(c"Leyline: PcRegisterSubdevice(TopologyCapture) Failed\n".as_ptr());
         return status;
@@ -431,12 +448,20 @@ pub unsafe extern "C" fn StartDevice(
             };
             let _ = IoCreateSymbolicLink(&mut link_name, &mut device_name);
             DbgPrint(c"Leyline: CDO Ready\n".as_ptr());
+        } else if status == 0xC0000035u32 as i32 {
+            // STATUS_OBJECT_NAME_COLLISION - This is fine, the CDO might already exist
+            // from a previous start attempt or a different FDO instance in the same stack.
+            DbgPrint(c"Leyline: CDO already exists (0xc0000035), skipping creation\n".as_ptr());
+            status = STATUS_SUCCESS;
         }
+    } else {
+        // CDO already non-null in our variable
+        status = STATUS_SUCCESS;
     }
 
     if status == STATUS_SUCCESS {
         DbgPrint(c"Leyline: ==================================================\n".as_ptr());
-        DbgPrint(c"Leyline: StartDevice COMPLETED SUCCESSFULLY\n".as_ptr());
+        DbgPrint(c"Leyline: StartDevice COMPLETED SUCCESSFULLY v1.0.150 (REBUILT)\n".as_ptr());
         DbgPrint(c"Leyline: Registered Subdevices:\n".as_ptr());
         DbgPrint(c"Leyline:   - WaveRender (Output)\n".as_ptr());
         DbgPrint(c"Leyline:   - WaveCapture (Input)\n".as_ptr());

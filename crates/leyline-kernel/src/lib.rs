@@ -134,7 +134,7 @@ pub unsafe extern "system" fn driver_entry(
     driver_object: &mut DRIVER_OBJECT,
     registry_path: PCUNICODE_STRING,
 ) -> NTSTATUS {
-    DbgPrint(c"Leyline: DriverEntry v1.0.9\n".as_ptr());
+    DbgPrint(c"Leyline: DriverEntry v1.0.150 (REBUILT)\n".as_ptr());
 
     // Register ETW Provider.
     let _ = EtwRegister(
@@ -176,6 +176,24 @@ pub unsafe extern "system" fn driver_entry(
 /// Standard kernel DriverUnload callback.
 pub unsafe extern "C" fn driver_unload(_driver_object: *mut DRIVER_OBJECT) {
     DbgPrint(c"Leyline: DriverUnload\n".as_ptr());
+
+    if !CONTROL_DEVICE_OBJECT.is_null() {
+        let mut link_name_str = [0u16; 25];
+        let link_prefix = r"\DosDevices\LeylineAudio";
+        for (i, c) in link_prefix.encode_utf16().enumerate() {
+            link_name_str[i] = c;
+        }
+        let mut link_name = UNICODE_STRING {
+            Length: (link_prefix.len() * 2) as u16,
+            MaximumLength: (link_name_str.len() * 2) as u16,
+            Buffer: link_name_str.as_mut_ptr(),
+        };
+        let _ = IoDeleteSymbolicLink(&mut link_name);
+        IoDeleteDevice(CONTROL_DEVICE_OBJECT);
+        CONTROL_DEVICE_OBJECT = null_mut();
+        DbgPrint(c"Leyline: CDO and Symbolic Link Cleaned Up\n".as_ptr());
+    }
+
     if ETW_REG_HANDLE != 0 {
         let _ = EtwUnregister(ETW_REG_HANDLE);
         ETW_REG_HANDLE = 0;

@@ -183,22 +183,32 @@ pub unsafe extern "system" fn topology_query_interface(
         DbgPrint(c"LeylineWaveRT: QueryInterface -> IAdapterPowerManagementX (REJECTED - NOT IMPLEMENTED)\n".as_ptr());
         return STATUS_NOINTERFACE;
     } else if crate::is_equal_guid(iid, &IID_IMiniportAudioSignalProcessing) {
-        DbgPrint(c"LeylineTopo: QueryInterface -> IMiniportAudioSignalProcessing (REJECTED - NOT IMPLEMENTED)\n".as_ptr());
+        DbgPrint(c"LeylineTopo: QueryInterface -> IMiniportAudioSignalProcessing (REJECTED - NOT SUPPORTED)\n".as_ptr());
+        *out = null_mut();
         return STATUS_NOINTERFACE;
     } else if crate::is_equal_guid(iid, &IID_IMiniportAudioEngineNode) {
-        DbgPrint(c"LeylineTopo: QueryInterface -> IMiniportAudioEngineNode (REJECTED - NOT IMPLEMENTED)\n".as_ptr());
+        DbgPrint(
+            c"LeylineTopo: QueryInterface -> IMiniportAudioEngineNode (REJECTED - NOT SUPPORTED)\n"
+                .as_ptr(),
+        );
+        *out = null_mut();
         return STATUS_NOINTERFACE;
     } else {
-        DbgPrint(c"LeylineTopo: QueryInterface -> REJECTED IID: {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}\n".as_ptr(),
-            (*iid).Data1, (*iid).Data2 as core::ffi::c_uint, (*iid).Data3 as core::ffi::c_uint,
-            (*iid).Data4[0] as core::ffi::c_uint, (*iid).Data4[1] as core::ffi::c_uint, (*iid).Data4[2] as core::ffi::c_uint, (*iid).Data4[3] as core::ffi::c_uint,
-            (*iid).Data4[4] as core::ffi::c_uint, (*iid).Data4[5] as core::ffi::c_uint, (*iid).Data4[6] as core::ffi::c_uint, (*iid).Data4[7] as core::ffi::c_uint);
-
-        // AEB may query for these on the topology miniport
-        if crate::is_equal_guid(iid, &IID_IMiniportAudioSignalProcessing) {
-            DbgPrint(c"LeylineTopo: AEB queried SignalProcessing (REJECTED)\n".as_ptr());
-        }
-
+        DbgPrint(
+            c"LeylineTopo: QueryInterface -> UNKNOWN (%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x)\n"
+                .as_ptr(),
+            (*iid).Data1,
+            (*iid).Data2 as u32,
+            (*iid).Data3 as u32,
+            (*iid).Data4[0] as u32,
+            (*iid).Data4[1] as u32,
+            (*iid).Data4[2] as u32,
+            (*iid).Data4[3] as u32,
+            (*iid).Data4[4] as u32,
+            (*iid).Data4[5] as u32,
+            (*iid).Data4[6] as u32,
+            (*iid).Data4[7] as u32,
+        );
         *out = null_mut();
         return STATUS_NOINTERFACE;
     }

@@ -344,7 +344,7 @@ pub const KSPROPSETID_CONNECTION: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub static KSPROPSETID_General: GUID = GUID {
+pub static KSPROPSETID_GENERAL: GUID = GUID {
     Data1: 0x1464EDA5,
     Data2: 0x6A8F,
     Data3: 0x11D1,
@@ -352,7 +352,7 @@ pub static KSPROPSETID_General: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub static KSPROPSETID_AudioEffectsDiscovery: GUID = GUID {
+pub static KSPROPSETID_AUDIOEFFECTSDISCOVERY: GUID = GUID {
     Data1: 0xB49EEC73,
     Data2: 0xC88F,
     Data3: 0x40E1,
@@ -360,7 +360,7 @@ pub static KSPROPSETID_AudioEffectsDiscovery: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub static KSPROPSETID_AudioModule: GUID = GUID {
+pub static KSPROPSETID_AUDIOMODULE: GUID = GUID {
     Data1: 0xC034FDB0,
     Data2: 0xFF4C,
     Data3: 0x4788,
@@ -370,7 +370,7 @@ pub static KSPROPSETID_AudioModule: GUID = GUID {
 pub const KSPROPERTY_GENERAL_COMPONENTID: u32 = 0;
 
 #[allow(non_upper_case_globals)]
-pub static KSPROPSETID_Jack: GUID = GUID {
+pub static KSPROPSETID_JACK: GUID = GUID {
     Data1: 0x4509F757,
     Data2: 0x2D46,
     Data3: 0x4637,
@@ -458,7 +458,7 @@ pub static KSNODETYPE_MUTE: GUID = GUID {
 };
 
 #[allow(non_upper_case_globals)]
-pub static KSPROPSETID_Audio: GUID = GUID {
+pub static KSPROPSETID_AUDIO: GUID = GUID {
     Data1: 0x45FFAAA0,
     Data2: 0x6E1B,
     Data3: 0x11D0,
