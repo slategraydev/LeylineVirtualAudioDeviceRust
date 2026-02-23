@@ -1,20 +1,14 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
-//
-// This source code is provided for educational and review purposes.
-// Redistribution and use in binary form without express permission is prohibited.
-// See LICENSE file in the project root for full terms.
 
 #![no_std]
 
 pub mod buffer;
 pub mod math;
 
-// ============================================================================
-// Driver Identity & Interface GUIDs
-// ============================================================================
-// This section defines the unique identifiers used by the Leyline driver
-// for device identification and PnP interface registration.
+// ===========================================================================
+// DRIVER IDENTITY & INTERFACE GUIDS
+// ===========================================================================
 
 /// GUID for the Leyline Audio Adapter.
 /// {77B815C7-37B1-4A2D-A1A3-1A2B3C4D5E6F}
@@ -34,11 +28,9 @@ pub const LEYLINE_INTERFACE_GUID: [u8; 16] = [
     0xD4, 0xC3, 0xB2, 0xA1, 0xF6, 0xE5, 0x2D, 0x4A, 0xB3, 0xC4, 0xD5, 0xE6, 0xF7, 0xA8, 0xB9, 0xC0,
 ];
 
-// ============================================================================
-// Standard Windows Audio Categories
-// ============================================================================
-// These GUIDs correspond to standard KS/PortCls categories required for
-// audio device enumeration and topology definition.
+// ===========================================================================
+// STANDARD WINDOWS AUDIO CATEGORIES
+// ===========================================================================
 
 /// KSCATEGORY_AUDIO
 /// {6994AD04-93EF-11D0-A3CC-00A0C9223196}
@@ -64,9 +56,9 @@ pub const KSCATEGORY_REALTIME: [u8; 16] = [
     0xD5, 0x5A, 0x11, 0xEB, 0x18, 0x91, 0xA0, 0x4F, 0xBD, 0x83, 0xED, 0x35, 0x22, 0x15, 0xDF, 0x43,
 ];
 
-// ============================================================================
-// Control Codes (IOCTLs)
-// ============================================================================
+// ===========================================================================
+// CONTROL CODES (IOCTLS)
+// ===========================================================================
 // IOCTL codes for communication between the Hardware Support App (HSA)
 // and the kernel-mode driver.
 

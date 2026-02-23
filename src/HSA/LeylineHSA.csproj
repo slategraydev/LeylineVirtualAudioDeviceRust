@@ -3,6 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <Version>0.1.0</Version>
     <RootNamespace>LeylineHSA</RootNamespace>
     <ApplicationConfigFilePath>App.config</ApplicationConfigFilePath>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>

@@ -8,7 +8,7 @@ Class       = MEDIA
 ClassGuid   = {4d36e96c-e325-11ce-bfc1-08002be10318}
 Provider    = %ManufacturerName%
 CatalogFile = leyline.cat
-DriverVer   = 02/22/2026,1.0.150.0
+DriverVer   = 02/23/2026,0.1.0.0
 PnpLockdown = 1
 
 [SourceDisksNames]
@@ -32,9 +32,9 @@ DRMLevel = 1300
 [DestinationDirs]
 Leyline_Device.CopyList = 13
 
-;======================================================
+; ===========================================================================
 ; Leyline_Device
-;======================================================
+; ===========================================================================
 [Leyline_Device.NT]
 Include=ks.inf,wdmaudio.inf
 Needs=KS.Registration, WDMAUDIO.Registration
@@ -51,9 +51,9 @@ HKR,Drivers,SubClasses,,"wave"
 HKR,Drivers\wave\wdmaud.drv,Driver,,wdmaud.drv
 HKR,Drivers\wave\wdmaud.drv,Description,,%DeviceName%
 
-;======================================================
+; ===========================================================================
 ; Interfaces
-;======================================================
+; ===========================================================================
 [Leyline_Device.Interfaces]
 AddInterface=%KSCATEGORY_AUDIO%, %KSNAME_WaveRender%, Leyline.I.WaveRender
 AddInterface=%KSCATEGORY_RENDER%, %KSNAME_WaveRender%, Leyline.I.WaveRender
@@ -101,9 +101,9 @@ AddReg = Leyline.I.WaveCapture.AddReg
 [Leyline.I.TopologyCapture]
 AddReg = Leyline.I.TopologyCapture.AddReg
 
-;======================================================
+; ===========================================================================
 ; Service
-;======================================================
+; ===========================================================================
 [Leyline_Device.NT.Services]
 AddService = Leyline, 0x00000002, Leyline_Service_Inst
 

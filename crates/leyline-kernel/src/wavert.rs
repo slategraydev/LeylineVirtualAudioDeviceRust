@@ -2,21 +2,21 @@
 
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
-//
-// This source code is provided for educational and review purposes.
-// Redistribution and use in binary form without express permission is prohibited.
-// See LICENSE file in the project root for full terms.
 
-// First std/core/alloc.
+// ===========================================================================
+// WAVERT MINIPORT & COM INTERFACES
+// ===========================================================================
+
+// Core imports.
 use alloc::boxed::Box;
 use core::mem::size_of;
 use core::ptr::null_mut;
 
-// Second, external crates.
+// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Then current crate.
+// Local modules.
 use crate::adapter::{DeviceExtension, MiniportWaveRTStreamCom};
 use crate::constants::*;
 use crate::descriptors::*;
@@ -211,9 +211,9 @@ impl MiniportWaveRTCom {
     }
 }
 
-// ============================================================================
+// ===========================================================================
 // Miniport VTable Callbacks
-// ============================================================================
+// ===========================================================================
 
 // SAFETY: Standard COM QueryInterface.
 // 'this' is a pointer to the interface (which is a pointer to the vtable).

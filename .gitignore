@@ -54,5 +54,5 @@ package/
 *.swp
 *~
 
-# Agent - Keep .agent but ignore temp files if any
-.agent/tmp/
+# Agent
+.agent/

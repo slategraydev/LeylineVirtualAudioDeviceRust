@@ -12,7 +12,7 @@ param (
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Resolve-Path "$PSScriptRoot\.."
 $remotePath = "C:\LeylineInstall"
-$BuildVersion = "1.0.150"
+$BuildVersion = "0.1.0"
 
 # Host Credentials for VM
 $secPassword = ConvertTo-SecureString "REDACTED_VM_PASS" -AsPlainText -Force
@@ -98,7 +98,7 @@ try {
         $ErrorActionPreference = "Continue"
 
         Write-Host "    (VM) Preparing environment..."
-        if ($isUninstall) { 
+        if ($isUninstall) {
             pnputil /remove-device "ROOT\MEDIA\LeylineAudio" /force | Out-Null
             $drivers = pnputil /enum-drivers | Select-String "Original Name:\s+leyline.inf" -Context 3, 0
             foreach ($d in $drivers) {
@@ -106,7 +106,7 @@ try {
                     pnputil /delete-driver $matches[1] /uninstall /force
                 }
             }
-            return 
+            return
         }
 
         if (Test-Path $path) { Remove-Item $path -Recurse -Force }
@@ -124,7 +124,7 @@ try {
         certutil -addstore -f TrustedPublisher leyline.cer | Out-Null
 
         Write-Host "    (VM) Upgrading Driver Stack..."
-        
+
         # 1. Add to Driver Store and INSTALL to matching devices
         pnputil /add-driver "leyline.inf" /install | Out-Null
 

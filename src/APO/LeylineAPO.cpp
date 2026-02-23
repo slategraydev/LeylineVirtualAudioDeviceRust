@@ -1,11 +1,11 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
-//
-// This source code is provided for educational and review purposes.
-// Redistribution and use in binary form without express permission is prohibited.
-// See LICENSE file in the project root for full terms.
 
 #include "LeylineAPO.h"
+
+// ===========================================================================
+// SHARED MEMORY & HELPERS
+// ===========================================================================
 
 #include <initguid.h>
 #include <math.h>
@@ -20,9 +20,9 @@ DEFINE_GUID(IID_ILeylineAPO, 0xd9a2a1a3, 0xc7b1, 0x4a2d, 0x1a, 0x2b, 0x3c, 0x4d,
 
 namespace audio_apo {
 
-// ============================================================================
-// Shared Memory & Helpers
-// ============================================================================
+// ===========================================================================
+// BIT-CAST HELPERS
+// ===========================================================================
 
 #define IOCTL_LEYLINE_MAP_BUFFER 0x80002008
 #define IOCTL_LEYLINE_MAP_PARAMS 0x8000200C
@@ -33,7 +33,7 @@ struct SharedParams {
   LONG peak_r_bits;
 };
 
-// Bit-cast helpers for atomic operations.
+// Internal bit-cast for atomics.
 namespace {
 LONG FloatToLong(float f) {
   union {
@@ -54,9 +54,9 @@ float LongToFloat(LONG l) {
 }
 }  // namespace
 
-// ============================================================================
-// Implementation
-// ============================================================================
+// ===========================================================================
+// APO IMPLEMENTATION
+// ===========================================================================
 
 CLeylineAPO::CLeylineAPO()
     : m_cRef(1),
@@ -67,12 +67,9 @@ CLeylineAPO::CLeylineAPO()
       m_fPeakL(0.0f),
       m_fPeakR(0.0f) {
   // Initialize registration properties.
-  // We strictly use the default flags (APO_FLAG_DEFAULT) as we process data
-  // in-place.
   ZeroMemory(&m_RegProperties, sizeof(m_RegProperties));
   m_RegProperties.clsid = CLSID_LeylineAPO;
   m_RegProperties.Flags = APO_FLAG_DEFAULT;
-  // Standard APOs typically support 1 input and 1 output connection.
   m_RegProperties.u32MinInputConnections = 1;
   m_RegProperties.u32MaxInputConnections = 1;
   m_RegProperties.u32MinOutputConnections = 1;
@@ -85,9 +82,9 @@ CLeylineAPO::~CLeylineAPO() {
   }
 }
 
-// ============================================================================
+// ===========================================================================
 // IUnknown
-// ============================================================================
+// ===========================================================================
 
 STDMETHODIMP_(ULONG) CLeylineAPO::AddRef() {
   return InterlockedIncrement(&m_cRef);
@@ -125,9 +122,9 @@ STDMETHODIMP CLeylineAPO::QueryInterface(REFIID riid, void** ppvObject) {
   return S_OK;
 }
 
-// ============================================================================
+// ===========================================================================
 // IAudioProcessingObjectRT
-// ============================================================================
+// ===========================================================================
 
 STDMETHODIMP_(void)
 CLeylineAPO::APOProcess(UINT32 u32NumInputConnections,
@@ -192,9 +189,9 @@ void CLeylineAPO::UpdatePeakMeter(float left, float right) {
   if (absR > m_fPeakR) m_fPeakR = absR;
 }
 
-// ============================================================================
+// ===========================================================================
 // IAudioProcessingObject
-// ============================================================================
+// ===========================================================================
 
 STDMETHODIMP CLeylineAPO::Initialize(UINT32 cbDataSize, BYTE* pbyData) {
   UNREFERENCED_PARAMETER(cbDataSize);

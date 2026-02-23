@@ -1,21 +1,21 @@
 #![allow(clippy::missing_safety_doc)]
-
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
-//
-// This source code is provided for educational and review purposes. // Force rebuild
-// Redistribution and use in binary form without express permission is prohibited.
-// See LICENSE file in the project root for full terms.
 
-// First std/core/alloc.
+// ===========================================================================
+// TOPOLOGY MINIPORT & AUDIO ENDPOINT ROUTING
+// ===========================================================================
+
+// Core imports.
 use alloc::boxed::Box;
+use core::mem::size_of;
 use core::ptr::null_mut;
 
-// Second, external crates.
+// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Then current crate.
+// Local modules.
 use crate::constants::*;
 use crate::descriptors::*;
 use crate::stream::PCFILTER_DESCRIPTOR;

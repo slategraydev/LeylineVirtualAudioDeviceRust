@@ -1,6 +1,10 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
+// ===========================================================================
+// AUDIO POSITION & PERFORMANCE MATH
+// ===========================================================================
+
 /// Pure Rust Math Logic for WaveRT.
 pub struct WaveRTMath;
 

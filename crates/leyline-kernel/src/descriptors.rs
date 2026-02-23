@@ -1,17 +1,22 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
-//
-// This source code is provided for educational and review purposes.
-// Redistribution and use in binary form without express permission is prohibited.
-// See LICENSE file in the project root for full terms.
 
-// Second, external crates.
+// ===========================================================================
+// KERNEL STREAMING FILTER & PIN DESCRIPTORS
+// ===========================================================================
+
+// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Local KSCOMPONENTID definition matching the Windows SDK layout exactly.
-// Field order MUST match: Manufacturer, Product, Component, Name, Version, Revision.
-// Total size = 4 GUIDs (64 bytes) + 2 u32s (8 bytes) = 72 bytes.
+// Local modules.
+use crate::constants::*;
+use crate::stream::{
+    KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCAUTOMATION_TABLE,
+    PCCONNECTION, PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR, PCPROPERTY_ITEM, PPCPROPERTY_REQUEST,
+};
+
+// KSCOMPONENTID matching Windows SDK layout.
 #[repr(C)]
 #[allow(non_snake_case)]
 pub struct KSCOMPONENTID {
@@ -22,50 +27,6 @@ pub struct KSCOMPONENTID {
     pub Version: u32,
     pub Revision: u32,
 }
-unsafe impl Sync for KSCOMPONENTID {}
-unsafe impl Send for KSCOMPONENTID {}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct KSJACK_DESCRIPTION {
-    pub ChannelMapping: u32,
-    pub Color: u32,
-    pub ConnectionType: u32,
-    pub GeoLocation: u32,
-    pub GenLocation: u32,
-    pub PortConnection: u32,
-    pub IsConnected: i32, // BOOL
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct KSJACK_DESCRIPTION2 {
-    pub DeviceStateInfo: u32,
-    pub JackCapabilities: u32,
-}
-
-// Colors
-pub const JACK_COLOR_BLACK: u32 = 0x00000000;
-// Connection Type
-#[allow(non_upper_case_globals)]
-pub const eConnType3Point5mm: u32 = 1;
-// GeoLocation
-#[allow(non_upper_case_globals)]
-pub const eGeoLocRear: u32 = 1;
-// GenLocation
-#[allow(non_upper_case_globals)]
-pub const eGenLocPrimaryBox: u32 = 0;
-// PortConnection
-#[allow(non_upper_case_globals)]
-pub const ePortConnJack: u32 = 0;
-
-// Then current crate.
-use crate::constants::*;
-// Redundant specific imports removed, leveraging crate::constants::*;
-use crate::stream::{
-    KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, KSPIN_DESCRIPTOR, PCAUTOMATION_TABLE,
-    PCCONNECTION, PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR, PCPROPERTY_ITEM, PPCPROPERTY_REQUEST,
-};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -103,9 +64,9 @@ pub static KSINTERFACES: [KSIDENTIFIER; 1] = [KSIDENTIFIER {
 pub struct SyncPtr<T>(pub *const T);
 unsafe impl<T> Sync for SyncPtr<T> {}
 
-// ============================================================================
+// ===========================================================================
 // Data Ranges
-// ============================================================================
+// ===========================================================================
 
 #[link_section = ".rdata"]
 pub static PCM_DATARANGE: KSDATARANGE_AUDIO = KSDATARANGE_AUDIO {
@@ -713,9 +674,9 @@ pub static PIN_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
     Reserved: 0,
 };
 
-// ============================================================================
+// ===========================================================================
 // Pin Descriptors
-// ============================================================================
+// ===========================================================================
 
 // WAVE_RENDER_PINS
 #[link_section = ".rdata"]
@@ -897,13 +858,13 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
     },
 ];
 
-// ============================================================================
+// ===========================================================================
 // Connections & Categories
-// ============================================================================
+// ===========================================================================
 
-// ============================================================================
+// ===========================================================================
 // Property Handlers (Volume)
-// ============================================================================
+// ===========================================================================
 
 #[allow(clippy::missing_safety_doc)]
 pub unsafe extern "C" fn volume_handler(property_request: PPCPROPERTY_REQUEST) -> NTSTATUS {
@@ -997,9 +958,9 @@ pub static TOPO_NODES: [crate::stream::PCNODE_DESCRIPTOR; 2] = [
     },
 ];
 
-// ============================================================================
+// ===========================================================================
 // Connections & Categories
-// ============================================================================
+// ===========================================================================
 
 #[link_section = ".rdata"]
 pub static WAVE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
@@ -1064,9 +1025,9 @@ pub static WAVE_CAPTURE_CATEGORIES: [GUID; 3] = [
     KSCATEGORY_REALTIME_GUID,
 ];
 
-// ============================================================================
+// ===========================================================================
 // Filter Descriptors
-// ============================================================================
+// ===========================================================================
 
 #[link_section = ".rdata"]
 pub static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {

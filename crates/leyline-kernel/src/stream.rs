@@ -1,9 +1,9 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
-//
-// This source code is provided for educational and review purposes.
-// Redistribution and use in binary form without express permission is prohibited.
-// See LICENSE file in the project root for full terms.
+
+// ===========================================================================
+// WAVERT STREAMING & BUFFER MANAGEMENT
+// ===========================================================================
 
 #![allow(non_camel_case_types)]
 
@@ -52,9 +52,9 @@ pub type PPCPROPERTY_REQUEST = audio::PPCPROPERTY_REQUEST;
 pub const KSSTATE_RUN: i32 = audio::KSSTATE_KSSTATE_RUN;
 pub const KSSTATE_STOP: i32 = audio::KSSTATE_KSSTATE_STOP;
 
-// ============================================================================
+// ===========================================================================
 // WaveRT Struct Definitions
-// ============================================================================
+// ===========================================================================
 
 #[repr(C)]
 #[allow(non_snake_case)]

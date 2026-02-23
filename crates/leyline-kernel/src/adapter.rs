@@ -1,20 +1,20 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
-//
-// This source code is provided for educational and review purposes.
-// Redistribution and use in binary form without express permission is prohibited.
-// See LICENSE file in the project root for full terms.
 
-// First std/core/alloc.
+// ===========================================================================
+// ADAPTER MANAGEMENT & PORTCLS ORCHESTRATION
+// ===========================================================================
+
+// Core imports.
 use alloc::boxed::Box;
 use core::mem::size_of;
 use core::ptr::null_mut;
 
-// Second, external crates.
+// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Then current crate.
+// Local modules.
 use crate::constants::*;
 use crate::dispatch::*;
 use crate::stream::MiniportWaveRTStream;
@@ -23,7 +23,6 @@ use crate::vtables::*;
 use crate::wavert::MiniportWaveRTCom;
 use crate::{PcAddAdapterDevice, PcNewPort, PcRegisterPhysicalConnection, PcRegisterSubdevice};
 
-const _POOL_TAG: u32 = u32::from_be_bytes(*b"LLAD");
 const PORT_CLASS_DEVICE_EXTENSION_SIZE: usize = 64 * size_of::<usize>();
 
 #[repr(C)]
@@ -76,24 +75,20 @@ impl MiniportWaveRTStreamCom {
     }
 }
 
-/// Retrieves the Leyline device extension from a PortCls device object.
+/// Retrieve device extension from PortCls device object.
 ///
 /// # Safety
-/// The provided device object must be a valid PortCls-initialized device object.
+/// Parameter must be a valid PortCls-initialized device object.
 #[inline(always)]
 pub unsafe fn get_device_extension(device_object: PDEVICE_OBJECT) -> *mut DeviceExtension {
     let base = (*device_object).DeviceExtension as *mut u8;
     base.add(PORT_CLASS_DEVICE_EXTENSION_SIZE) as *mut DeviceExtension
 }
 
-// Session #42: Explicit audio device interface registration
-// Required because INF AddInterface is not being processed for virtual audio drivers
-// --- REMOVED Session #46 (Aligned with PortCls/INF architecture) ---
-
-/// AddDevice callback for PortCls initialization.
+/// AddDevice callback for PortCls.
 ///
 /// # Safety
-/// Standard kernel AddDevice callback. Parameters must be valid pointers provided by the OS.
+/// Standard kernel AddDevice callback. Parameters must be OS-provided pointers.
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn AddDevice(
     driver_object: PDRIVER_OBJECT,
@@ -146,7 +141,7 @@ pub unsafe extern "C" fn AddDevice(
 /// StartDevice callback for hardware initialization.
 ///
 /// # Safety
-/// Standard kernel StartDevice callback. Parameters must be valid pointers provided by the OS.
+/// Standard kernel StartDevice callback. Parameters must be OS-provided pointers.
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn StartDevice(
     device_object: PDEVICE_OBJECT,
@@ -461,7 +456,7 @@ pub unsafe extern "C" fn StartDevice(
 
     if status == STATUS_SUCCESS {
         DbgPrint(c"Leyline: ==================================================\n".as_ptr());
-        DbgPrint(c"Leyline: StartDevice COMPLETED SUCCESSFULLY v1.0.150 (REBUILT)\n".as_ptr());
+        DbgPrint(c"Leyline: StartDevice COMPLETED SUCCESSFULLY v0.1.0 (REBUILT)\n".as_ptr());
         DbgPrint(c"Leyline: Registered Subdevices:\n".as_ptr());
         DbgPrint(c"Leyline:   - WaveRender (Output)\n".as_ptr());
         DbgPrint(c"Leyline:   - WaveCapture (Input)\n".as_ptr());

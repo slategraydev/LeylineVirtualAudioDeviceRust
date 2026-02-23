@@ -1,6 +1,10 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
+// ===========================================================================
+// DRIVER COMMUNICATION & IOCTL BRIDGE
+// ===========================================================================
+
 using System;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;

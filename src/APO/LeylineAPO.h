@@ -1,9 +1,9 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
-//
-// This source code is provided for educational and review purposes.
-// Redistribution and use in binary form without express permission is prohibited.
-// See LICENSE file in the project root for full terms.
+
+// ===========================================================================
+// LEYLINE AUDIO PROCESSING OBJECT (APO)
+// ===========================================================================
 
 #ifndef LEYLINE_APO_LEYLINE_APO_H_
 #define LEYLINE_APO_LEYLINE_APO_H_
@@ -12,9 +12,10 @@
 
 namespace audio_apo {
 
-// ============================================================================
-// CLeylineAPO
-// ============================================================================
+// ===========================================================================
+// INTERFACE DEFINITION
+// ===========================================================================
+
 // This class implements the core Audio Processing Object for the Leyline driver.
 // It inherits directly from the required COM interfaces.
 class CLeylineAPO : public ILeylineAPO,

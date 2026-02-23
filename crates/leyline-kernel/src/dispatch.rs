@@ -1,40 +1,40 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
-//
-// This source code is provided for educational and review purposes.
-// Redistribution and use in binary form without express permission is prohibited.
-// See LICENSE file in the project root for full terms.
 
-// First std/core.
-use core::mem::size_of;
+// ===========================================================================
+// IRP DISPATCH & CONTROL DEVICE ORCHESTRATION
+// ===========================================================================
 
-// Second, external crates.
+// Core imports.
+use core::ptr::null_mut;
+
+// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Then current crate.
+// Local modules.
 use crate::adapter::get_device_extension;
 use leyline_shared::*;
 
-// Globals for original dispatchers (wired in DriverEntry).
+// Globals for original dispatchers.
 pub static mut ORIGINAL_DISPATCH_CREATE: PDRIVER_DISPATCH = None;
 pub static mut ORIGINAL_DISPATCH_CLOSE: PDRIVER_DISPATCH = None;
 pub static mut ORIGINAL_DISPATCH_CONTROL: PDRIVER_DISPATCH = None;
 
-// External pointer to CDO defined in lib.rs.
+// External CDO references.
 extern "C" {
     pub static mut CONTROL_DEVICE_OBJECT: *mut DEVICE_OBJECT;
     pub static mut FUNCTIONAL_DEVICE_OBJECT: *mut DEVICE_OBJECT;
 }
 
-// ============================================================================
-// Dispatch Routines
-// ============================================================================
+// ===========================================================================
+// DISPATCH ROUTINES
+// ===========================================================================
 
-/// Dispatch routine for IRP_MJ_CREATE.
+/// Handle IRP_MJ_CREATE.
 ///
 /// # Safety
-/// Standard kernel dispatch routine. Parameters must be valid pointers provided by the OS.
+/// Standard kernel dispatch routine. Parameters must be valid pointers.
 pub unsafe extern "C" fn dispatch_create(device_object: PDEVICE_OBJECT, irp: PIRP) -> NTSTATUS {
     if device_object != CONTROL_DEVICE_OBJECT {
         if let Some(original) = ORIGINAL_DISPATCH_CREATE {
@@ -51,10 +51,10 @@ pub unsafe extern "C" fn dispatch_create(device_object: PDEVICE_OBJECT, irp: PIR
     STATUS_SUCCESS
 }
 
-/// Dispatch routine for IRP_MJ_CLOSE.
+/// Handle IRP_MJ_CLOSE.
 ///
 /// # Safety
-/// Standard kernel dispatch routine. Parameters must be valid pointers provided by the OS.
+/// Standard kernel dispatch routine. Parameters must be valid pointers.
 pub unsafe extern "C" fn dispatch_close(device_object: PDEVICE_OBJECT, irp: PIRP) -> NTSTATUS {
     if device_object != CONTROL_DEVICE_OBJECT {
         if let Some(original) = ORIGINAL_DISPATCH_CLOSE {
@@ -71,10 +71,10 @@ pub unsafe extern "C" fn dispatch_close(device_object: PDEVICE_OBJECT, irp: PIRP
     STATUS_SUCCESS
 }
 
-/// Dispatch routine for IRP_MJ_DEVICE_CONTROL.
+/// Handle IRP_MJ_DEVICE_CONTROL.
 ///
 /// # Safety
-/// Standard kernel dispatch routine. Parameters must be valid pointers provided by the OS.
+/// Standard kernel dispatch routine. Parameters must be valid pointers.
 pub unsafe extern "C" fn dispatch_device_control(
     device_object: PDEVICE_OBJECT,
     irp: PIRP,
