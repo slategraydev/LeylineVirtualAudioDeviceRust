@@ -5,8 +5,9 @@ param (
     [switch]$clean,          # Full clean build on HOST
     [switch]$fast,           # Skip reverting VM
     [switch]$Uninstall,      # Only perform uninstallation/scrub on VM
-    [string]$VMName = "LeylineTestVM",
-    [string]$SnapshotName = "LeylineSnapshot"
+    [string]$VMName = ($env:LEYLINE_VM_NAME -or "LeylineTestVM"),
+    [string]$SnapshotName = ($env:LEYLINE_VM_SNAPSHOT -or "LeylineSnapshot"),
+    [PSCredential]$Credential
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,18 +15,23 @@ $ProjectRoot = Resolve-Path "$PSScriptRoot\.."
 $remotePath = "C:\LeylineInstall"
 $BuildVersion = "0.1.0"
 
-# Host Credentials for VM
-$secPassword = ConvertTo-SecureString "REDACTED_VM_PASS" -AsPlainText -Force
-$cred = New-Object System.Management.Automation.PSCredential ("USER", $secPassword)
+# Fallback for VM Credentials if not provided
+if (-not $PSBoundParameters.ContainsKey('Credential')) {
+    $VMUser = ($env:LEYLINE_VM_USER -or "USER")
+    $VMPassword = ($env:LEYLINE_VM_PASS -or "REDACTED_VM_PASS")
+    $secPassword = ConvertTo-SecureString $VMPassword -AsPlainText -Force
+    $Credential = New-Object System.Management.Automation.PSCredential ($VMUser, $secPassword)
+}
 
 # --- 0. CERTIFICATE GENERATION (Pre-Build Env) ---
 $pfxPath = "$ProjectRoot/leyline.pfx"
 $cerPath = "$ProjectRoot/leyline.cer"
+$CertPassword = ($env:LEYLINE_CERT_PASS -or "REDACTED_CERT_PASS")
 
 if (-not (Test-Path $pfxPath)) {
     Write-Host "[*] Generating Self-Signed Certificate..."
     $cert = New-SelfSignedCertificate -Subject "Leyline Audio" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My"
-    $cert | Export-PfxCertificate -FilePath $pfxPath -Password (ConvertTo-SecureString -String "REDACTED_CERT_PASS" -Force -AsPlainText)
+    $cert | Export-PfxCertificate -FilePath $pfxPath -Password (ConvertTo-SecureString -String $CertPassword -Force -AsPlainText)
     $cert | Export-Certificate -FilePath $cerPath
 }
 
@@ -73,17 +79,8 @@ if (-not $Uninstall) {
     if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Kernel build failed." }
     Pop-Location
 
-    # Aggregating & Signing
-    if (Test-Path "$ProjectRoot/package") { Remove-Item "$ProjectRoot/package" -Recurse -Force }
-    New-Item -ItemType Directory -Path "$ProjectRoot/package" -Force | Out-Null
-
-    $wdkPackagePath = "$ProjectRoot/target/release/leyline_package"
-    if (-not (Test-Path $wdkPackagePath)) { throw "WDK Package not found at $wdkPackagePath" }
-
-    Copy-Item "$wdkPackagePath\*" "$ProjectRoot/package\" -Recurse -Force
-    Copy-Item $cerPath "$ProjectRoot/package\" -Force
-
-    $signArgs = @("sign", "/f", $pfxPath, "/p", "REDACTED_CERT_PASS", "/fd", "SHA256")
+    # Sign the package
+    $signArgs = @("sign", "/f", $pfxPath, "/p", $CertPassword, "/fd", "SHA256")
     & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package/leyline.sys" | Out-Null
     & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package/leyline.cat" | Out-Null
 }
@@ -91,7 +88,11 @@ if (-not $Uninstall) {
 # --- 4. VM DEPLOY & VERIFY ---
 try {
     Write-Host "[*] [VM] Connecting and Installing..." -ForegroundColor Cyan
-    $vmsess = New-PSSession -VMName $VMName -Credential $cred
+    $vmsess = New-PSSession -VMName $VMName -Credential $Credential
+
+    # Capture local environment variables for use in the script block
+
+    $sdkVersion = if ($env:LEYLINE_SDK_VERSION) { $env:LEYLINE_SDK_VERSION } else { "10.0.28000.0" }
 
     Invoke-Command -Session $vmsess -ScriptBlock {
         param($path, $isUninstall)
@@ -118,7 +119,7 @@ try {
     Copy-Item -Path "$ProjectRoot/package\*" -Destination $remotePath -ToSession $vmsess -Recurse -Force
 
     Invoke-Command -Session $vmsess -ScriptBlock {
-        param($path)
+        param($path, $sdkVersion)
         Set-Location $path
         certutil -addstore -f root leyline.cer | Out-Null
         certutil -addstore -f TrustedPublisher leyline.cer | Out-Null
@@ -129,7 +130,7 @@ try {
         pnputil /add-driver "leyline.inf" /install | Out-Null
 
         # 2. Force an update on the specific ROOT node if it exists
-        $devcon = "C:\eWDK\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64\devcon.exe"
+        $devcon = "C:\eWDK\Program Files\Windows Kits\10\Tools\$sdkVersion\x64\devcon.exe"
         if (Test-Path $devcon) {
             & $devcon update "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
         }
@@ -170,7 +171,7 @@ try {
             }
         }
         Write-Host "    (VM) Total Leyline Audio Endpoints: $foundCount"
-    } -ArgumentList $remotePath
+    } -ArgumentList $remotePath, $sdkVersion
 }
 catch {
     Write-Error "VM Operation failed: $_"

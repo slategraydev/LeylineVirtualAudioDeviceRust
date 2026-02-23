@@ -16,7 +16,6 @@
     <PackageManifest>none</PackageManifest>
     <EnableDefaultPriItems>false</EnableDefaultPriItems>
     <DisableMrtCompiler>true</DisableMrtCompiler>
-    <MSBuildExtensionsPath>C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild</MSBuildExtensionsPath>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <NoWarn>$(NoWarn);NETSDK1206</NoWarn>

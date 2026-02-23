@@ -12,9 +12,11 @@ fn main() -> Result<(), wdk_build::ConfigError> {
     println!("cargo:rerun-if-changed=src/audio_wrapper.h");
 
     let wdk_root = env::var("WDKContentRoot")
-        .unwrap_or_else(|_| "D:\\eWDK_28000".to_string());
-    let wdk_version =
-        env::var("WindowsTargetPlatformVersion").unwrap_or_else(|_| "10.0.28000.0".to_string());
+        .or_else(|_| env::var("LEYLINE_EWDK_ROOT").map(|r| format!("{}\\Program Files\\Windows Kits\\10", r.trim_end_matches('\\'))))
+        .unwrap_or_else(|_| "C:\\Program Files (x86)\\Windows Kits\\10".to_string());
+    let wdk_version = env::var("WindowsTargetPlatformVersion")
+        .or_else(|_| env::var("LEYLINE_SDK_VERSION"))
+        .unwrap_or_else(|_| "10.0.28000.0".to_string());
 
     let wdk_root_trimmed = wdk_root.trim_end_matches('\\');
     let wdk_version_trimmed = wdk_version.trim_end_matches('\\');
