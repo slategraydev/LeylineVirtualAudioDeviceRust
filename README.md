@@ -1,6 +1,6 @@
 # Leyline Audio Driver
 
-Native Rust WaveRT implementation for Windows. Built to automate virtual audio routing.
+Native Rust Virtual Audio Device for Windows.
 
 ## Current Status
 - **Kernel Core**: DriverEntry and PortCls filter registration are stable.
