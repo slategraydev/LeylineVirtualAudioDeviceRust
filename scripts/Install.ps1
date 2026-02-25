@@ -79,10 +79,23 @@ if (-not $Uninstall) {
     if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Kernel build failed." }
     Pop-Location
 
+    # Stage the package
+    if (-not (Test-Path "$ProjectRoot/package")) { New-Item -ItemType Directory -Path "$ProjectRoot/package" | Out-Null }
+    Copy-Item -Path "$ProjectRoot/target/release/leyline_package/*" -Destination "$ProjectRoot/package" -Recurse -Force
+
+
     # Sign the package
     $signArgs = @("sign", "/f", $pfxPath, "/p", $CertPassword, "/fd", "SHA256")
     & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package/leyline.sys" | Out-Null
     & $env:SIGNTOOL_EXE $signArgs "$ProjectRoot/package/leyline.cat" | Out-Null
+
+    # Ensure certificate and devcon.exe are copied to the package folder so we can push it to the VM
+    Copy-Item -Path $cerPath -Destination "$ProjectRoot/package/leyline.cer" -Force
+    
+    $devconHostPath = "D:\eWDK_28000\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64\devcon.exe"
+    if (Test-Path $devconHostPath) {
+        Copy-Item -Path $devconHostPath -Destination "$ProjectRoot/package/devcon.exe" -Force
+    }
 }
 
 # --- 4. VM DEPLOY & VERIFY ---
@@ -130,12 +143,13 @@ try {
         pnputil /add-driver "leyline.inf" /install | Out-Null
 
         # 2. Force an update on the specific ROOT node if it exists
-        $devcon = "C:\eWDK\Program Files\Windows Kits\10\Tools\$sdkVersion\x64\devcon.exe"
+        $devcon = "C:\eWDK_28000\Program Files\Windows Kits\10\Tools\$sdkVersion\x64\devcon.exe"
         if (Test-Path $devcon) {
             & $devcon update "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
         }
         else {
-            & devcon update "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
+            Write-Host "    (VM) [WARNING] devcon.exe not found in remote package path at $devcon. Falling back to devgen..." -ForegroundColor Yellow
+            devgen /add /bus ROOT /hardwareid "ROOT\MEDIA\LeylineAudio" | Out-Null
         }
 
         Start-Sleep -Seconds 3
@@ -152,7 +166,8 @@ try {
                 & $devcon install "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
             }
             else {
-                & devcon install "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
+                # Fallback purely as safety
+                devgen /add /bus ROOT /hardwareid "ROOT\MEDIA\LeylineAudio" | Out-Null
             }
         }
 

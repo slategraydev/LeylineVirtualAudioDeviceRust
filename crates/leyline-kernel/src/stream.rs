@@ -286,6 +286,7 @@ impl Drop for MiniportWaveRTStream {
                 if !self.mapping.is_null() {
                     MmUnmapLockedPages(self.mapping, self.mdl);
                 }
+                MmFreePagesFromMdl(self.mdl);
                 IoFreeMdl(self.mdl);
             }
         }

@@ -53,6 +53,66 @@ pub struct KSIDENTIFIER {
     pub Flags: u32,
 }
 
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSPROPERTY_DESCRIPTION {
+    pub AccessFlags: u32,
+    pub DescriptionSize: u32,
+    pub PropTypeSet: KSIDENTIFIER,
+    pub MembersListCount: u32,
+    pub Reserved: u32,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSPROPERTY_MEMBERSHEADER {
+    pub MembersFlags: u32,
+    pub MembersSize: u32,
+    pub MembersCount: u32,
+    pub Flags: u32,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSPROPERTY_STEPPING_LONG {
+    pub SteppingDelta: u32,
+    pub Reserved: u32,
+    pub SignedMinimum: i32,
+    pub SignedMaximum: i32,
+}
+
+pub const KSPROPTYPESETID_GENERAL_PROP: GUID = GUID {
+    Data1: 0x97E99BA0,
+    Data2: 0xBDEA,
+    Data3: 0x11CF,
+    Data4: [0xA5, 0xD6, 0x28, 0xDB, 0x04, 0xC1, 0x00, 0x00],
+};
+
+const KSPROPERTY_MEMBER_STEPPEDRANGES: u32 = 2;
+const VT_I4: u32 = 3;
+const VT_BOOL: u32 = 11;
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSJACK_DESCRIPTION {
+    pub ChannelMapping: u32,
+    pub Color: u32,
+    pub ConnectionType: u32,
+    pub GeoLocation: u32,
+    pub GenLocation: u32,
+    pub PortConnection: u32,
+    pub IsConnected: u32,
+}
+
+#[repr(C)]
+#[allow(non_snake_case)]
+pub struct KSJACK_DESCRIPTION2 {
+    pub DeviceStateInfo: u32,
+    pub JackCapabilities: u32,
+}
+
+pub const JACK_COLOR_BLACK: u32 = 0x000000;
+
 #[link_section = ".rdata"]
 pub static KSINTERFACES: [KSIDENTIFIER; 1] = [KSIDENTIFIER {
     Set: KSINTERFACESETID_STANDARD,
@@ -141,6 +201,39 @@ pub unsafe extern "C" fn component_id_handler(property_request: PPCPROPERTY_REQU
 
     DbgPrint(c"LeylineKernel: KSPROPERTY_GENERAL_COMPONENTID\n".as_ptr());
 
+    if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
+        let full_size = core::mem::size_of::<KSPROPERTY_DESCRIPTION>() as u32;
+        let ulong_size = core::mem::size_of::<u32>() as u32;
+
+        if (*property_request).ValueSize == 0 {
+            (*property_request).ValueSize = full_size;
+            return STATUS_BUFFER_OVERFLOW;
+        }
+
+        if (*property_request).ValueSize >= full_size {
+            let desc = (*property_request).Value as *mut KSPROPERTY_DESCRIPTION;
+            if !desc.is_null() {
+                (*desc).AccessFlags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT;
+                (*desc).DescriptionSize = full_size;
+                (*desc).PropTypeSet.Set = KSPROPTYPESETID_GENERAL_PROP;
+                (*desc).PropTypeSet.Id = VT_I4; // Identifier isn't strictly numeric or bool but VT_I4 fallback
+                (*desc).PropTypeSet.Flags = 0;
+                (*desc).MembersListCount = 0;
+                (*desc).Reserved = 0;
+            }
+            (*property_request).ValueSize = full_size;
+            return STATUS_SUCCESS;
+        } else if (*property_request).ValueSize >= ulong_size {
+            let flags = (*property_request).Value as *mut u32;
+            if !flags.is_null() {
+                *flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT;
+            }
+            (*property_request).ValueSize = ulong_size;
+            return STATUS_SUCCESS;
+        }
+        return STATUS_BUFFER_TOO_SMALL;
+    }
+
     // AEB often queries this to verify the driver identity.
     // PortCls PCPROPERTY_REQUEST uses ValueSize, not ValueLength.
     if (*property_request).ValueSize == 0 {
@@ -207,17 +300,36 @@ pub unsafe extern "C" fn jack_description_handler(
 
     // Handle Basic Support
     if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
-        if (*property_request).ValueSize < core::mem::size_of::<u32>() as u32 {
-            (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
+        let full_size = core::mem::size_of::<KSPROPERTY_DESCRIPTION>() as u32;
+        let ulong_size = core::mem::size_of::<u32>() as u32;
+
+        if (*property_request).ValueSize == 0 {
+            (*property_request).ValueSize = full_size;
             return STATUS_BUFFER_OVERFLOW;
         }
-        let flags = (*property_request).Value as *mut u32;
-        if !flags.is_null() {
-            // Jack Description is GET only.
-            *flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT;
+
+        if (*property_request).ValueSize >= full_size {
+            let desc = (*property_request).Value as *mut KSPROPERTY_DESCRIPTION;
+            if !desc.is_null() {
+                (*desc).AccessFlags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT;
+                (*desc).DescriptionSize = full_size;
+                (*desc).PropTypeSet.Set = KSPROPTYPESETID_GENERAL_PROP;
+                (*desc).PropTypeSet.Id = VT_I4;
+                (*desc).PropTypeSet.Flags = 0;
+                (*desc).MembersListCount = 0;
+                (*desc).Reserved = 0;
+            }
+            (*property_request).ValueSize = full_size;
+            return STATUS_SUCCESS;
+        } else if (*property_request).ValueSize >= ulong_size {
+            let flags = (*property_request).Value as *mut u32;
+            if !flags.is_null() {
+                *flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT;
+            }
+            (*property_request).ValueSize = ulong_size;
+            return STATUS_SUCCESS;
         }
-        (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
-        return STATUS_SUCCESS;
+        return STATUS_BUFFER_TOO_SMALL;
     }
 
     DbgPrint(
@@ -276,7 +388,40 @@ pub unsafe extern "C" fn mute_handler(property_request: PPCPROPERTY_REQUEST) -> 
         return STATUS_INVALID_PARAMETER;
     }
 
-    DbgPrint(c"Leyline: mute_handler CALLED\n".as_ptr());
+    if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
+        let full_size = core::mem::size_of::<KSPROPERTY_DESCRIPTION>() as u32;
+        let ulong_size = core::mem::size_of::<u32>() as u32;
+
+        if (*property_request).ValueSize == 0 {
+            (*property_request).ValueSize = full_size;
+            return STATUS_BUFFER_OVERFLOW;
+        }
+
+        if (*property_request).ValueSize >= full_size {
+            let desc = (*property_request).Value as *mut KSPROPERTY_DESCRIPTION;
+            if !desc.is_null() {
+                (*desc).AccessFlags =
+                    KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT;
+                (*desc).DescriptionSize = full_size;
+                (*desc).PropTypeSet.Set = KSPROPTYPESETID_GENERAL_PROP;
+                (*desc).PropTypeSet.Id = VT_BOOL;
+                (*desc).PropTypeSet.Flags = 0;
+                (*desc).MembersListCount = 0;
+                (*desc).Reserved = 0;
+            }
+            (*property_request).ValueSize = full_size;
+            return STATUS_SUCCESS;
+        } else if (*property_request).ValueSize >= ulong_size {
+            let flags = (*property_request).Value as *mut u32;
+            if !flags.is_null() {
+                *flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT;
+            }
+            (*property_request).ValueSize = ulong_size;
+            return STATUS_SUCCESS;
+        }
+
+        return STATUS_BUFFER_TOO_SMALL;
+    }
 
     if (*property_request).ValueSize == 0 {
         (*property_request).ValueSize = core::mem::size_of::<i32>() as u32;
@@ -379,16 +524,37 @@ pub unsafe extern "C" fn proposed_format_handler(
 
     // Handle Basic Support
     if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
-        if (*property_request).ValueSize < core::mem::size_of::<u32>() as u32 {
-            (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
+        let full_size = core::mem::size_of::<KSPROPERTY_DESCRIPTION>() as u32;
+        let ulong_size = core::mem::size_of::<u32>() as u32;
+
+        if (*property_request).ValueSize == 0 {
+            (*property_request).ValueSize = full_size;
             return STATUS_BUFFER_OVERFLOW;
         }
-        let flags = (*property_request).Value as *mut u32;
-        if !flags.is_null() {
-            *flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT;
+
+        if (*property_request).ValueSize >= full_size {
+            let desc = (*property_request).Value as *mut KSPROPERTY_DESCRIPTION;
+            if !desc.is_null() {
+                (*desc).AccessFlags =
+                    KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT;
+                (*desc).DescriptionSize = full_size;
+                (*desc).PropTypeSet.Set = KSPROPTYPESETID_GENERAL_PROP;
+                (*desc).PropTypeSet.Id = VT_I4;
+                (*desc).PropTypeSet.Flags = 0;
+                (*desc).MembersListCount = 0;
+                (*desc).Reserved = 0;
+            }
+            (*property_request).ValueSize = full_size;
+            return STATUS_SUCCESS;
+        } else if (*property_request).ValueSize >= ulong_size {
+            let flags = (*property_request).Value as *mut u32;
+            if !flags.is_null() {
+                *flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT;
+            }
+            (*property_request).ValueSize = ulong_size;
+            return STATUS_SUCCESS;
         }
-        (*property_request).ValueSize = core::mem::size_of::<u32>() as u32;
-        return STATUS_SUCCESS;
+        return STATUS_BUFFER_TOO_SMALL;
     }
 
     if ((*property_request).Verb & KSPROPERTY_TYPE_SET) != 0 {
@@ -872,7 +1038,58 @@ pub unsafe extern "C" fn volume_handler(property_request: PPCPROPERTY_REQUEST) -
         return STATUS_INVALID_PARAMETER;
     }
 
-    DbgPrint(c"Leyline: volume_handler CALLED\n".as_ptr());
+    #[repr(C)]
+    struct VOL_BASIC {
+        desc: KSPROPERTY_DESCRIPTION,
+        hdr: KSPROPERTY_MEMBERSHEADER,
+        stepping: KSPROPERTY_STEPPING_LONG,
+    }
+
+    if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
+        let full_size = core::mem::size_of::<VOL_BASIC>() as u32;
+        let ulong_size = core::mem::size_of::<u32>() as u32;
+
+        if (*property_request).ValueSize == 0 {
+            (*property_request).ValueSize = full_size;
+            return STATUS_BUFFER_OVERFLOW;
+        }
+
+        if (*property_request).ValueSize >= full_size {
+            let vol_basic = (*property_request).Value as *mut VOL_BASIC;
+            if !vol_basic.is_null() {
+                (*vol_basic).desc.AccessFlags =
+                    KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT;
+                (*vol_basic).desc.DescriptionSize = full_size;
+                (*vol_basic).desc.PropTypeSet.Set = KSPROPTYPESETID_GENERAL_PROP;
+                (*vol_basic).desc.PropTypeSet.Id = VT_I4;
+                (*vol_basic).desc.PropTypeSet.Flags = 0;
+                (*vol_basic).desc.MembersListCount = 1;
+                (*vol_basic).desc.Reserved = 0;
+
+                (*vol_basic).hdr.MembersFlags = KSPROPERTY_MEMBER_STEPPEDRANGES;
+                (*vol_basic).hdr.MembersSize =
+                    core::mem::size_of::<KSPROPERTY_STEPPING_LONG>() as u32;
+                (*vol_basic).hdr.MembersCount = 1;
+                (*vol_basic).hdr.Flags = 0;
+
+                (*vol_basic).stepping.SignedMaximum = 0x00000000; // 0 dB
+                (*vol_basic).stepping.SignedMinimum = -96 * 0x10000; // -96 dB
+                (*vol_basic).stepping.SteppingDelta = 0x10000; // 1 dB
+                (*vol_basic).stepping.Reserved = 0;
+            }
+            (*property_request).ValueSize = full_size;
+            return STATUS_SUCCESS;
+        } else if (*property_request).ValueSize >= ulong_size {
+            let flags = (*property_request).Value as *mut u32;
+            if !flags.is_null() {
+                *flags = KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT;
+            }
+            (*property_request).ValueSize = ulong_size;
+            return STATUS_SUCCESS;
+        }
+
+        return STATUS_BUFFER_TOO_SMALL;
+    }
 
     if (*property_request).ValueSize == 0 {
         (*property_request).ValueSize = core::mem::size_of::<i32>() as u32;
@@ -883,16 +1100,11 @@ pub unsafe extern "C" fn volume_handler(property_request: PPCPROPERTY_REQUEST) -
         return STATUS_BUFFER_TOO_SMALL;
     }
 
-    // Return 0dB (0x10000 normally, or 0 depending on scale)
-    // KSPROPERTY_AUDIO_VOLUMELEVEL is usually logarithmic scale. 0 = full attenuation?
-    // Let's check docs. 0x0 = 0dB? No.
-    // Windows expects volume in steps.
-    // Let's just return STATUS_SUCCESS and pretend we set it.
-    // If it's a GET, return max volume.
     if (*property_request).Verb & KSPROPERTY_TYPE_GET != 0 {
         let value = (*property_request).Value as *mut i32;
-        *value = 0; // 0 indicates 0dB usually? Or -infinity?
-                    // Valid range is usually defined by BasicSupport.
+        if !value.is_null() {
+            *value = 0;
+        }
     }
 
     STATUS_SUCCESS

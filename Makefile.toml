@@ -52,5 +52,11 @@ cwd = "crates/leyline-kernel"
 command = "cargo"
 args = ["test"]
 
+[tasks.test-endpoints]
+description = "Test Audio Endpoints"
+cwd = "test/EndpointTester"
+command = "dotnet"
+args = ["run"]
+
 [tasks.package-all]
 alias = "package"
