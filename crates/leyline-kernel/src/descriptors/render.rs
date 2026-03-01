@@ -7,8 +7,10 @@
 
 use wdk_sys::*;
 
-use crate::descriptors::common::*;
+use super::common::*;
+use crate::constants::*;
 use crate::stream::{PCCONNECTION, PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR};
+use crate::audio::KSPIN_DESCRIPTOR;
 
 #[link_section = ".rdata"]
 pub static WAVE_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
@@ -101,16 +103,16 @@ pub static TOPO_RENDER_PINS: [PCPIN_DESCRIPTOR; 2] = [
 #[link_section = ".rdata"]
 pub static WAVE_RENDER_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
     FromNode: PCFILTER_NODE,
-    FromNodePin: crate::constants::KSPIN_WAVE_SINK,
+    FromNodePin: KSPIN_WAVE_SINK,
     ToNode: PCFILTER_NODE,
-    ToNodePin: crate::constants::KSPIN_WAVE_BRIDGE,
+    ToNodePin: KSPIN_WAVE_BRIDGE,
 }];
 
 #[link_section = ".rdata"]
 pub static TOPO_RENDER_CONNECTIONS: [PCCONNECTION; 3] = [
     PCCONNECTION {
         FromNode: PCFILTER_NODE,
-        FromNodePin: crate::constants::KSPIN_TOPO_BRIDGE,
+        FromNodePin: KSPIN_TOPO_BRIDGE,
         ToNode: 0,
         ToNodePin: 1,
     },
@@ -124,7 +126,7 @@ pub static TOPO_RENDER_CONNECTIONS: [PCCONNECTION; 3] = [
         FromNode: 1,
         FromNodePin: 0,
         ToNode: PCFILTER_NODE,
-        ToNodePin: crate::constants::KSPIN_TOPO_LINEOUT,
+        ToNodePin: KSPIN_TOPO_LINEOUT,
     },
 ];
 
@@ -146,94 +148,18 @@ pub static TOPO_RENDER_NODES: [crate::stream::PCNODE_DESCRIPTOR; 2] = [
 
 #[link_section = ".rdata"]
 pub static WAVE_RENDER_CATEGORIES: [GUID; 3] = [
-    crate::constants::KSCATEGORY_AUDIO_GUID,
-    crate::constants::KSCATEGORY_RENDER_GUID,
-    crate::constants::KSCATEGORY_REALTIME_GUID,
+    KSCATEGORY_AUDIO_GUID,
+    KSCATEGORY_RENDER_GUID,
+    KSCATEGORY_REALTIME_GUID,
 ];
 
 #[link_section = ".rdata"]
-pub static TOPO_RENDER_CATEGORIES: [GUID; 2] = [
-    crate::constants::KSCATEGORY_AUDIO_GUID,
-    crate::constants::KSCATEGORY_TOPOLOGY_GUID,
-];
-
-#[link_section = ".rdata"]
-pub static WAVE_RENDER_FILTER_PROPERTIES: [crate::stream::PCPROPERTY_ITEM; 9] = [
-    crate::stream::PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_GENERAL as *const GUID,
-        Id: KSPROPERTY_GENERAL_COMPONENTID,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-        Handler: Some(component_id_handler),
-    },
-    crate::stream::PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_PIN as *const GUID,
-        Id: crate::constants::KSPROPERTY_PIN_PROPOSEDATAFORMAT,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
-        Handler: Some(proposed_format_handler),
-    },
-    crate::stream::PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_PIN as *const GUID,
-        Id: crate::constants::KSPROPERTY_PIN_PROPOSEDATAFORMAT2,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
-        Handler: Some(proposed_format_handler),
-    },
-    crate::stream::PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_JACK as *const GUID,
-        Id: KSPROPERTY_JACK_DESCRIPTION,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-        Handler: Some(jack_description_handler),
-    },
-    crate::stream::PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_JACK as *const GUID,
-        Id: KSPROPERTY_JACK_DESCRIPTION2,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-        Handler: Some(jack_description_handler),
-    },
-    crate::stream::PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_AUDIOEFFECTSDISCOVERY as *const GUID,
-        Id: KSPROPERTY_AUDIOEFFECTSDISCOVERY_EFFECTSLIST,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-        Handler: Some(audio_effects_discovery_handler),
-    },
-    crate::stream::PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_AUDIOMODULE as *const GUID,
-        Id: KSPROPERTY_AUDIOMODULE_DESCRIPTORS,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-        Handler: Some(audio_module_handler),
-    },
-    crate::stream::PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_AUDIOMODULE as *const GUID,
-        Id: KSPROPERTY_AUDIOMODULE_COMMAND,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
-        Handler: Some(audio_module_handler),
-    },
-    crate::stream::PCPROPERTY_ITEM {
-        Set: &KSPROPSETID_AUDIOMODULE as *const GUID,
-        Id: KSPROPERTY_AUDIOMODULE_NOTIFICATION_DEVICE_ID,
-        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-        Handler: Some(audio_module_handler),
-    },
-];
-
-#[link_section = ".rdata"]
-pub static WAVE_RENDER_FILTER_AUTOMATION_TABLE: crate::stream::PCAUTOMATION_TABLE =
-    crate::stream::PCAUTOMATION_TABLE {
-        PropertyItemSize: core::mem::size_of::<crate::stream::PCPROPERTY_ITEM>() as u32,
-        PropertyCount: 9,
-        Properties: WAVE_RENDER_FILTER_PROPERTIES.as_ptr(),
-        MethodItemSize: 0,
-        MethodCount: 0,
-        Methods: core::ptr::null(),
-        EventItemSize: 0,
-        EventCount: 0,
-        Events: core::ptr::null(),
-        Reserved: 0,
-    };
+pub static TOPO_RENDER_CATEGORIES: [GUID; 2] = [KSCATEGORY_AUDIO_GUID, KSCATEGORY_TOPOLOGY_GUID];
 
 #[link_section = ".rdata"]
 pub static WAVE_RENDER_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &WAVE_RENDER_FILTER_AUTOMATION_TABLE,
+    AutomationTable: &WAVE_FILTER_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: WAVE_RENDER_PINS.as_ptr(),

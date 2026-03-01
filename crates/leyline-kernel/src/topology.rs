@@ -7,7 +7,6 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 use alloc::boxed::Box;
-use core::mem::size_of;
 use core::ptr::null_mut;
 
 use wdk_sys::ntddk::*;
@@ -517,4 +516,3 @@ pub unsafe extern "system" fn topology_init(
 
     status
 }
-

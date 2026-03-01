@@ -5,7 +5,6 @@
 // PORTCLS INTERFACE VTABLE DEFINITIONS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
 #[allow(non_snake_case)]
@@ -167,4 +166,3 @@ pub struct IPortClsStreamResourceManager2VTable {
     pub RemoveResource:
         unsafe extern "system" fn(this: *mut u8, resource_handle: *mut u8) -> NTSTATUS,
 }
-

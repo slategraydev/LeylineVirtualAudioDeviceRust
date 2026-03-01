@@ -5,13 +5,12 @@
 // COMMON KERNEL STREAMING TYPES & HANDLERS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
 use crate::constants::*;
 use crate::stream::{
-    KSDATAFORMAT, KSDATARANGE, KSDATARANGE_AUDIO, PCAUTOMATION_TABLE, PCPROPERTY_ITEM,
-    PPCPROPERTY_REQUEST,
+    KSDATARANGE, KSDATARANGE_AUDIO, PCAUTOMATION_TABLE,
+    PCPROPERTY_ITEM, PPCPROPERTY_REQUEST,
 };
 
 #[repr(C)]
@@ -275,10 +274,6 @@ pub unsafe extern "C" fn jack_description_handler(
     }
 
     let prop_id = (*(*property_request).PropertyItem).Id;
-    let mut pin_id = !0u32;
-    if (*property_request).InstanceSize >= core::mem::size_of::<u32>() as u32 {
-        pin_id = *((*property_request).Instance as *const u32);
-    }
 
     if ((*property_request).Verb & KSPROPERTY_TYPE_BASICSUPPORT) != 0 {
         let full_size = core::mem::size_of::<KSPROPERTY_DESCRIPTION>() as u32;
@@ -492,6 +487,122 @@ pub unsafe extern "C" fn volume_handler(property_request: PPCPROPERTY_REQUEST) -
 
     STATUS_SUCCESS
 }
+
+#[link_section = ".rdata"]
+pub static WAVE_FILTER_PROPERTIES: [PCPROPERTY_ITEM; 9] = [
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_GENERAL as *const GUID,
+        Id: KSPROPERTY_GENERAL_COMPONENTID,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(component_id_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_PIN as *const GUID,
+        Id: KSPROPERTY_PIN_PROPOSEDATAFORMAT,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(proposed_format_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_PIN as *const GUID,
+        Id: KSPROPERTY_PIN_PROPOSEDATAFORMAT2,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(proposed_format_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_JACK as *const GUID,
+        Id: KSPROPERTY_JACK_DESCRIPTION,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(jack_description_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_JACK as *const GUID,
+        Id: KSPROPERTY_JACK_DESCRIPTION2,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(jack_description_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_AUDIOEFFECTSDISCOVERY as *const GUID,
+        Id: KSPROPERTY_AUDIOEFFECTSDISCOVERY_EFFECTSLIST,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(audio_effects_discovery_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_AUDIOMODULE as *const GUID,
+        Id: KSPROPERTY_AUDIOMODULE_DESCRIPTORS,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(audio_module_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_AUDIOMODULE as *const GUID,
+        Id: KSPROPERTY_AUDIOMODULE_COMMAND,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(audio_module_handler),
+    },
+    PCPROPERTY_ITEM {
+        Set: &KSPROPSETID_AUDIOMODULE as *const GUID,
+        Id: KSPROPERTY_AUDIOMODULE_NOTIFICATION_DEVICE_ID,
+        Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
+        Handler: Some(audio_module_handler),
+    },
+];
+
+#[link_section = ".rdata"]
+pub static WAVE_FILTER_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+    PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
+    PropertyCount: 9,
+    Properties: WAVE_FILTER_PROPERTIES.as_ptr(),
+    MethodItemSize: 0,
+    MethodCount: 0,
+    Methods: core::ptr::null(),
+    EventItemSize: 0,
+    EventCount: 0,
+    Events: core::ptr::null(),
+    Reserved: 0,
+};
+
+#[link_section = ".rdata"]
+pub static VOLUME_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+    PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
+    PropertyCount: 1,
+    Properties: VOLUME_PROPERTIES.as_ptr(),
+    MethodItemSize: 0,
+    MethodCount: 0,
+    Methods: core::ptr::null(),
+    EventItemSize: 0,
+    EventCount: 0,
+    Events: core::ptr::null(),
+    Reserved: 0,
+};
+
+#[link_section = ".rdata"]
+pub static VOLUME_PROPERTIES: [PCPROPERTY_ITEM; 1] = [PCPROPERTY_ITEM {
+    Set: &KSPROPSETID_AUDIO as *const GUID,
+    Id: KSPROPERTY_AUDIO_VOLUMELEVEL,
+    Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
+    Handler: Some(volume_handler),
+}];
+
+#[link_section = ".rdata"]
+pub static MUTE_AUTOMATION_TABLE: PCAUTOMATION_TABLE = PCAUTOMATION_TABLE {
+    PropertyItemSize: core::mem::size_of::<PCPROPERTY_ITEM>() as u32,
+    PropertyCount: 1,
+    Properties: MUTE_PROPERTIES.as_ptr(),
+    MethodItemSize: 0,
+    MethodCount: 0,
+    Methods: core::ptr::null(),
+    EventItemSize: 0,
+    EventCount: 0,
+    Events: core::ptr::null(),
+    Reserved: 0,
+};
+
+#[link_section = ".rdata"]
+pub static MUTE_PROPERTIES: [PCPROPERTY_ITEM; 1] = [PCPROPERTY_ITEM {
+    Set: &KSPROPSETID_AUDIO as *const GUID,
+    Id: KSPROPERTY_AUDIO_MUTE,
+    Flags: KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
+    Handler: Some(mute_handler),
+}];
 
 #[link_section = ".rdata"]
 pub static TOPO_FILTER_PROPERTIES: [PCPROPERTY_ITEM; 3] = [

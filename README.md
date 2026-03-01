@@ -6,7 +6,13 @@ A native Rust WaveRT virtual audio device. It is currently in Phase 2. The code 
 
 The core adapter logic is stable. `DriverEntry` and `PcInitializeAdapterDriver` are functional. The filters and pins register with `PortCls` as expected. Everything is technically "Working Properly" according to Device Manager.
 
-However, the `Audio Endpoint Builder` is not enumerating endpoints on `Hyper-V`. My `MMDeviceEnumerator` calls return zero devices. This is particularly annoying because the C++ reference implementation works fine in the same environment. I am currently checking if the headless VM state is keeping the service idle, or if I missed a `PKEY` in the `INF` policy. The logs are silent. I am auditing registry keys to see why the builder is ignoring the topology.
+However, the `Audio Endpoint Builder` is not enumerating endpoints on `Hyper-V`. My `MMDeviceEnumerator` calls return zero devices. This is pretty weird because my C++ reference implementation works fine in the same environment.
+
+I am currently investigating why the builder is ignoring the topology. The focus is on:
+-   **Subdevice Registration**: Ensuring the naming used in `PcRegisterSubdevice` mirrors the C++ reference exactly.
+-   **Physical Connections**: Verifying that the internal routing between the Wave and Topology filters is correctly wired via `PcRegisterPhysicalConnection`.
+-   **INF Policy**: Auditing registry keys for missing `PKEY` properties that the AEB requires to recognize the device as a valid endpoint.
+
 
 ## Architecture
 

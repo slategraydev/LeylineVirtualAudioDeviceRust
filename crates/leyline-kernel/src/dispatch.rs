@@ -5,8 +5,6 @@
 // IRP DISPATCH & CONTROL DEVICE ORCHESTRATION
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-use core::ptr::null_mut;
-
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
@@ -145,4 +143,3 @@ pub unsafe extern "C" fn dispatch_device_control(
 
     status
 }
-

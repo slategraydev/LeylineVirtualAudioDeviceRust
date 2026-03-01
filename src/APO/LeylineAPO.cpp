@@ -24,13 +24,18 @@ namespace audio_apo {
 // BIT-CAST HELPERS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#define IOCTL_LEYLINE_MAP_BUFFER 0x80002008
-#define IOCTL_LEYLINE_MAP_PARAMS 0x8000200C
+#define IOCTL_LEYLINE_MAP_BUFFER 0x00222008
+#define IOCTL_LEYLINE_MAP_PARAMS 0x0022200C
 
 struct SharedParams {
   LONG master_gain_bits;
   LONG peak_l_bits;
   LONG peak_r_bits;
+  LONGLONG qpc_frequency;
+  LONGLONG render_start_qpc;
+  LONGLONG capture_start_qpc;
+  ULONG buffer_size;
+  ULONG byte_rate;
 };
 
 // Internal bit-cast for atomics.

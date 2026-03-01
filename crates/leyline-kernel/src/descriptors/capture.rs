@@ -7,8 +7,10 @@
 
 use wdk_sys::*;
 
-use crate::descriptors::common::*;
+use super::common::*;
+use crate::constants::*;
 use crate::stream::{PCCONNECTION, PCFILTER_DESCRIPTOR, PCPIN_DESCRIPTOR};
+use crate::audio::KSPIN_DESCRIPTOR;
 
 #[link_section = ".rdata"]
 pub static WAVE_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
@@ -101,9 +103,9 @@ pub static TOPO_CAPTURE_PINS: [PCPIN_DESCRIPTOR; 2] = [
 #[link_section = ".rdata"]
 pub static WAVE_CAPTURE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
     FromNode: PCFILTER_NODE,
-    FromNodePin: crate::constants::KSPIN_WAVE_BRIDGE,
+    FromNodePin: KSPIN_WAVE_BRIDGE,
     ToNode: PCFILTER_NODE,
-    ToNodePin: crate::constants::KSPIN_WAVE_SINK,
+    ToNodePin: KSPIN_WAVE_SINK,
 }];
 
 #[link_section = ".rdata"]
@@ -116,21 +118,18 @@ pub static TOPO_CAPTURE_CONNECTIONS: [PCCONNECTION; 1] = [PCCONNECTION {
 
 #[link_section = ".rdata"]
 pub static WAVE_CAPTURE_CATEGORIES: [GUID; 3] = [
-    crate::constants::KSCATEGORY_AUDIO_GUID,
-    crate::constants::KSCATEGORY_CAPTURE_GUID,
-    crate::constants::KSCATEGORY_REALTIME_GUID,
+    KSCATEGORY_AUDIO_GUID,
+    KSCATEGORY_CAPTURE_GUID,
+    KSCATEGORY_REALTIME_GUID,
 ];
 
 #[link_section = ".rdata"]
-pub static TOPO_CAPTURE_CATEGORIES: [GUID; 2] = [
-    crate::constants::KSCATEGORY_AUDIO_GUID,
-    crate::constants::KSCATEGORY_TOPOLOGY_GUID,
-];
+pub static TOPO_CAPTURE_CATEGORIES: [GUID; 2] = [KSCATEGORY_AUDIO_GUID, KSCATEGORY_TOPOLOGY_GUID];
 
 #[link_section = ".rdata"]
 pub static WAVE_CAPTURE_FILTER_DESCRIPTOR: PCFILTER_DESCRIPTOR = PCFILTER_DESCRIPTOR {
     Version: 0,
-    AutomationTable: &WAVE_RENDER_FILTER_AUTOMATION_TABLE,
+    AutomationTable: &WAVE_FILTER_AUTOMATION_TABLE,
     PinSize: core::mem::size_of::<PCPIN_DESCRIPTOR>() as u32,
     PinCount: 2,
     Pins: WAVE_CAPTURE_PINS.as_ptr(),
