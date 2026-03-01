@@ -1,6 +1,11 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// HSA APPLICATION
+// Entry point and lifecycle management for the Hardware Support App.
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 using Microsoft.UI.Xaml;
 
 namespace LeylineHSA
@@ -21,4 +26,3 @@ namespace LeylineHSA
         private Window m_window;
     }
 }
-

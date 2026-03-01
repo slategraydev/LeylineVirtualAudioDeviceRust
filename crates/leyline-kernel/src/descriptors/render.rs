@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// RENDER PATH DESCRIPTORS
+// RENDER DESCRIPTORS
+// PortCls descriptors for the audio output filter.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 use wdk_sys::*;

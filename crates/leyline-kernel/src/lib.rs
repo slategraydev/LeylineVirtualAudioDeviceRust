@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// MODULE DECLARATIONS
+// LEYLINE KERNEL CORE
+// The entry point and global orchestration for the WaveRT audio driver.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #![no_std]
@@ -55,6 +56,7 @@ static GLOBAL: WdkAllocator = WdkAllocator;
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // GLOBAL DRIVER STATE
+// Persistent objects managed across the driver lifecycle.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #[no_mangle]
@@ -75,6 +77,7 @@ const ETW_PROVIDER_GUID: GUID = GUID {
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // PORTCLS EXTERNAL DECLARATIONS
+// Symbols imported from the Windows Port Class library.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #[link(name = "portcls")]
@@ -191,6 +194,7 @@ pub unsafe extern "C" fn driver_unload(_driver_object: *mut DRIVER_OBJECT) {
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // STREAM CALLBACKS
+// Specialized handlers for the WaveRT port driver.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// Expose interfaces for the WaveRT stream object.
@@ -341,4 +345,3 @@ pub unsafe extern "system" fn stream_get_clock_register(_this: *mut u8, _reg: *m
 pub unsafe fn is_equal_guid(a: *const GUID, b: &GUID) -> bool {
     (*a).Data1 == b.Data1 && (*a).Data2 == b.Data2 && (*a).Data3 == b.Data3 && (*a).Data4 == b.Data4
 }
-

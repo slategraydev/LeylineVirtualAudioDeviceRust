@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// SHARED RING BUFFER IMPLEMENTATION
+// SHARED BUFFER
+// Cross-process ring buffer for audio data transfer.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// A single byte is reserved to distinguish between full and empty states.
@@ -184,4 +185,3 @@ mod tests {
         assert_eq!(final_buf, [6, 7, 8, 9, 10, 11, 12, 13]);
     }
 }
-

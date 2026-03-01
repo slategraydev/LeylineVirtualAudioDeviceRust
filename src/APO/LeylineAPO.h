@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// LEYLINE AUDIO PROCESSING OBJECT (APO)
+// APO DEFINITIONS
+// Interface declarations and GUIDs for the Leyline APO.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #ifndef LEYLINE_APO_LEYLINE_APO_H_
@@ -72,4 +73,3 @@ class CLeylineAPO : public ILeylineAPO,
 }  // namespace audio_apo
 
 #endif  // LEYLINE_APO_LEYLINE_APO_H_
-

@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// DRIVER-WIDE GUIDS & STATIC CONSTANTS
+// KERNEL CONSTANTS
+// GUIDs and magic numbers for PortCls and WaveRT.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 use wdk_sys::*;
@@ -482,4 +483,3 @@ pub static KSAUDFNAME_MASTER_MUTE: GUID = GUID {
     Data3: 0x11D1,
     Data4: [0x95, 0xA9, 0x00, 0xC0, 0x4F, 0xB9, 0x25, 0xD3],
 };
-

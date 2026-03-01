@@ -1,6 +1,11 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// APO DLL ENTRY
+// DLL registration and lifetime management for the audio processing object.
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 #include <initguid.h>
 
 #include "LeylineAPO.h"
@@ -94,4 +99,3 @@ STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid,
 }
 
 __control_entrypoint(DllExport) STDAPI DllCanUnloadNow(void) { return S_OK; }
-

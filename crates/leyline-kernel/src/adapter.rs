@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// ADAPTER MANAGEMENT & PORTCLS ORCHESTRATION
+// ADAPTER MANAGEMENT
+// Logic for PnP orchestration and PortCls subdevice registration.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 use alloc::boxed::Box;
@@ -73,6 +74,10 @@ impl MiniportWaveRTStreamCom {
     }
 }
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// DEVICE EXTENSION HELPERS
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 /// Retrieve the device extension from a PortCls device object.
 ///
 /// # Safety
@@ -80,8 +85,13 @@ impl MiniportWaveRTStreamCom {
 #[inline(always)]
 pub unsafe fn get_device_extension(device_object: PDEVICE_OBJECT) -> *mut DeviceExtension {
     let base = (*device_object).DeviceExtension as *mut u8;
+    // Offset by the internal PortCls extension size to reach our data.
     base.add(PORT_CLASS_DEVICE_EXTENSION_SIZE) as *mut DeviceExtension
 }
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// PNP CALLBACKS
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// Initialize the audio adapter device.
 ///
@@ -97,7 +107,7 @@ pub unsafe extern "C" fn AddDevice(
         physical_device_object,
     );
 
-    // Diagnostic: Check the Hardware ID of the PDO
+    // Diagnostic: Check the Hardware ID of the PDO.
     let mut length: u32 = 0;
     let _ = IoGetDeviceProperty(
         physical_device_object,
@@ -171,6 +181,7 @@ pub unsafe extern "C" fn StartDevice(
         resource_list: PVOID,
     ) -> NTSTATUS;
 
+    // Vtable traversal to find IMiniport::Init.
     let vtable = *(render_port as *const *const *const u8);
     let init_ptr = *vtable.add(3);
     let init_fn: PortInitFn = core::mem::transmute(init_ptr);
@@ -359,7 +370,7 @@ pub unsafe extern "C" fn StartDevice(
 
     DbgPrint(c"Leyline: Physical Connections Established\n".as_ptr());
 
-    // --- CDO Creation (Moved to end to prevent PnP interference) ---
+    // --- CDO Creation ---
     crate::FUNCTIONAL_DEVICE_OBJECT = device_object;
     if CONTROL_DEVICE_OBJECT.is_null() {
         let mut device_name_str = [0u16; 20];
@@ -396,13 +407,11 @@ pub unsafe extern "C" fn StartDevice(
             let _ = IoCreateSymbolicLink(&mut link_name, &mut device_name);
             DbgPrint(c"Leyline: CDO Ready\n".as_ptr());
         } else if status == 0xC0000035u32 as i32 {
-            // STATUS_OBJECT_NAME_COLLISION - This is fine, the CDO might already exist
-            // from a previous start attempt or a different FDO instance in the same stack.
+            // Collision is expected if another FDO already created the singleton CDO.
             DbgPrint(c"Leyline: CDO already exists (0xc0000035), skipping creation\n".as_ptr());
             status = STATUS_SUCCESS;
         }
     } else {
-        // CDO already non-null in our variable
         status = STATUS_SUCCESS;
     }
 
@@ -426,4 +435,3 @@ pub unsafe extern "C" fn StartDevice(
     }
     status
 }
-

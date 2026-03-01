@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// AUDIO POSITION & PERFORMANCE MATH
+// AUDIO MATH
+// Precision calculations for QPC and sample offsets.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// Pure Rust Math Logic for WaveRT.
@@ -63,4 +64,3 @@ mod tests {
         assert_eq!(pos, 44100 % 32768);
     }
 }
-

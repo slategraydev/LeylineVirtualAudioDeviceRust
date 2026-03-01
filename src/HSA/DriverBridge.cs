@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// DRIVER COMMUNICATION & IOCTL BRIDGE
+// DRIVER BRIDGE
+// User-mode interface for communicating with the kernel driver via IOCTLs.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 using System;
@@ -168,4 +169,3 @@ namespace LeylineHSA
         #endregion
     }
 }
-

@@ -3,7 +3,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// TOPOLOGY MINIPORT & AUDIO ENDPOINT ROUTING
+// TOPOLOGY MINIPORT
+// Definition of nodes and pins for the audio signal path.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 use alloc::boxed::Box;
@@ -120,7 +121,7 @@ impl MiniportTopologyCom {
             this as *mut Self
         } else if vtable_ptr == &PIN_COUNT_VTABLE as *const _ as *const u8 {
             (this as usize - 8) as *mut Self
-        } else if vtable_ptr == &PIN_NAME_VTABLE as *const _ as *const u8 {
+        } else if vtable_ptr == &PIN_NAME_VTABLE as *const _ as *mut u8 as *const u8 {
             (this as usize - 16) as *mut Self
         } else if vtable_ptr == &TOPO_RESOURCE_MANAGER_VTABLE as *const _ as *const u8 {
             (this as usize - 24) as *mut Self
@@ -229,8 +230,6 @@ pub unsafe extern "system" fn topology_remove_resource(
     DbgPrint(c"LeylineTopo: RemoveResource (STUB)\n".as_ptr());
     STATUS_SUCCESS
 }
-
-// ... existing code ...
 
 /// Retrieve the pin count for the topology miniport.
 pub unsafe extern "system" fn topology_pin_count(

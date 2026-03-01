@@ -1,6 +1,11 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// LEYLINE SHARED DEFS
+// Constants and structures shared between kernel and user components.
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 #![no_std]
 
 pub mod buffer;
@@ -8,6 +13,7 @@ pub mod math;
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // DRIVER IDENTITY & INTERFACE GUIDS
+// Persistent identifiers used for device discovery and communication.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// GUID for the Leyline Audio Adapter.
@@ -30,6 +36,7 @@ pub const LEYLINE_INTERFACE_GUID: [u8; 16] = [
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // STANDARD WINDOWS AUDIO CATEGORIES
+// Constants used by PortCls to register device interfaces.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// KSCATEGORY_AUDIO
@@ -58,11 +65,10 @@ pub const KSCATEGORY_REALTIME: [u8; 16] = [
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // CONTROL CODES (IOCTLS)
+// Commands used by the HSA to interact with the kernel-mode driver.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// IOCTL codes for communication between the Hardware Support App (HSA)
-// and the kernel-mode driver.
 
-// Helper for defining IOCTLs (CTL_CODE macro logic).
+/// Perform CTL_CODE macro logic to define a unique IOCTL.
 const fn ctl_code(device_type: u32, function: u32, method: u32, access: u32) -> u32 {
     (device_type << 16) | (access << 14) | (function << 2) | method
 }
@@ -84,19 +90,18 @@ pub struct SharedParameters {
     pub byte_rate: u32,
 }
 
-/// IOCTL code for setting buffer configuration from HSA.
+/// Configure the driver settings from the HSA.
 pub const IOCTL_LEYLINE_SET_CONFIG: u32 =
     ctl_code(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS);
 
-/// IOCTL code for getting driver status.
+/// Retrieve the current operational status of the driver.
 pub const IOCTL_LEYLINE_GET_STATUS: u32 =
     ctl_code(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS);
 
-/// IOCTL code for mapping the shared audio buffer to user-space.
+/// Map the shared audio buffer to user-space for routing.
 pub const IOCTL_LEYLINE_MAP_BUFFER: u32 =
     ctl_code(FILE_DEVICE_UNKNOWN, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS);
 
-/// IOCTL code for mapping the shared parameter block to user-space.
+/// Map the shared parameter block to user-space for status monitoring.
 pub const IOCTL_LEYLINE_MAP_PARAMS: u32 =
     ctl_code(FILE_DEVICE_UNKNOWN, 0x803, METHOD_BUFFERED, FILE_ANY_ACCESS);
-

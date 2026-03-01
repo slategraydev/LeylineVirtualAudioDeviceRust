@@ -1,6 +1,11 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// HSA UI LOGIC
+// Interaction logic and state management for the HSA main window.
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 using Microsoft.UI.Xaml;
 using System;
 using System.Runtime.InteropServices;
@@ -127,4 +132,3 @@ namespace LeylineHSA
         }
     }
 }
-

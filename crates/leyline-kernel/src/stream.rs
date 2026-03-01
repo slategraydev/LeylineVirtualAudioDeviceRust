@@ -2,7 +2,8 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// WAVERT STREAMING & BUFFER MANAGEMENT
+// WAVERT STREAM
+// Implementation of audio streaming logic and position tracking.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #![allow(non_camel_case_types)]
@@ -287,4 +288,3 @@ impl Drop for MiniportWaveRTStream {
         }
     }
 }
-
