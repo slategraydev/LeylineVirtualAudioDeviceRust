@@ -1,28 +1,36 @@
 # Leyline Audio Driver
 
-Native Rust Virtual Audio Device for Windows.
+A native Rust WaveRT virtual audio device. It is currently in Phase 2. The code is technically sound, but the Windows Audio stack is being difficult.
 
 ## Current Status
-- **Kernel Core**: DriverEntry and PortCls filter registration are stable.
-- **Enumeration**: Currently failing. The Audio Endpoint Builder (AEB) does not enumerate endpoints on Hyper-V. No events are present in operational logs. This is likely a headless VM or INF constraint.
-- **HSA**: WinUI 3 bridge is in progress.
 
-## Specification
-Architectural requirements are defined in [GEMINI.MD](GEMINI.MD). Review this documentation before modifying the driver core.
+The core adapter logic is stable. `DriverEntry` and `PcInitializeAdapterDriver` are functional. The filters and pins register with `PortCls` as expected. Everything is technically "Working Properly" according to Device Manager.
+
+However, the `Audio Endpoint Builder` is not enumerating endpoints on `Hyper-V`. My `MMDeviceEnumerator` calls return zero devices. This is particularly annoying because the C++ reference implementation works fine in the same environment. I am currently checking if the headless VM state is keeping the service idle, or if I missed a `PKEY` in the `INF` policy. The logs are silent. I am auditing registry keys to see why the builder is ignoring the topology.
+
+## Architecture
+
+The project is split to minimize kernel-mode complexity.
+
+`leyline-kernel` handles the `no_std` environment and the `COM` vtables required for `WaveRT`. It is designed to stay out of the way of the hardware-agnostic streaming logic.
+
+`leyline-shared` contains the ring buffer implementation and the math for `QPC` to byte-offset conversions. It avoids drift without requiring float logic in the hot path.
+
+`src/HSA` is the Hardware Support App bridge. It uses `WinUI 3` and will eventually handle routing via `IOCTL` calls. It is currently a work in progress.
 
 ## Environment
-- **Platform**: Windows 10/11 (x64).
-- **Toolchain**: eWDK (26H1/28000), Rust 1.75+ (no_std), LLVM 17.0.6.
-- **Workflow**: cargo-wdk for packaging, cargo-make for automation.
+
+This requires the Enterprise `WDK` (26H1/28000) and `Rust` 1.75 or newer. `LLVM` 17.0.6 is used for consistent `bindgen` output.
 
 ## Workflow
+
 ```powershell
-# Initialize eWDK environment.
+# Setup the environment.
 .\scripts\LaunchBuildEnv.ps1
 
-# Build sys and inf artifacts.
+# Build the system and setup files.
 cargo make build
 
-# Install on target (requires testsigning).
+# Install to the local machine. Requires testsigning.
 cargo make install
 ```

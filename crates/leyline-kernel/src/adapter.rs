@@ -1,20 +1,17 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ADAPTER MANAGEMENT & PORTCLS ORCHESTRATION
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// Core imports.
 use alloc::boxed::Box;
 use core::mem::size_of;
 use core::ptr::null_mut;
 
-// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Local modules.
 use crate::constants::*;
 use crate::dispatch::*;
 use crate::stream::MiniportWaveRTStream;
@@ -66,6 +63,7 @@ pub static STREAM_VTABLE: IMiniportWaveRTStreamVTable = IMiniportWaveRTStreamVTa
 };
 
 impl MiniportWaveRTStreamCom {
+    /// Create a new COM-compatible stream object wrapper.
     pub fn new(stream: *mut MiniportWaveRTStream) -> Box<Self> {
         Box::new(Self {
             vtable: &STREAM_VTABLE,
@@ -75,7 +73,7 @@ impl MiniportWaveRTStreamCom {
     }
 }
 
-/// Retrieve device extension from PortCls device object.
+/// Retrieve the device extension from a PortCls device object.
 ///
 /// # Safety
 /// Parameter must be a valid PortCls-initialized device object.
@@ -85,7 +83,7 @@ pub unsafe fn get_device_extension(device_object: PDEVICE_OBJECT) -> *mut Device
     base.add(PORT_CLASS_DEVICE_EXTENSION_SIZE) as *mut DeviceExtension
 }
 
-/// AddDevice callback for PortCls.
+/// Initialize the audio adapter device.
 ///
 /// # Safety
 /// Standard kernel AddDevice callback. Parameters must be OS-provided pointers.
@@ -428,3 +426,4 @@ pub unsafe extern "C" fn StartDevice(
     }
     status
 }
+

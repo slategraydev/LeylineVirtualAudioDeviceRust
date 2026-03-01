@@ -1,11 +1,10 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // PORTCLS INTERFACE VTABLE DEFINITIONS
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
@@ -168,3 +167,4 @@ pub struct IPortClsStreamResourceManager2VTable {
     pub RemoveResource:
         unsafe extern "system" fn(this: *mut u8, resource_handle: *mut u8) -> NTSTATUS,
 }
+

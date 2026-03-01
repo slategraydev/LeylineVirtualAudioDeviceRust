@@ -255,3 +255,4 @@ finally {
     if ($vmsess) { Remove-PSSession $vmsess }
     Write-Host "[*] Done."
 }
+

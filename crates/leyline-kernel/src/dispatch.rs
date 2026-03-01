@@ -1,37 +1,32 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // IRP DISPATCH & CONTROL DEVICE ORCHESTRATION
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// Core imports.
 use core::ptr::null_mut;
 
-// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Local modules.
 use crate::adapter::get_device_extension;
 use leyline_shared::*;
 
-// Globals for original dispatchers.
 pub static mut ORIGINAL_DISPATCH_CREATE: PDRIVER_DISPATCH = None;
 pub static mut ORIGINAL_DISPATCH_CLOSE: PDRIVER_DISPATCH = None;
 pub static mut ORIGINAL_DISPATCH_CONTROL: PDRIVER_DISPATCH = None;
 
-// External CDO references.
 extern "C" {
     pub static mut CONTROL_DEVICE_OBJECT: *mut DEVICE_OBJECT;
     pub static mut FUNCTIONAL_DEVICE_OBJECT: *mut DEVICE_OBJECT;
 }
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // DISPATCH ROUTINES
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-/// Handle IRP_MJ_CREATE.
+/// Handle IRP_MJ_CREATE requests.
 ///
 /// # Safety
 /// Standard kernel dispatch routine. Parameters must be valid pointers.
@@ -51,7 +46,7 @@ pub unsafe extern "C" fn dispatch_create(device_object: PDEVICE_OBJECT, irp: PIR
     STATUS_SUCCESS
 }
 
-/// Handle IRP_MJ_CLOSE.
+/// Handle IRP_MJ_CLOSE requests.
 ///
 /// # Safety
 /// Standard kernel dispatch routine. Parameters must be valid pointers.
@@ -71,7 +66,7 @@ pub unsafe extern "C" fn dispatch_close(device_object: PDEVICE_OBJECT, irp: PIRP
     STATUS_SUCCESS
 }
 
-/// Handle IRP_MJ_DEVICE_CONTROL.
+/// Handle IRP_MJ_DEVICE_CONTROL requests.
 ///
 /// # Safety
 /// Standard kernel dispatch routine. Parameters must be valid pointers.
@@ -150,3 +145,4 @@ pub unsafe extern "C" fn dispatch_device_control(
 
     status
 }
+

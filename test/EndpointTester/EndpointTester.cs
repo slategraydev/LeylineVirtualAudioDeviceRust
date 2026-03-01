@@ -1,4 +1,11 @@
-﻿using System;
+// Copyright (c) 2026 Randall Rosas (Slategray).
+// All rights reserved.
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ENDPOINT TESTER UTILITY
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+using System;
 using NAudio.CoreAudioApi;
 
 namespace EndpointTester
@@ -18,45 +25,28 @@ namespace EndpointTester
             EnumerateEndpoints(enumerator, DataFlow.Capture);
 
             Console.WriteLine("\nEnumeration complete.");
+            Console.ReadLine();
         }
 
         static void EnumerateEndpoints(MMDeviceEnumerator enumerator, DataFlow dataFlow)
         {
-            try
+            var devices = enumerator.EnumerateAudioEndPoints(dataFlow, DeviceState.All);
+            int count = 0;
+            foreach (var device in devices)
             {
-                var endpoints = enumerator.EnumerateAudioEndPoints(dataFlow, DeviceState.All);
-                int count = 0;
-                foreach (var endpoint in endpoints)
+                if (device.FriendlyName.Contains("Leyline") || device.DeviceInterfaceFriendlyName.Contains("Leyline"))
                 {
-                    bool isLeyline = endpoint.FriendlyName.Contains("Leyline") || endpoint.FriendlyName.Contains("Slategray");
-                    
-                    if (isLeyline || argsContains("-all"))
-                    {
-                        Console.WriteLine($"[{endpoint.State}] {endpoint.FriendlyName}");
-                        Console.WriteLine($"  ID: {endpoint.ID}");
-                        try {
-                            Console.WriteLine($"  Format: {endpoint.AudioClient?.MixFormat}");
-                        } catch (Exception ex) {
-                            Console.WriteLine($"  Format Error: {ex.Message}");
-                        }
-                        count++;
-                    }
-                }
-                
-                if (count == 0)
-                {
-                    Console.WriteLine($"No Leyline {dataFlow} endpoints found. Device might be hidden, failed to bind Category, or KS topology is disjoint.");
+                    Console.WriteLine($"[FOUND] {device.FriendlyName} ({device.State})");
+                    Console.WriteLine($"        ID: {device.ID}");
+                    count++;
                 }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to enumerate {dataFlow}: {ex.Message}");
-            }
-        }
 
-        static bool argsContains(string arg)
-        {
-            return Environment.GetCommandLineArgs().Contains(arg);
+            if (count == 0)
+            {
+                Console.WriteLine("        No Leyline endpoints found.");
+            }
         }
     }
 }
+

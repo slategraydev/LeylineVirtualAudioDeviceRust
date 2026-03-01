@@ -3,20 +3,17 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // WAVERT MINIPORT & COM INTERFACES
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// Core imports.
 use alloc::boxed::Box;
 use core::mem::size_of;
 use core::ptr::null_mut;
 
-// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Local modules.
 use crate::adapter::{DeviceExtension, MiniportWaveRTStreamCom};
 use crate::constants::*;
 use crate::descriptors::*;
@@ -58,7 +55,7 @@ impl MiniportWaveRT {
         STATUS_SUCCESS
     }
 
-    /// Creates a new WaveRT stream.
+    /// Create a new WaveRT stream instance.
     pub unsafe fn new_stream(
         &mut self,
         _pin_id: u32,
@@ -186,7 +183,7 @@ impl MiniportWaveRTCom {
         })
     }
 
-    /// Recovers the base MiniportWaveRTCom pointer from any of its interface pointers.
+    /// Recover the base MiniportWaveRTCom pointer from any of its interface pointers.
     ///
     /// # Safety
     /// 'this' must be a valid pointer to one of the VTable fields in MiniportWaveRTCom.
@@ -211,9 +208,9 @@ impl MiniportWaveRTCom {
     }
 }
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Miniport VTable Callbacks
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // SAFETY: Standard COM QueryInterface.
 // 'this' is a pointer to the interface (which is a pointer to the vtable).
@@ -643,3 +640,4 @@ pub unsafe extern "system" fn wavert_get_read_packet(
     DbgPrint(c"LeylineWaveRT: GetReadPacket\n".as_ptr());
     STATUS_NOT_IMPLEMENTED
 }
+

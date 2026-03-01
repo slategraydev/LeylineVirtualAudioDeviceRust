@@ -1,9 +1,9 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // SHARED RING BUFFER IMPLEMENTATION
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// A single byte is reserved to distinguish between full and empty states.
 const RESERVED_BYTE: usize = 1;
@@ -184,3 +184,4 @@ mod tests {
         assert_eq!(final_buf, [6, 7, 8, 9, 10, 11, 12, 13]);
     }
 }
+

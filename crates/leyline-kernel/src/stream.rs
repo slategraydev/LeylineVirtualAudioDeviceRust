@@ -1,28 +1,24 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // WAVERT STREAMING & BUFFER MANAGEMENT
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #![allow(non_camel_case_types)]
 
-// First std/core/alloc.
 use alloc::boxed::Box;
 use core::mem::zeroed;
 use core::ptr::null_mut;
 
-// Second, external crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Then current crate.
 use crate::adapter::DeviceExtension;
 
-// Use bindings from lib.rs to avoid type duplication
 use crate::audio_bindings as audio;
 
-// Explicitly re-export only what we need from audio.
+// Re-export specific audio types.
 #[allow(non_camel_case_types)]
 pub type PCFILTER_DESCRIPTOR = audio::PCFILTER_DESCRIPTOR;
 #[allow(non_camel_case_types)]
@@ -48,13 +44,12 @@ pub type PCPROPERTY_ITEM = audio::PCPROPERTY_ITEM;
 #[allow(non_camel_case_types)]
 pub type PPCPROPERTY_REQUEST = audio::PPCPROPERTY_REQUEST;
 
-// WaveRT Constants.
 pub const KSSTATE_RUN: i32 = audio::KSSTATE_KSSTATE_RUN;
 pub const KSSTATE_STOP: i32 = audio::KSSTATE_KSSTATE_STOP;
 
-// ===========================================================================
-// WaveRT Struct Definitions
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// WAVERT STRUCT DEFINITIONS
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #[repr(C)]
 #[allow(non_snake_case)]
@@ -127,7 +122,7 @@ pub struct MiniportWaveRTStream {
 }
 
 impl MiniportWaveRTStream {
-    /// Creates a new MiniportWaveRTStream.
+    /// Create a new MiniportWaveRTStream instance.
     ///
     /// # Safety
     /// The provided format pointer must be valid for the duration of the stream's lifetime.
@@ -170,7 +165,7 @@ impl MiniportWaveRTStream {
         STATUS_SUCCESS
     }
 
-    /// Retrieves the current audio position.
+    /// Retrieve the current play/record position.
     ///
     /// # Safety
     /// The provided position pointer must be a valid pointer to a u64.
@@ -200,7 +195,7 @@ impl MiniportWaveRTStream {
         STATUS_SUCCESS
     }
 
-    /// Allocates the audio buffer for WaveRT streaming.
+    /// Allocate the audio buffer for WaveRT streaming.
     ///
     /// # Safety
     /// The provided out_mdl must be a valid pointer to a PMDL.
@@ -268,7 +263,7 @@ impl MiniportWaveRTStream {
         STATUS_SUCCESS
     }
 
-    /// Retrieves the hardware latency.
+    /// Retrieve the hardware-specific latency.
     ///
     /// # Safety
     /// The provided latency pointer must be a valid pointer to a u32.
@@ -292,3 +287,4 @@ impl Drop for MiniportWaveRTStream {
         }
     }
 }
+

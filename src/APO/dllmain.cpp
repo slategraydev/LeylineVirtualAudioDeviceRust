@@ -15,9 +15,9 @@ HMODULE g_hModule = nullptr;
 DEFINE_GUID(CLSID_LeylineAPO, 0xc8d3e4f5, 0xb6a7, 0x4a2d, 0xa1, 0xa3, 0x1a,
             0x2b, 0x3c, 0x4d, 0x5e, 0x6f);
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // CAPOClassFactory
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 namespace audio_apo {
 class CAPOClassFactory : public IClassFactory {
  public:
@@ -62,9 +62,9 @@ class CAPOClassFactory : public IClassFactory {
 
 }  // namespace audio_apo
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // DLL Entry Points
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 using namespace audio_apo;
 
@@ -94,3 +94,4 @@ STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid,
 }
 
 __control_entrypoint(DllExport) STDAPI DllCanUnloadNow(void) { return S_OK; }
+

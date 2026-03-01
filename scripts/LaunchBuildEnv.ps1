@@ -56,3 +56,4 @@ if ($st) { $env:SIGNTOOL_EXE = $st.FullName }
 if ($ic) { $env:INF2CAT_EXE = $ic.FullName }
 
 Write-Host "[SUCCESS] Environment Set. SignTool=$env:SIGNTOOL_EXE" -ForegroundColor Green
+

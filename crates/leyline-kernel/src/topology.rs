@@ -2,20 +2,17 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // TOPOLOGY MINIPORT & AUDIO ENDPOINT ROUTING
-// ===========================================================================
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// Core imports.
 use alloc::boxed::Box;
 use core::mem::size_of;
 use core::ptr::null_mut;
 
-// External crates.
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-// Local modules.
 use crate::constants::*;
 use crate::descriptors::*;
 use crate::stream::PCFILTER_DESCRIPTOR;
@@ -114,7 +111,7 @@ impl MiniportTopologyCom {
         })
     }
 
-    /// Recovers the base MiniportTopologyCom pointer from any of its interface pointers.
+    /// Recover the base MiniportTopologyCom pointer from any of its interface pointers.
     ///
     /// # Safety
     /// 'this' must be a valid pointer to one of the VTable fields in MiniportTopologyCom.
@@ -236,7 +233,7 @@ pub unsafe extern "system" fn topology_remove_resource(
 
 // ... existing code ...
 
-/// PinCount callback for Topology miniport.
+/// Retrieve the pin count for the topology miniport.
 pub unsafe extern "system" fn topology_pin_count(
     this: *mut u8,
     pin_id: u32,
@@ -288,7 +285,7 @@ struct KSP_PIN {
     pub Reserved: u32, // Union with Flags
 }
 
-/// GetPinName callback for Topology miniport.
+/// Retrieve the pin name for the topology miniport.
 pub unsafe extern "system" fn topology_get_pin_name(
     this: *mut u8,
     _irp: *mut u8,
@@ -353,7 +350,7 @@ pub unsafe extern "system" fn topology_get_pin_name(
     STATUS_SUCCESS
 }
 
-/// AddRef callback for Topology miniport.
+/// Increment the reference count for the topology object.
 ///
 /// # Safety
 /// Standard COM-like AddRef. Parameters must be valid pointers.
@@ -363,7 +360,7 @@ pub unsafe extern "system" fn topology_add_ref(this: *mut u8) -> u32 {
     (*com_obj).ref_count
 }
 
-/// Release callback for Topology miniport.
+/// Decrement the reference count and free the topology object if zero.
 ///
 /// # Safety
 /// Standard COM-like Release. Parameters must be valid pointers.
@@ -377,7 +374,7 @@ pub unsafe extern "system" fn topology_release(this: *mut u8) -> u32 {
     count
 }
 
-/// GetDescription callback for Topology miniport.
+/// Retrieve the filter descriptor for the topology miniport.
 ///
 /// # Safety
 /// Standard PortCls callback. Parameters must be valid pointers.
@@ -410,7 +407,7 @@ pub unsafe extern "system" fn topology_get_description(
     STATUS_SUCCESS
 }
 
-/// DataRangeIntersection callback for Topology miniport.
+/// Determine the intersection of two data ranges.
 ///
 /// # Safety
 /// Standard PortCls callback. Parameters must be valid pointers.
@@ -486,7 +483,7 @@ pub unsafe extern "system" fn topology_data_range_intersection(
     STATUS_SUCCESS
 }
 
-/// Init callback for Topology miniport.
+/// Initialize the topology miniport instance.
 ///
 /// # Safety
 /// Standard PortCls callback. Parameters must be valid pointers.
@@ -520,3 +517,4 @@ pub unsafe extern "system" fn topology_init(
 
     status
 }
+

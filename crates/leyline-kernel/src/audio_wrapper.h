@@ -4,7 +4,7 @@
 #ifndef AUDIO_WRAPPER_H
 #define AUDIO_WRAPPER_H
 
-// Ensure kernel mode definitions
+// Ensure kernel mode definitions.
 #ifndef _AMD64_
 #define _AMD64_
 #endif
@@ -15,3 +15,4 @@
 #include <ksmedia.h>
 
 #endif // AUDIO_WRAPPER_H
+

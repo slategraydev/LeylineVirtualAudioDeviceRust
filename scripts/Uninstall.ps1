@@ -7,3 +7,4 @@ param (
 
 Write-Host "[*] Triggering Consolidated VM Uninstall..." -ForegroundColor Cyan
 & "$PSScriptRoot\Install.ps1" -Uninstall -VMName $VMName
+
