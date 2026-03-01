@@ -4,7 +4,7 @@ A high-performance, native Rust WaveRT virtual audio driver for Windows. This im
 
 ## Current Status
 
-The core adapter logic is stable, and the driver registers with `PortCls` as expected. The build system now automatically packages the Kernel Driver, C++ APO, and C# HSA into a unified installer.
+The core adapter logic is stable, and the driver registers with `PortCls` as expected. However, the `Audio Endpoint Builder` is currently not enumerating the endpoints. This is pretty weird as my C++ implementation initializes correctly in the same environment. Currently looking into this.
 
 ## Project Layout
 
