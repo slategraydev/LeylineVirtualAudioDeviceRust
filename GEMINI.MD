@@ -8,24 +8,25 @@
 ## Current Status: Phase 2 (Endpoint Visibility)
 
 ### Status Summary
-The driver installs. PortCls initializes. WaveRT filters register correctly. The Audio Endpoint Builder (AEB) currently fails to enumerate endpoints on Hyper-V. This is likely a constraint of the headless VM environment or an omission in the INF policy. Investigation is ongoing.
+The driver installs and PortCls initializes successfully. All source files have undergone a full documentation audit to meet 'Sleepy Architect' standards, and all compiler warnings have been resolved. The Audio Endpoint Builder (AEB) currently fails to enumerate endpoints on Hyper-V; investigation into missing `PKEY` properties and INF policy overrides is the primary focus.
 
 ### Completed
 - **Kernel Core**: DriverEntry and PcInitializeAdapterDriver are functional.
 - **WaveRT Registration**: StartDevice successfully registers the streaming filter.
 - **Topology**: Port, bridge pins, and internal routing are defined.
 - **Binary Integrity**: Subsystem 1 (Native) is enforced for all kernel binaries.
-- **Environment**: Build containment is established via eWDK and LaunchBuildEnv.ps1.
-- **Documentation Audit**: Full project source (Kernel, Shared, APO, HSA) updated to 'Sleepy Architect' standards.
+- **Environment**: Build containment established via eWDK and LaunchBuildEnv.ps1.
+- **Documentation Audit**: Full project source (Kernel, Shared, APO, HSA) and README.md updated to 'Sleepy Architect' standards.
+- **Warning Resolution**: Zero-warning state achieved across all Rust crates.
 - **Modularization**: Descriptor structures refactored into dedicated modules (common, render, capture).
 - **Diagnostics**: Integrated ETW provider registration for kernel-mode tracing.
 - **Control**: Implemented Control Device Object (CDO) dispatchers for custom IOCTL handling.
-- **IP Protection**: Standardized headers are applied to all source files.
+- **IP Protection**: Standardized headers applied to all source files.
 
 ### In Progress
+- **Endpoint Visibility**: Diagnosing why AEB ignores the topology on Hyper-V.
 - **Trait Implementation**: Mapping foundational structures to wdk traits.
 - **HSA Integration**: Development of the WinUI 3 Hardware Support App bridge.
-- **User Documentation**: Updating README.md with detailed project narrative.
 
 ---
 
