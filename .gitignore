@@ -60,3 +60,4 @@ crates/leyline-kernel/src/audio_bindings.rs
 # Agent
 .agent/
 references/
+tasks/

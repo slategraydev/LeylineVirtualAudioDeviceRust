@@ -1,6 +1,6 @@
 # Leyline Audio Driver
 
-A native Rust WaveRT virtual audio device. It is currently in Phase 2. The code is technically sound, but the Windows Audio stack is being difficult.
+A native Rust WaveRT virtual audio device. The code is technically sound (in my opinion), but the Windows Audio stack is being difficult.
 
 ## Current Status
 

@@ -16,11 +16,16 @@ The driver installs. PortCls initializes. WaveRT filters register correctly. The
 - **Topology**: Port, bridge pins, and internal routing are defined.
 - **Binary Integrity**: Subsystem 1 (Native) is enforced for all kernel binaries.
 - **Environment**: Build containment is established via eWDK and LaunchBuildEnv.ps1.
+- **Documentation Audit**: Full project source (Kernel, Shared, APO, HSA) updated to 'Sleepy Architect' standards.
+- **Modularization**: Descriptor structures refactored into dedicated modules (common, render, capture).
+- **Diagnostics**: Integrated ETW provider registration for kernel-mode tracing.
+- **Control**: Implemented Control Device Object (CDO) dispatchers for custom IOCTL handling.
 - **IP Protection**: Standardized headers are applied to all source files.
 
 ### In Progress
 - **Trait Implementation**: Mapping foundational structures to wdk traits.
 - **HSA Integration**: Development of the WinUI 3 Hardware Support App bridge.
+- **User Documentation**: Updating README.md with detailed project narrative.
 
 ---
 
@@ -76,4 +81,4 @@ The objective is a production-grade WaveRT virtual audio driver.
 - [Low Latency Audio Guidelines](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/low-latency-audio)
 
 ---
-**Last Updated**: February 23, 2026
+**Last Updated**: February 28, 2026
