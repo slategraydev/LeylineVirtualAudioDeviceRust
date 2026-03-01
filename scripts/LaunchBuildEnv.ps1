@@ -1,4 +1,11 @@
-# Leyline Audio: BUILD ENVIRONMENT SETUP
+# Copyright (c) 2026 Randall Rosas (Slategray).
+# All rights reserved.
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# BUILD ENVIRONMENT SETUP
+# Initializes eWDK and Rust environment variables for the current session.
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 $ErrorActionPreference = "Stop"
 
 # Use environment variable if set, otherwise try common locations
@@ -56,4 +63,3 @@ if ($st) { $env:SIGNTOOL_EXE = $st.FullName }
 if ($ic) { $env:INF2CAT_EXE = $ic.FullName }
 
 Write-Host "[SUCCESS] Environment Set. SignTool=$env:SIGNTOOL_EXE" -ForegroundColor Green
-

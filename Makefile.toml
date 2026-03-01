@@ -1,20 +1,52 @@
 [config]
 skip_core_tasks = true
 
-[tasks.build]
-description = "Build all components (Kernel, APO, HSA)"
+[tasks.build-kernel]
+description = "Build the Kernel driver (Rust)"
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
-    ".\\scripts\\Install.ps1 -build"
+    ".\\scripts\\LaunchBuildEnv.ps1",
+    "cd crates/leyline-kernel",
+    "cargo wdk build --profile release"
 ]
+
+[tasks.build-apo]
+description = "Build the Audio Processing Object (C++)"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\LaunchBuildEnv.ps1",
+    "cd src/APO",
+    "nmake /nologo"
+]
+
+[tasks.build-hsa]
+description = "Build the Hardware Support App (C#)"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    "dotnet build src/HSA/LeylineHSA.csproj -c Release"
+]
+
+[tasks.build]
+description = "Build all components (Kernel, APO, HSA) via Install script"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\Install.ps1 -fast"
+]
+
+[tasks.build-all]
+description = "Build all components individually"
+dependencies = ["build-kernel", "build-apo", "build-hsa"]
 
 [tasks.package]
 description = "Build and Package the driver"
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
-    ".\\scripts\\Install.ps1 -build -package"
+    ".\\scripts\\Install.ps1 -fast"
 ]
 
 [tasks.install]

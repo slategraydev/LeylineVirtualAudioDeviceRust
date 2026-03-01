@@ -16,6 +16,7 @@ PnpLockdown = 1
 
 [SourceDisksFiles]
 leyline.sys    = 222
+LeylineAPO.dll = 222
 
 [SignatureAttributes]
 leyline.sys = SignatureAttributes.DRM
@@ -28,9 +29,11 @@ DRMLevel = 1300
 
 [Standard.NT$ARCH$.10.0...17763]
 %DeviceName% = Leyline_Device, ROOT\MEDIA\LeylineAudio
+%HSADeviceName% = Leyline_HSA, SWC\LeylineAudioHSA
 
 [DestinationDirs]
 Leyline_Device.CopyList = 13
+Leyline_APO.CopyList = 11
 
 ; ===========================================================================
 ; Leyline_Device
@@ -38,8 +41,17 @@ Leyline_Device.CopyList = 13
 [Leyline_Device.NT]
 Include=ks.inf,wdmaudio.inf
 Needs=KS.Registration, WDMAUDIO.Registration
-CopyFiles = Leyline_Device.CopyList
+CopyFiles = Leyline_Device.CopyList, Leyline_APO.CopyList
 AddReg    = Leyline_Device.AddReg
+
+[Leyline_Device.NT.HW]
+AddReg = Leyline_Device.HW.AddReg
+
+[Leyline_Device.HW.AddReg]
+HKR,,SoftwareComponents,0x00010008,Leyline_HSA_Component
+
+[Leyline_HSA_Component]
+ComponentId = SWC\LeylineAudioHSA
 
 [Leyline_Device.NT.Interfaces]
 AddInterface=%KSCATEGORY_AUDIO%, %KSNAME_WaveRender%, Leyline.I.WaveRender
@@ -57,6 +69,9 @@ AddInterface=%KSCATEGORY_TOPOLOGY%, %KSNAME_TopologyCapture%, Leyline.I.Topology
 [Leyline_Device.CopyList]
 leyline.sys
 
+[Leyline_APO.CopyList]
+LeylineAPO.dll
+
 [Leyline_Device.AddReg]
 HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
 HKR,,Driver,,leyline.sys
@@ -68,6 +83,10 @@ HKR,Drivers\wave\wdmaud.drv,Description,,%DeviceName%
 HKR,,CLSID,,%Proxy.CLSID%
 HKR,,FriendlyName,,%DeviceNameRender%
 HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, FE,FF,02,00, 80,BB,00,00, 00,EE,02,00, 04,00, 10,00, 16,00, 10,00, 03,00,00,00, 01,00,00,00, 00,00,10,00, 80,00,00,AA,00,38,9B,71
+; APO Registration
+HKR,"FX\0",%PKEY_FX_StreamEffectClsid%,,%CLSID_LeylineAPO%
+HKR,"FX\0",%PKEY_FX_ModeEffectClsid%,,%CLSID_LeylineAPO%
+HKR,"FX\0",%PKEY_FX_EndpointEffectClsid%,,%CLSID_LeylineAPO%
 
 [Leyline.I.TopologyRender.AddReg]
 HKR,,CLSID,,%Proxy.CLSID%
@@ -113,16 +132,27 @@ StartType     = 3
 ErrorControl  = 1
 ServiceBinary = %13%\leyline.sys
 
+; ===========================================================================
+; HSA Software Component
+; ===========================================================================
+[Leyline_HSA.NT]
+; Placeholder for HSA association
+
+[Leyline_HSA.NT.Services]
+AddService = , 0x00000002
+
 [Strings]
 ManufacturerName = "Randall Rosas (Slategray)"
 DiskName         = "Leyline Audio Installation Disk"
 DeviceName       = "Leyline Audio Virtual Adapter"
+HSADeviceName    = "Leyline Audio Hardware Support"
 DeviceNameRender = "Leyline Output"
 DeviceNameCapture= "Leyline Input"
 ServiceDesc      = "Leyline Audio Driver Service"
 
 ; GUIDs
 Proxy.CLSID        = "{17CCA71B-ECD7-11D0-B908-00A0C9223196}"
+CLSID_LeylineAPO   = "{C8D3E4F5-B6A7-4A2D-A1A3-1A2B3C4D5E6F}"
 KSCATEGORY_AUDIO   = "{6994AD04-93EF-11D0-A3CC-00A0C9223196}"
 KSCATEGORY_RENDER  = "{65E8773E-8F56-11D0-A3B9-00A0C9223196}"
 KSCATEGORY_CAPTURE = "{65E8773D-8F56-11D0-A3B9-00A0C9223196}"
@@ -136,6 +166,9 @@ KSNAME_TopologyRender = "Topo"
 KSNAME_TopologyCapture= "TopoC"
 
 ; Property Keys
+PKEY_FX_StreamEffectClsid   = "{D04E05A6-161B-4A6E-BD20-DC24B36B2154},5"
+PKEY_FX_ModeEffectClsid     = "{D04E05A6-161B-4A6E-BD20-DC24B36B2154},6"
+PKEY_FX_EndpointEffectClsid = "{D04E05A6-161B-4A6E-BD20-DC24B36B2154},7"
 PKEY_AudioEndpoint_Association = "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},2"
 PKEY_AudioEndpoint_FormFactor  = "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},0"
 PKEY_AudioDevice_EnableEndpointByDefault = "{F3E80BEF-1723-4FF2-BCC4-7F83DC5E46D4},4"
