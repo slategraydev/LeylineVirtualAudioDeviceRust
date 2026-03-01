@@ -59,7 +59,7 @@ Physical connections are defined to establish valid signal paths:
 - `WaveRender (pin 1)` → `TopologyRender (pin 0)`
 - `TopologyCapture (pin 1)` → `WaveCapture (pin 1)`
 
-## Building
+## Building & Deployment
 
 ### Prerequisites
 
@@ -68,26 +68,83 @@ Physical connections are defined to establish valid signal paths:
 - **Rust Toolchain** 1.75+ (no_std) with `cargo-make` installed.
 - A Hyper-V VM named `LeylineTestVM` (for automated deployment testing).
 
-### Quick Start
+### Quick Start (Scripts)
+
+The quickest way to build and deploy is using the provided PowerShell scripts. These handle environment initialization, certificate generation, and VM orchestration.
 
 ```powershell
-# Setup the environment (eWDK + Rust)
+# 1. Initialize the build environment (Run once per session)
 .\scripts\LaunchBuildEnv.ps1
 
-# Full build + deploy to local machine
-cargo make install
+# 2. Build, package, and install to the target VM
+.\scripts\Install.ps1
 
-# Build only (all components)
-cargo make build
+# 3. Clean build (force re-build of all components)
+.\scripts\Install.ps1 -clean
 
-# Clean rebuild
-cargo make clean
-
-# Run endpoint verification
-cargo make test-endpoints
+# 4. Uninstall from target VM
+.\scripts\Uninstall.ps1
 ```
 
-### Environment Variables
+### Manual Build (No Scripts)
+
+For granular control or debugging, you can build and deploy components individually without using the helper scripts.
+
+#### 1. Environment Setup
+You must manually set up the eWDK environment variables to use `cl.exe`, `link.exe`, and `cargo-wdk`.
+```powershell
+# Note: LaunchBuildEnv.ps1 is still recommended for this step
+.\scripts\LaunchBuildEnv.ps1
+```
+
+#### 2. Component Builds
+
+**Kernel-Mode Driver (Rust):**
+```powershell
+cd crates/leyline-kernel
+cargo wdk build --profile release
+```
+*Artifacts are located in `target/release/leyline_package/`.*
+
+**Audio Processing Object (APO - C++):**
+```powershell
+cd src/APO
+midl /nologo /header LeylineAPO_h.h LeylineAPO.idl
+cl /nologo /W4 /Zi /O2 /EHa /D_USRDLL /D_WINDLL /c LeylineAPO.cpp dllmain.cpp
+link /nologo /dll /def:LeylineAPO.def /out:LeylineAPO.dll LeylineAPO.obj dllmain.obj user32.lib ole32.lib oleaut32.lib
+```
+
+**Hardware Support App (HSA - C#):**
+```powershell
+dotnet build src/HSA/LeylineHSA.csproj -c Release
+```
+
+#### 3. Packaging & Signing
+The driver requires a valid signature to load.
+```powershell
+# Sign the driver binary and catalog
+signtool sign /f leyline.pfx /p "leyline" /fd SHA256 package/leyline.sys
+signtool sign /f leyline.pfx /p "leyline" /fd SHA256 package/leyline.cat
+```
+
+#### 4. Manual Installation
+On the target machine, run the following as Administrator:
+```powershell
+# 1. Trust the test certificate
+certutil -addstore -f root leyline.cer
+certutil -addstore -f TrustedPublisher leyline.cer
+
+# 2. Install the driver
+pnputil /add-driver leyline.inf /install
+devcon update leyline.inf "ROOT\MEDIA\LeylineAudio"
+
+# 3. Restart audio services
+Restart-Service AudioEndpointBuilder
+Restart-Service Audiosrv
+```
+
+## Environment Variables
+
 
 | Variable              | Default            | Description                        |
 |-----------------------|--------------------|------------------------------------|
