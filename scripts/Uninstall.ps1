@@ -2,7 +2,7 @@
 # Logic: Remote Scrub of LeylineTestVM ONLY
 
 param (
-    [string]$VMName = ($env:LEYLINE_VM_NAME -or "LeylineTestVM")
+    [string]$VMName = $(if ($env:LEYLINE_VM_NAME) { $env:LEYLINE_VM_NAME } else { "TestVM" })
 )
 
 Write-Host "[*] Triggering Consolidated VM Uninstall..." -ForegroundColor Cyan

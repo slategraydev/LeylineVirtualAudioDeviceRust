@@ -41,20 +41,7 @@ Needs=KS.Registration, WDMAUDIO.Registration
 CopyFiles = Leyline_Device.CopyList
 AddReg    = Leyline_Device.AddReg
 
-[Leyline_Device.CopyList]
-leyline.sys
-
-[Leyline_Device.AddReg]
-HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
-HKR,,Driver,,leyline.sys
-HKR,Drivers,SubClasses,,"wave"
-HKR,Drivers\wave\wdmaud.drv,Driver,,wdmaud.drv
-HKR,Drivers\wave\wdmaud.drv,Description,,%DeviceName%
-
-; ===========================================================================
-; Interfaces
-; ===========================================================================
-[Leyline_Device.Interfaces]
+[Leyline_Device.NT.Interfaces]
 AddInterface=%KSCATEGORY_AUDIO%, %KSNAME_WaveRender%, Leyline.I.WaveRender
 AddInterface=%KSCATEGORY_RENDER%, %KSNAME_WaveRender%, Leyline.I.WaveRender
 AddInterface=%KSCATEGORY_REALTIME%, %KSNAME_WaveRender%, Leyline.I.WaveRender
@@ -67,6 +54,16 @@ AddInterface=%KSCATEGORY_REALTIME%, %KSNAME_WaveCapture%, Leyline.I.WaveCapture
 AddInterface=%KSCATEGORY_AUDIO%, %KSNAME_TopologyCapture%, Leyline.I.TopologyCapture
 AddInterface=%KSCATEGORY_TOPOLOGY%, %KSNAME_TopologyCapture%, Leyline.I.TopologyCapture
 
+[Leyline_Device.CopyList]
+leyline.sys
+
+[Leyline_Device.AddReg]
+HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
+HKR,,Driver,,leyline.sys
+HKR,Drivers,SubClasses,,"wave"
+HKR,Drivers\wave\wdmaud.drv,Driver,,wdmaud.drv
+HKR,Drivers\wave\wdmaud.drv,Description,,%DeviceName%
+
 [Leyline.I.WaveRender.AddReg]
 HKR,,CLSID,,%Proxy.CLSID%
 HKR,,FriendlyName,,%DeviceNameRender%
@@ -76,6 +73,7 @@ HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, FE,FF,02,00, 80,BB,00
 HKR,,CLSID,,%Proxy.CLSID%
 HKR,,FriendlyName,,%DeviceNameRender%
 HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_SPEAKER%
+HKR,EP\0,%PKEY_AudioEndpoint_FormFactor%,0x00010001,0x00000001
 HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000001
 
 [Leyline.I.WaveCapture.AddReg]
@@ -87,6 +85,7 @@ HKR,,%PKEY_AudioEngine_OEMFormat%,0x00000001, 28,00,00,00, FE,FF,02,00, 80,BB,00
 HKR,,CLSID,,%Proxy.CLSID%
 HKR,,FriendlyName,,%DeviceNameCapture%
 HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_MICROPHONE%
+HKR,EP\0,%PKEY_AudioEndpoint_FormFactor%,0x00010001,0x00000007
 HKR,,%PKEY_AudioDevice_EnableEndpointByDefault%,0x00010001,0x00000002
 
 [Leyline.I.WaveRender]
@@ -131,15 +130,17 @@ KSCATEGORY_TOPOLOGY= "{DDA54A40-1E4C-11D1-A050-405705C10000}"
 KSCATEGORY_REALTIME= "{EB115FFC-10C8-4964-831D-6DCB02E6F23F}"
 
 ; Names (Must match adapter.rs exactly)
-KSNAME_WaveRender     = "WaveRender"
-KSNAME_WaveCapture    = "WaveCapture"
-KSNAME_TopologyRender = "TopologyRender"
-KSNAME_TopologyCapture= "TopologyCapture"
+KSNAME_WaveRender     = "Wave"
+KSNAME_WaveCapture    = "WaveC"
+KSNAME_TopologyRender = "Topo"
+KSNAME_TopologyCapture= "TopoC"
 
 ; Property Keys
 PKEY_AudioEndpoint_Association = "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},2"
+PKEY_AudioEndpoint_FormFactor  = "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},0"
 PKEY_AudioDevice_EnableEndpointByDefault = "{F3E80BEF-1723-4FF2-BCC4-7F83DC5E46D4},4"
 PKEY_AudioEngine_OEMFormat = "{E4870E26-3CC5-4CD2-BA46-CA0A9A70ED04},3"
+PKEY_AudioEndpoint_ControlPanelPageProvider = "{8303040f-d039-4e91-B90a-990280b35631},0"
 
 ; Nodes
 KSNODETYPE_SPEAKER     = "{DFF21CE1-F70F-11D0-B917-00A0C9223196}"

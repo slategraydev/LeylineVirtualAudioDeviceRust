@@ -152,8 +152,8 @@ pub unsafe extern "C" fn StartDevice(
     let dev_ext = get_device_extension(device_object);
     DbgPrint(c"Leyline: StartDevice (FDO: %p)\n".as_ptr(), device_object);
 
-    // --- WaveRender Registration ---
-    DbgPrint(c"Leyline: Registering WaveRender Port\n".as_ptr());
+    // --- Wave Registration ---
+    DbgPrint(c"Leyline: Registering Wave Port\n".as_ptr());
     let mut render_port: *mut u8 = null_mut();
     status = PcNewPort(&mut render_port, &CLSID_PortWaveRT);
     if status != STATUS_SUCCESS {
@@ -189,8 +189,8 @@ pub unsafe extern "C" fn StartDevice(
         return status;
     }
 
-    let mut wave_render_name_buffer = [0u16; 11];
-    let wave_render_name_str = "WaveRender";
+    let mut wave_render_name_buffer = [0u16; 5];
+    let wave_render_name_str = "Wave";
     for (i, c) in wave_render_name_str.encode_utf16().enumerate() {
         wave_render_name_buffer[i] = c;
     }
@@ -198,10 +198,10 @@ pub unsafe extern "C" fn StartDevice(
     if status != STATUS_SUCCESS {
         return status;
     }
-    DbgPrint(c"Leyline: WaveRender Subdevice Registered\n".as_ptr());
+    DbgPrint(c"Leyline: Wave Subdevice Registered\n".as_ptr());
 
     // --- WaveCapture Registration ---
-    DbgPrint(c"Leyline: Registering WaveCapture Port\n".as_ptr());
+    DbgPrint(c"Leyline: Registering WaveC Port\n".as_ptr());
     let mut capture_port: *mut u8 = null_mut();
     status = PcNewPort(&mut capture_port, &CLSID_PortWaveRT);
     if status != STATUS_SUCCESS {
@@ -228,8 +228,8 @@ pub unsafe extern "C" fn StartDevice(
         return status;
     }
 
-    let mut wave_capture_name_buffer = [0u16; 12];
-    let wave_capture_name_str = "WaveCapture";
+    let mut wave_capture_name_buffer = [0u16; 6];
+    let wave_capture_name_str = "WaveC";
     for (i, c) in wave_capture_name_str.encode_utf16().enumerate() {
         wave_capture_name_buffer[i] = c;
     }
@@ -239,115 +239,63 @@ pub unsafe extern "C" fn StartDevice(
         capture_port,
     );
     if status != STATUS_SUCCESS {
-        DbgPrint(c"Leyline: PcRegisterSubdevice(WaveCapture) Failed\n".as_ptr());
+        DbgPrint(c"Leyline: PcRegisterSubdevice(WaveC) Failed\n".as_ptr());
         return status;
     }
-    DbgPrint(c"Leyline: WaveCapture Subdevice Registered\n".as_ptr());
+    DbgPrint(c"Leyline: WaveC Subdevice Registered\n".as_ptr());
 
-    // --- Topology Registration (Render Only for Diagnosis) ---
-    DbgPrint(c"Leyline: Registering TopologyRender Port\n".as_ptr());
-    DbgPrint(c"Leyline: About to call PcNewPort with CLSID_PortTopology\n".as_ptr());
+    // --- Topology Registration ---
+    DbgPrint(c"Leyline: Registering Topo Port\n".as_ptr());
     let mut render_topo_port: *mut u8 = null_mut();
     status = PcNewPort(&mut render_topo_port, &CLSID_PortTopology);
     if status != STATUS_SUCCESS {
-        DbgPrint(c"Leyline: PcNewPort(TopologyRender) FAILED\n".as_ptr());
-        // Status 0xC00002B9 = STATUS_REQUEST_NOT_ACCEPTED
-        // This typically means PortCls rejected the creation request
-        if status == 0xC00002B9u32 as i32 {
-            DbgPrint(c"Leyline: ERROR - STATUS_REQUEST_NOT_ACCEPTED (0xC00002B9)\n".as_ptr());
-            DbgPrint(c"Leyline: Possible causes:\n".as_ptr());
-            DbgPrint(c"Leyline:   - Invalid/malformed miniport descriptor\n".as_ptr());
-            DbgPrint(c"Leyline:   - Missing interface support in miniport\n".as_ptr());
-            DbgPrint(c"Leyline:   - PortCls unable to initialize topology port\n".as_ptr());
-        }
         return status;
     }
-    DbgPrint(c"Leyline: PcNewPort(TopologyRender) SUCCESS\n".as_ptr());
 
-    let topo_miniport_com = MiniportTopologyCom::new(false); // false = Render
+    let topo_miniport_com = MiniportTopologyCom::new(false);
     let topo_miniport_ptr = Box::into_raw(topo_miniport_com) as *mut u8;
     (*dev_ext).render_topo_miniport = topo_miniport_ptr as *mut MiniportTopologyCom;
 
     let vtable = *(render_topo_port as *const *const *const u8);
-    // IPortTopology inherits IPort. IPortTopology inherits IUnknown. Init is index 3.
     let init_ptr = *vtable.add(3);
-    let init_fn: PortInitFn = core::mem::transmute(init_ptr);
+    let topo_init_fn: PortInitFn = core::mem::transmute(init_ptr);
 
-    DbgPrint(c"Leyline: Calling TopologyRender::Init\n".as_ptr());
-    DbgPrint(c"Leyline: Init function pointer acquired from vtable[3]\n".as_ptr());
-
-    // Validate miniport pointer before passing
-    if topo_miniport_ptr.is_null() {
-        DbgPrint(c"Leyline: ERROR - topo_miniport_ptr is NULL!\n".as_ptr());
-        return STATUS_INVALID_PARAMETER;
-    }
-    DbgPrint(c"Leyline: Miniport pointer is valid\n".as_ptr());
-
-    status = init_fn(
+    status = topo_init_fn(
         render_topo_port,
         device_object,
         _irp,
         topo_miniport_ptr,
         null_mut(),
-        null_mut(), // Topology doesn't need hardware resources
+        null_mut(),
     );
     if status != STATUS_SUCCESS {
-        DbgPrint(c"Leyline: TopologyRender::Init FAILED\n".as_ptr());
-        if status == 0xC00002B9u32 as i32 {
-            DbgPrint(c"Leyline: ERROR - STATUS_REQUEST_NOT_ACCEPTED during Init\n".as_ptr());
-            DbgPrint(c"Leyline: The miniport rejected the initialization request\n".as_ptr());
-            DbgPrint(c"Leyline: Check DbgPrint output from topology miniport above\n".as_ptr());
-        }
         return status;
     }
-    DbgPrint(c"Leyline: TopologyRender::Init SUCCESS\n".as_ptr());
 
-    let mut topo_render_name_buffer = [0u16; 15];
-    let topo_render_name_str = "TopologyRender";
+    let mut topo_render_name_buffer = [0u16; 5];
+    let topo_render_name_str = "Topo";
     for (i, c) in topo_render_name_str.encode_utf16().enumerate() {
         topo_render_name_buffer[i] = c;
     }
-    DbgPrint(c"Leyline: Registering TopologyRender Subdevice\n".as_ptr());
     status = PcRegisterSubdevice(
         device_object,
         topo_render_name_buffer.as_ptr(),
         render_topo_port,
     );
     if status != STATUS_SUCCESS {
-        DbgPrint(c"Leyline: PcRegisterSubdevice(TopologyRender) Failed\n".as_ptr());
         return status;
     }
-    DbgPrint(c"Leyline: TopologyRender Subdevice Registered\n".as_ptr());
-
-    // --- Physical Connection: WaveRender (Pin 1) -> TopologyRender (Pin 0) ---
-    DbgPrint(c"Leyline: Physical Connection (WaveRender Pin 1 -> TopologyRender Pin 0)\n".as_ptr());
-    status = PcRegisterPhysicalConnection(
-        device_object,
-        render_port as *mut _,
-        1,
-        render_topo_port as *mut _,
-        0,
-    );
-    if status != STATUS_SUCCESS {
-        DbgPrint(
-            c"Leyline: ERROR - Physical Connection (Wave->Topo) FAILED: 0x%x\n".as_ptr(),
-            status,
-        );
-        return status;
-    }
-    DbgPrint(c"Leyline: Physical Connection (Wave->Topo) SUCCESS\n".as_ptr());
+    DbgPrint(c"Leyline: Topo Subdevice Registered\n".as_ptr());
 
     // --- Topology Capture Registration ---
-    DbgPrint(c"Leyline: Registering TopologyCapture Port\n".as_ptr());
+    DbgPrint(c"Leyline: Registering TopoC Port\n".as_ptr());
     let mut capture_topo_port: *mut u8 = null_mut();
     status = PcNewPort(&mut capture_topo_port, &CLSID_PortTopology);
     if status != STATUS_SUCCESS {
-        DbgPrint(c"Leyline: PcNewPort(TopologyCapture) FAILED\n".as_ptr());
         return status;
     }
-    DbgPrint(c"Leyline: PcNewPort(TopologyCapture) SUCCESS\n".as_ptr());
 
-    let capture_topo_miniport_com = MiniportTopologyCom::new(true); // true = Capture
+    let capture_topo_miniport_com = MiniportTopologyCom::new(true);
     let capture_topo_miniport_ptr = Box::into_raw(capture_topo_miniport_com) as *mut u8;
     (*dev_ext).capture_topo_miniport = capture_topo_miniport_ptr as *mut MiniportTopologyCom;
 
@@ -355,7 +303,6 @@ pub unsafe extern "C" fn StartDevice(
     let init_ptr = *vtable.add(3);
     let capture_topo_init_fn: PortInitFn = core::mem::transmute(init_ptr);
 
-    DbgPrint(c"Leyline: Calling TopologyCapture::Init\n".as_ptr());
     status = capture_topo_init_fn(
         capture_topo_port,
         device_object,
@@ -365,47 +312,54 @@ pub unsafe extern "C" fn StartDevice(
         null_mut(),
     );
     if status != STATUS_SUCCESS {
-        DbgPrint(c"Leyline: TopologyCapture::Init FAILED\n".as_ptr());
         return status;
     }
-    DbgPrint(c"Leyline: TopologyCapture::Init SUCCESS\n".as_ptr());
 
-    let mut topo_capture_name_buffer = [0u16; 16];
-    let topo_capture_name_str = "TopologyCapture";
+    let mut topo_capture_name_buffer = [0u16; 6];
+    let topo_capture_name_str = "TopoC";
     for (i, c) in topo_capture_name_str.encode_utf16().enumerate() {
         topo_capture_name_buffer[i] = c;
     }
-    DbgPrint(c"Leyline: Registering TopologyCapture Subdevice\n".as_ptr());
     status = PcRegisterSubdevice(
         device_object,
         topo_capture_name_buffer.as_ptr(),
         capture_topo_port,
     );
     if status != STATUS_SUCCESS {
-        DbgPrint(c"Leyline: PcRegisterSubdevice(TopologyCapture) Failed\n".as_ptr());
         return status;
     }
-    DbgPrint(c"Leyline: TopologyCapture Subdevice Registered\n".as_ptr());
+    DbgPrint(c"Leyline: TopoC Subdevice Registered\n".as_ptr());
 
-    // --- Physical Connection: TopologyCapture (Pin 1) -> WaveCapture (Pin 1) ---
-    DbgPrint(
-        c"Leyline: Physical Connection (TopologyCapture Pin 1 -> WaveCapture Pin 1)\n".as_ptr(),
+    // --- Physical Connections ---
+    DbgPrint(c"Leyline: Establishing Physical Connections\n".as_ptr());
+
+    // WaveRender -> TopologyRender
+    status = PcRegisterPhysicalConnection(
+        device_object,
+        render_port as *mut _,
+        1,
+        render_topo_port as *mut _,
+        0,
     );
+    if status != STATUS_SUCCESS {
+        DbgPrint(c"Leyline: PcRegisterPhysicalConnection(Wave->Topo) Failed\n".as_ptr());
+        return status;
+    }
+
+    // TopologyCapture -> WaveCapture
     status = PcRegisterPhysicalConnection(
         device_object,
         capture_topo_port as *mut _,
-        1, // Topo bridge pin
+        1,
         capture_port as *mut _,
-        1, // Wave bridge pin
+        1,
     );
     if status != STATUS_SUCCESS {
-        DbgPrint(
-            c"Leyline: ERROR - Physical Connection (Topo->Wave) FAILED: 0x%x\n".as_ptr(),
-            status,
-        );
+        DbgPrint(c"Leyline: PcRegisterPhysicalConnection(TopoC->WaveC) Failed\n".as_ptr());
         return status;
     }
-    DbgPrint(c"Leyline: Physical Connection (Topo->Wave) SUCCESS\n".as_ptr());
+
+    DbgPrint(c"Leyline: Physical Connections Established\n".as_ptr());
 
     // --- CDO Creation (Moved to end to prevent PnP interference) ---
     crate::FUNCTIONAL_DEVICE_OBJECT = device_object;
@@ -458,13 +412,13 @@ pub unsafe extern "C" fn StartDevice(
         DbgPrint(c"Leyline: ==================================================\n".as_ptr());
         DbgPrint(c"Leyline: StartDevice COMPLETED SUCCESSFULLY v0.1.0 (REBUILT)\n".as_ptr());
         DbgPrint(c"Leyline: Registered Subdevices:\n".as_ptr());
-        DbgPrint(c"Leyline:   - WaveRender (Output)\n".as_ptr());
-        DbgPrint(c"Leyline:   - WaveCapture (Input)\n".as_ptr());
-        DbgPrint(c"Leyline:   - TopologyRender\n".as_ptr());
-        DbgPrint(c"Leyline:   - TopologyCapture\n".as_ptr());
+        DbgPrint(c"Leyline:   - Wave (Output)\n".as_ptr());
+        DbgPrint(c"Leyline:   - WaveC (Input)\n".as_ptr());
+        DbgPrint(c"Leyline:   - Topo\n".as_ptr());
+        DbgPrint(c"Leyline:   - TopoC\n".as_ptr());
         DbgPrint(c"Leyline: Physical Connections:\n".as_ptr());
-        DbgPrint(c"Leyline:   - WaveRender -> TopologyRender\n".as_ptr());
-        DbgPrint(c"Leyline:   - TopologyCapture Pin 1 -> WaveCapture Pin 1\n".as_ptr());
+        DbgPrint(c"Leyline:   - Wave -> Topo\n".as_ptr());
+        DbgPrint(c"Leyline:   - TopoC -> WaveC\n".as_ptr());
         DbgPrint(c"Leyline: ==================================================\n".as_ptr());
     } else {
         DbgPrint(

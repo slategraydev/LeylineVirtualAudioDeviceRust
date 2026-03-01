@@ -5,8 +5,8 @@ param (
     [switch]$clean,          # Full clean build on HOST
     [switch]$fast,           # Skip reverting VM
     [switch]$Uninstall,      # Only perform uninstallation/scrub on VM
-    [string]$VMName = ($env:LEYLINE_VM_NAME -or "LeylineTestVM"),
-    [string]$SnapshotName = ($env:LEYLINE_VM_SNAPSHOT -or "LeylineSnapshot"),
+    [string]$VMName = $(if ($env:LEYLINE_VM_NAME) { $env:LEYLINE_VM_NAME } else { "TestVM" }),
+    [string]$SnapshotName = $(if ($env:LEYLINE_VM_SNAPSHOT) { $env:LEYLINE_VM_SNAPSHOT } else { "Leyline" }),
     [PSCredential]$Credential
 )
 
@@ -17,8 +17,8 @@ $BuildVersion = "0.1.0"
 
 # Fallback for VM Credentials if not provided
 if (-not $PSBoundParameters.ContainsKey('Credential')) {
-    $VMUser = ($env:LEYLINE_VM_USER -or "USER")
-    $VMPassword = ($env:LEYLINE_VM_PASS -or "REDACTED_VM_PASS")
+    $VMUser = $(if ($env:LEYLINE_VM_USER) { $env:LEYLINE_VM_USER } else { "USER" })
+    $VMPassword = $(if ($env:LEYLINE_VM_PASS) { $env:LEYLINE_VM_PASS } else { "rd" })
     $secPassword = ConvertTo-SecureString $VMPassword -AsPlainText -Force
     $Credential = New-Object System.Management.Automation.PSCredential ($VMUser, $secPassword)
 }
@@ -26,12 +26,13 @@ if (-not $PSBoundParameters.ContainsKey('Credential')) {
 # --- 0. CERTIFICATE GENERATION (Pre-Build Env) ---
 $pfxPath = "$ProjectRoot/leyline.pfx"
 $cerPath = "$ProjectRoot/leyline.cer"
-$CertPassword = ($env:LEYLINE_CERT_PASS -or "REDACTED_CERT_PASS")
+$CertPassword = $(if ($env:LEYLINE_CERT_PASS) { $env:LEYLINE_CERT_PASS } else { "leyline" })
 
 if (-not (Test-Path $pfxPath)) {
     Write-Host "[*] Generating Self-Signed Certificate..."
     $cert = New-SelfSignedCertificate -Subject "Leyline Audio" -Type CodeSigningCert -CertStoreLocation "Cert:\CurrentUser\My"
-    $cert | Export-PfxCertificate -FilePath $pfxPath -Password (ConvertTo-SecureString -String $CertPassword -Force -AsPlainText)
+    $secCertPass = ConvertTo-SecureString -String $CertPassword -Force -AsPlainText
+    $cert | Export-PfxCertificate -FilePath $pfxPath -Password $secCertPass
     $cert | Export-Certificate -FilePath $cerPath
 }
 
@@ -91,7 +92,7 @@ if (-not $Uninstall) {
 
     # Ensure certificate and devcon.exe are copied to the package folder so we can push it to the VM
     Copy-Item -Path $cerPath -Destination "$ProjectRoot/package/leyline.cer" -Force
-    
+
     $devconHostPath = "D:\eWDK_28000\Program Files\Windows Kits\10\Tools\10.0.28000.0\x64\devcon.exe"
     if (Test-Path $devconHostPath) {
         Copy-Item -Path $devconHostPath -Destination "$ProjectRoot/package/devcon.exe" -Force
@@ -140,52 +141,111 @@ try {
         Write-Host "    (VM) Upgrading Driver Stack..."
 
         # 1. Add to Driver Store and INSTALL to matching devices
-        pnputil /add-driver "leyline.inf" /install | Out-Null
+        $pnpOut = pnputil /add-driver "leyline.inf" /install
+        $pnpOut | ForEach-Object { Write-Host "    (VM) [PNPUTIL] $_" }
 
         # 2. Force an update on the specific ROOT node if it exists
         $devcon = "C:\eWDK_28000\Program Files\Windows Kits\10\Tools\$sdkVersion\x64\devcon.exe"
         if (Test-Path $devcon) {
-            & $devcon update "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
+            Write-Host "    (VM) Using devcon to update/install..."
+            try {
+                & $devcon update "leyline.inf" "ROOT\MEDIA\LeylineAudio"
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Host "    (VM) devcon update returned $LASTEXITCODE. Attempting devcon install..."
+                    & $devcon install "leyline.inf" "ROOT\MEDIA\LeylineAudio"
+                }
+            } catch {
+                Write-Host "    (VM) [WARNING] devcon command threw an exception: $_" -ForegroundColor Yellow
+            }
         }
         else {
-            Write-Host "    (VM) [WARNING] devcon.exe not found in remote package path at $devcon. Falling back to devgen..." -ForegroundColor Yellow
+            Write-Host "    (VM) [WARNING] devcon.exe not found at $devcon. Falling back to devgen..." -ForegroundColor Yellow
             devgen /add /bus ROOT /hardwareid "ROOT\MEDIA\LeylineAudio" | Out-Null
         }
 
-        Start-Sleep -Seconds 3
+        # Force AEB Rescan by poking the registry
+        Write-Host "    (VM) Poking AudioEndpointBuilder to trigger rescan..."
+        try {
+            # This is a known trick to poke the AEB - toggling the 'ForceRescan' if it exists or just restarting services
+            Restart-Service "AudioEndpointBuilder" -Force
+            Restart-Service "Audiosrv" -Force
+        } catch {
+            Write-Host "    (VM) [WARNING] Failed to restart audio services: $_" -ForegroundColor Yellow
+        }
+
+        Start-Sleep -Seconds 5
         $device = Get-PnpDevice | Where-Object { $_.HardwareId -match "ROOT\\MEDIA\\LeylineAudio" } | Select-Object -First 1
         if ($device) {
-            Write-Host "    (VM) UPGRADE SUCCESSFUL: $($device.InstanceId)" -ForegroundColor Green
-            Write-Host "    (VM) Status: $($device.Status)"
-            Restart-Service "AudioEndpointBuilder" -Force -ErrorAction SilentlyContinue
-            Restart-Service "Audiosrv" -Force -ErrorAction SilentlyContinue
+            Write-Host "    (VM) DEVICE STATUS: $($device.Status) ($($device.InstanceId))" -ForegroundColor Cyan
+            if ($device.Status -ne "OK") {
+                Write-Host "    (VM) [ERROR] Device is in error state. Checking for problems..." -ForegroundColor Red
+                $problem = Get-PnpDeviceProperty -InstanceId $device.InstanceId -KeyName "DEVPKEY_Device_ProblemCode" -ErrorAction SilentlyContinue
+                if ($problem) { Write-Host "    (VM) Problem Code: $($problem.Data)" }
+            }
         }
         else {
-            Write-Host "    (VM) No existing device found. Performing fresh install..."
-            if (Test-Path $devcon) {
-                & $devcon install "leyline.inf" "ROOT\MEDIA\LeylineAudio" | Out-Null
-            }
-            else {
-                # Fallback purely as safety
-                devgen /add /bus ROOT /hardwareid "ROOT\MEDIA\LeylineAudio" | Out-Null
-            }
+            Write-Host "    (VM) [ERROR] No device found after install attempt." -ForegroundColor Red
         }
 
         # Final check
         Write-Host "    (VM) Searching for Endpoints..."
-        $foundCount = 0
-        $endpoints = Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render" -ErrorAction SilentlyContinue
-        foreach ($e in $endpoints) {
-            $prop = Join-Path $e.Name "Properties"
-            if (Test-Path "Registry::$prop") {
-                $val = (Get-ItemProperty "Registry::$prop")."{a45c254e-df1c-4efd-8020-67d146a850e0},2"
-                if ($val -like "*Leyline*") {
-                    Write-Host "    (VM) Found Endpoint: $val" -ForegroundColor Green
-                    $foundCount++
+
+        # Diagnostic: Check Subdevices in Registry
+        Write-Host "    (VM) --- Registered Subdevices (Registry) ---"
+        $subdevPath = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceClasses\{6994ad04-93ef-11d0-a3cc-00a0c9223196}"
+        if (Test-Path $subdevPath) {
+            Get-ChildItem $subdevPath | ForEach-Object {
+                if ($_.Name -match "LeylineAudio") {
+                    Write-Host "    (VM) Found Interface: $($_.Name)" -ForegroundColor Cyan
+                    # Dump values for this interface
+                    $ref = Get-ChildItem $_.PSPath | Select-Object -First 1
+                    if ($ref) {
+                        Write-Host "    (VM)   -> Ref: $($ref.PSChildName)"
+                        $ep = Join-Path $ref.PSPath "#"
+                        if (Test-Path $ep) {
+                            $props = Get-ItemProperty $ep
+                            Write-Host "    (VM)   -> Base Registry Entry Found."
+                        }
+                    }
                 }
             }
         }
-        Write-Host "    (VM) Total Leyline Audio Endpoints: $foundCount"
+
+        $foundCount = 0
+
+        # Diagnostic: List ALL current render endpoints for comparison
+        Write-Host "    (VM) --- Current Render Endpoints ---"
+        $allRenders = Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render" -ErrorAction SilentlyContinue
+        foreach ($r in $allRenders) {
+            $prop = Join-Path $r.Name "Properties"
+            if (Test-Path "Registry::$prop") {
+                $p = Get-ItemProperty "Registry::$prop"
+                $name = $p."{a45c254e-df1c-4efd-8020-67d146a850e0},2"
+                $status = $p."{8303040f-d039-4e91-B90a-990280b35631},0" # PKEY_AudioEndpoint_ControlPanelPageProvider
+                if ($name) {
+                    $color = if ($name -like "*Leyline*") { "Green" } else { "Gray" }
+                    Write-Host "    (VM) Endpoint: $name" -ForegroundColor $color
+                    if ($name -like "*Leyline*") { $foundCount++ }
+                }
+            }
+        }
+
+        Write-Host "    (VM) --- Current Capture Endpoints ---"
+        $allCaptures = Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture" -ErrorAction SilentlyContinue
+        foreach ($c in $allCaptures) {
+            $prop = Join-Path $c.Name "Properties"
+            if (Test-Path "Registry::$prop") {
+                $p = Get-ItemProperty "Registry::$prop"
+                $name = $p."{a45c254e-df1c-4efd-8020-67d146a850e0},2"
+                if ($name) {
+                    $color = if ($name -like "*Leyline*") { "Green" } else { "Gray" }
+                    Write-Host "    (VM) Endpoint: $name" -ForegroundColor $color
+                    if ($name -like "*Leyline*") { $foundCount++ }
+                }
+            }
+        }
+
+        Write-Host "    (VM) Total Leyline Audio Endpoints Found: $foundCount"
     } -ArgumentList $remotePath, $sdkVersion
 }
 catch {
