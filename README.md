@@ -1,4 +1,4 @@
-# Leyline Audio Driver (Rust)
+# Leyline Virtual Audio Device (Rust)
 
 A high-performance, native Rust WaveRT virtual audio driver for Windows. This implementation leverages the `wdk-rs` framework to provide a memory-safe alternative to traditional C++ kernel development.
 
