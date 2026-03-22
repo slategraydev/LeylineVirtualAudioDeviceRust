@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Randall Rosas (Slategray).
 // All rights reserved.
 
+#![allow(clippy::missing_transmute_annotations)]
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // LEYLINE KERNEL CORE
 // The entry point and global orchestration for the ACX audio driver.
@@ -47,6 +49,11 @@ pub use audio as audio_bindings;
 
 #[global_allocator]
 static GLOBAL: WdkAllocator = WdkAllocator;
+
+/// Required by acxstub.lib to verify matching ACX framework version at runtime.
+/// We use ACX 1.1, so the minimum version required is minor version 1.
+#[unsafe(no_mangle)]
+pub static mut AcxMinimumVersionRequired: u32 = 1;
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // GLOBAL DRIVER STATE
@@ -121,7 +128,8 @@ pub unsafe extern "system" fn driver_entry(
     // 5. Initialize ACX Driver
     let status = unsafe { 
         let func: crate::audio_bindings::PFN_ACXDRIVERINITIALIZE = core::mem::transmute(
-            crate::audio_bindings::AcxFunctions[crate::audio_bindings::_ACXFUNCENUM_AcxDriverInitializeTableIndex as usize]
+            *(core::ptr::addr_of!(crate::audio_bindings::AcxFunctions) as *const _ as *const *const core::ffi::c_void)
+                .add(crate::audio_bindings::_ACXFUNCENUM_AcxDriverInitializeTableIndex as usize)
         );
         func.unwrap()(crate::audio_bindings::AcxDriverGlobals, driver_handle as _, &mut acx_config)
     };
@@ -131,7 +139,14 @@ pub unsafe extern "system" fn driver_entry(
         return status;
     }
 
-    DbgPrint(c"Leyline: ACX DriverEntry stub complete\n".as_ptr());
+    // 6. Create WDF Control Device Object for user-mode IOCTLs
+    let status = crate::dispatch::create_control_device(driver_handle);
+    if !NT_SUCCESS(status) {
+        DbgPrint(c"Leyline: CDO creation failed 0x%X (non-fatal)\n".as_ptr(), status);
+        // CDO failure is non-fatal — the audio path still works.
+    }
+
+    DbgPrint(c"Leyline: ACX DriverEntry complete\n".as_ptr());
     STATUS_SUCCESS
 }
 

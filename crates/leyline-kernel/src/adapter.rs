@@ -29,14 +29,15 @@ pub struct DeviceExtension {
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn evt_driver_device_add(
     _driver: WDFDRIVER,
-    device_init: *mut wdk_sys::WDFDEVICE_INIT,
+    mut device_init: *mut wdk_sys::WDFDEVICE_INIT,
 ) -> NTSTATUS {
     DbgPrint(c"Leyline [ACX]: EvtDriverDeviceAdd\n".as_ptr());
 
     // 1. Initialize the ACX part of the WDFDEVICE_INIT
     let status = unsafe {
         let func: crate::audio_bindings::PFN_ACXDEVICEINITINITIALIZE = core::mem::transmute(
-            crate::audio_bindings::AcxFunctions[crate::audio_bindings::_ACXFUNCENUM_AcxDeviceInitInitializeTableIndex as usize]
+            *(core::ptr::addr_of!(crate::audio_bindings::AcxFunctions) as *const _ as *const *const core::ffi::c_void)
+                .add(crate::audio_bindings::_ACXFUNCENUM_AcxDeviceInitInitializeTableIndex as usize)
         );
         let mut acx_device_init_config: crate::audio_bindings::ACX_DEVICEINIT_CONFIG = core::mem::zeroed();
         acx_device_init_config.Size = core::mem::size_of::<crate::audio_bindings::ACX_DEVICEINIT_CONFIG>() as u32;
@@ -71,7 +72,7 @@ pub unsafe extern "C" fn evt_driver_device_add(
     let status = unsafe { 
         wdk_sys::call_unsafe_wdf_function_binding!(
             WdfDeviceCreate,
-            &mut (device_init as *mut wdk_sys::WDFDEVICE_INIT),
+            &mut device_init,
             &mut device_attributes,
             &mut device_handle
         ) 
@@ -84,7 +85,8 @@ pub unsafe extern "C" fn evt_driver_device_add(
     // 4. Initialize the ACX device
     let status = unsafe {
         let func: crate::audio_bindings::PFN_ACXDEVICEINITIALIZE = core::mem::transmute(
-            crate::audio_bindings::AcxFunctions[crate::audio_bindings::_ACXFUNCENUM_AcxDeviceInitializeTableIndex as usize]
+            *(core::ptr::addr_of!(crate::audio_bindings::AcxFunctions) as *const _ as *const *const core::ffi::c_void)
+                .add(crate::audio_bindings::_ACXFUNCENUM_AcxDeviceInitializeTableIndex as usize)
         );
         let mut acx_device_config: crate::audio_bindings::ACX_DEVICE_CONFIG = core::mem::zeroed();
         acx_device_config.Size = core::mem::size_of::<crate::audio_bindings::ACX_DEVICE_CONFIG>() as u32;
@@ -114,6 +116,9 @@ pub unsafe extern "C" fn evt_driver_device_add(
 }
 
 /// EvtDevicePrepareHardware callback
+///
+/// # Safety
+/// Standard ACX callback, parameters managed by WDF.
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn evt_device_prepare_hardware(
     _device: WDFDEVICE,
@@ -125,6 +130,9 @@ pub unsafe extern "C" fn evt_device_prepare_hardware(
 }
 
 /// EvtDeviceReleaseHardware callback
+///
+/// # Safety
+/// Standard ACX callback, parameters managed by WDF.
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn evt_device_release_hardware(
     _device: WDFDEVICE,

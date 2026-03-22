@@ -7,7 +7,7 @@ use std::path::PathBuf;
 fn main() -> Result<(), wdk_build::ConfigError> {
     wdk_build::Config::from_env_auto()?.configure_binary_build()?;
 
-    println!("cargo:rustc-link-lib=Acx01000");
+    println!("cargo:rustc-link-lib=acxstub");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/audio_wrapper.h");
 
@@ -23,6 +23,7 @@ fn main() -> Result<(), wdk_build::ConfigError> {
     let wdk_root_path = PathBuf::from(wdk_root_trimmed);
 
     println!(r"cargo:rustc-link-search=native={wdk_root_trimmed}\Lib\{wdk_version_trimmed}\km\x64");
+    println!(r"cargo:rustc-link-search=native={wdk_root_trimmed}\Lib\{wdk_version_trimmed}\km\x64\acx\km\1.1");
 
     let inc_km = wdk_root_path
         .join("Include")
@@ -90,6 +91,7 @@ fn main() -> Result<(), wdk_build::ConfigError> {
         .allowlist_type(".*WDF.*")
         .allowlist_type(".*ACX.*")
         .allowlist_type(".*WAVEFORMAT.*")
+        .allowlist_type(".*KSDATA.*")
         .allowlist_var(".*WDF.*")
         .allowlist_var(".*ACX.*")
         .allowlist_var(".*Acx.*")

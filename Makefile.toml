@@ -2,47 +2,42 @@
 skip_core_tasks = true
 
 [tasks.build-kernel]
-description = "Build the Kernel driver (Rust)"
+description = "Build the ACX kernel driver (Rust)"
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
-    ".\\scripts\\LaunchBuildEnv.ps1",
-    "cd crates/leyline-kernel",
-    "cargo wdk build --profile release"
-]
-
-[tasks.build-apo]
-description = "Build the Audio Processing Object (C++)"
-script_runner = "powershell"
-script_extension = "ps1"
-script = [
-    ".\\scripts\\LaunchBuildEnv.ps1",
-    "cd src/APO",
-    "nmake /nologo"
-]
-
-[tasks.build-hsa]
-description = "Build the Hardware Support App (C#)"
-script_runner = "powershell"
-script_extension = "ps1"
-script = [
-    "dotnet build src/HSA/LeylineHSA.csproj -c Release"
+    ". .\\scripts\\LaunchBuildEnv.ps1",
+    "Push-Location crates/leyline-kernel",
+    "cargo wdk build --profile release",
+    "Pop-Location"
 ]
 
 [tasks.build]
-description = "Build all components (Kernel, APO, HSA) via Install script"
+description = "Build and stage the driver package (no VM deploy)"
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
-    ".\\scripts\\Install.ps1 -fast"
+    ".\\scripts\\Install.ps1 -BuildOnly"
 ]
 
-[tasks.build-all]
-description = "Build all components individually"
-dependencies = ["build-kernel", "build-apo", "build-hsa"]
+[tasks.build-clean]
+description = "Clean build artifacts then build"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\Install.ps1 -BuildOnly -clean"
+]
 
-[tasks.package]
-description = "Build and Package the driver"
+[tasks.deploy]
+description = "Build and deploy to TestVM (revert snapshot first)"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ".\\scripts\\Install.ps1"
+]
+
+[tasks.deploy-fast]
+description = "Build and deploy to TestVM (skip snapshot revert)"
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
@@ -50,7 +45,7 @@ script = [
 ]
 
 [tasks.install]
-description = "Full Build, Package, and Install (Requires Admin)"
+description = "Full Build, Package, and Deploy to TestVM (revert snapshot)"
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
@@ -58,7 +53,7 @@ script = [
 ]
 
 [tasks.uninstall]
-description = "Uninstall the driver and purge system (Requires Admin)"
+description = "Uninstall the driver from TestVM"
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
@@ -66,29 +61,38 @@ script = [
 ]
 
 [tasks.clean]
-description = "Full system purge and build artifact cleanup"
-dependencies = ["uninstall"]
+description = "Full clean: uninstall from VM and purge local build artifacts"
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
-    ".\\scripts\\Install.ps1 -clean"
+    ".\\scripts\\Uninstall.ps1",
+    ".\\scripts\\Install.ps1 -BuildOnly -clean"
 ]
 
 [tasks.reinstall]
-description = "Full uninstall followed by a fresh install"
-dependencies = ["clean", "install"]
+description = "Full uninstall followed by a fresh deploy"
+dependencies = ["uninstall", "deploy"]
 
 [tasks.test]
-description = "Run unit tests"
-cwd = "crates/leyline-kernel"
+description = "Run unit tests (shared crate only)"
+cwd = "crates/leyline-shared"
 command = "cargo"
 args = ["test"]
 
+[tasks.clippy]
+description = "Run clippy on the workspace"
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+    ". .\\scripts\\LaunchBuildEnv.ps1",
+    "cargo clippy --workspace --all-targets -- -D warnings"
+]
+
 [tasks.test-endpoints]
-description = "Test Audio Endpoints"
+description = "Test Audio Endpoints on TestVM"
 cwd = "test/EndpointTester"
 command = "dotnet"
 args = ["run"]
 
-[tasks.package-all]
-alias = "package"
+[tasks.package]
+alias = "build"
