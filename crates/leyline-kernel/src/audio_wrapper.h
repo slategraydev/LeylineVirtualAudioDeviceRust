@@ -11,8 +11,8 @@
 
 #include <stdarg.h>
 #include <ntddk.h>
-#include <portcls.h>
-#include <ksmedia.h>
+#include <wdf.h>
+#include <acx.h>
 
 #endif // AUDIO_WRAPPER_H
 

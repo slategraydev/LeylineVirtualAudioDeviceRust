@@ -36,7 +36,7 @@ pub const LEYLINE_INTERFACE_GUID: [u8; 16] = [
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // STANDARD WINDOWS AUDIO CATEGORIES
-// Constants used by PortCls to register device interfaces.
+// Constants used by ACX/KS to register device interfaces.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /// KSCATEGORY_AUDIO

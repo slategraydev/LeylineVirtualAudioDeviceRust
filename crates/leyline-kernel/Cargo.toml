@@ -5,7 +5,9 @@ edition = "2021"
 authors = ["Randall Rosas (Slategray)"]
 
 [package.metadata.wdk.driver-model]
-driver-type = "WDM"
+driver-type = "KMDF"
+kmdf-version-major = 1
+target-kmdf-version-minor = 33
 
 [lib]
 name = "leyline"

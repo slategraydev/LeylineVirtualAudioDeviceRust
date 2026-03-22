@@ -2,11 +2,9 @@
 // All rights reserved.
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// WAVERT STREAM
-// Implementation of audio streaming logic and position tracking.
+// ACX STREAM SUPPORT
+// Core audio streaming logic: ring buffer, position tracking, and timing.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#![allow(non_camel_case_types)]
 
 use alloc::boxed::Box;
 use core::mem::zeroed;
@@ -15,74 +13,10 @@ use core::ptr::null_mut;
 use wdk_sys::ntddk::*;
 use wdk_sys::*;
 
-use crate::adapter::DeviceExtension;
-
-use crate::audio_bindings as audio;
-
-// Re-export specific audio types.
-#[allow(non_camel_case_types)]
-pub type PCFILTER_DESCRIPTOR = audio::PCFILTER_DESCRIPTOR;
-#[allow(non_camel_case_types)]
-pub type PCPIN_DESCRIPTOR = audio::PCPIN_DESCRIPTOR;
-#[allow(non_camel_case_types)]
-pub type PCAUTOMATION_TABLE = audio::PCAUTOMATION_TABLE;
-#[allow(non_camel_case_types)]
-pub type WAVEFORMATEX = audio::WAVEFORMATEX;
-#[allow(non_camel_case_types)]
-pub type KSPIN_DESCRIPTOR = audio::KSPIN_DESCRIPTOR;
-#[allow(non_camel_case_types)]
-pub type KSDATAFORMAT = audio::KSDATAFORMAT;
-#[allow(non_camel_case_types)]
-pub type KSDATARANGE = audio::KSDATARANGE;
-#[allow(non_camel_case_types)]
-pub type PKSDATARANGE = audio::PKSDATARANGE;
-#[allow(non_camel_case_types)]
-pub type PCCONNECTION = audio::PCCONNECTION_DESCRIPTOR;
-#[allow(non_camel_case_types)]
-pub type PCNODE_DESCRIPTOR = audio::PCNODE_DESCRIPTOR;
-#[allow(non_camel_case_types)]
-pub type PCPROPERTY_ITEM = audio::PCPROPERTY_ITEM;
-#[allow(non_camel_case_types)]
-pub type PPCPROPERTY_REQUEST = audio::PPCPROPERTY_REQUEST;
-
-pub const KSSTATE_RUN: i32 = audio::KSSTATE_KSSTATE_RUN;
-pub const KSSTATE_STOP: i32 = audio::KSSTATE_KSSTATE_STOP;
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// WAVERT STRUCT DEFINITIONS
+// TIME SOURCE ABSTRACTION
+// Allows kernel and test environments to use different clock sources.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct KSDATAFORMAT_WAVEFORMATEX {
-    pub DataFormat: KSDATAFORMAT,
-    pub WaveFormatEx: WAVEFORMATEX,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct KSDATAFORMAT_WAVEFORMATEXTENSIBLE {
-    pub DataFormat: KSDATAFORMAT,
-    pub WaveFormatExt: audio::WAVEFORMATEXTENSIBLE,
-}
-
-#[repr(C)]
-#[allow(non_snake_case)]
-pub struct KSDATARANGE_AUDIO {
-    pub DataRange: KSDATARANGE,
-    pub MaximumChannels: ULONG,
-    pub MinimumBitsPerSample: ULONG,
-    pub MaximumBitsPerSample: ULONG,
-    pub MinimumSampleFrequency: ULONG,
-    pub MaximumSampleFrequency: ULONG,
-}
-
-unsafe impl Sync for KSDATARANGE_AUDIO {}
-unsafe impl Sync for PCPIN_DESCRIPTOR {}
-unsafe impl Sync for PCNODE_DESCRIPTOR {}
-unsafe impl Sync for PCFILTER_DESCRIPTOR {}
-unsafe impl Sync for PCAUTOMATION_TABLE {}
-unsafe impl Sync for PCPROPERTY_ITEM {}
 
 pub trait TimeSource {
     fn query_time(&self) -> i64;
@@ -107,75 +41,66 @@ impl TimeSource for KernelTimeSource {
     }
 }
 
-pub struct MiniportWaveRTStream {
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ACX STREAM STATE
+// Manages per-stream buffer and position state for ACX callbacks.
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+pub struct AcxStreamContext {
     buffer: leyline_shared::buffer::RingBuffer,
     state: i32,
-    _format: PVOID,
     mdl: PMDL,
     mapping: PVOID,
-    _is_capture: bool,
     start_time: i64,
     byte_rate: u32,
     frequency: i64,
     time_source: Box<dyn TimeSource>,
-    pub device_extension: *mut u8,
+    pub is_capture: bool,
     owns_mdl: bool,
 }
 
-impl MiniportWaveRTStream {
-    /// Create a new MiniportWaveRTStream instance.
+impl AcxStreamContext {
+    /// Create a new ACX stream context.
     ///
     /// # Safety
-    /// The provided format pointer must be valid for the duration of the stream's lifetime.
-    /// The device_extension pointer must be a valid pointer to a DeviceExtension struct.
+    /// The caller is responsible for ensuring valid parameters.
     pub unsafe fn new(
-        format: PVOID,
         is_capture: bool,
-        time_source: Box<dyn TimeSource>,
-        device_extension: *mut u8,
+        sample_rate: u32,
+        block_align: u16,
     ) -> Self {
-        let mut byte_rate: u32 = 48000 * 4;
+        let time_source = Box::new(KernelTimeSource) as Box<dyn TimeSource>;
         let frequency = time_source.query_frequency();
-        if !format.is_null() {
-            let wave_format = format as *const KSDATAFORMAT_WAVEFORMATEX;
-            byte_rate = (*wave_format).WaveFormatEx.nAvgBytesPerSec;
-        }
+        let byte_rate = sample_rate * block_align as u32;
+
         Self {
             buffer: leyline_shared::buffer::RingBuffer::new(null_mut(), 0),
-            state: KSSTATE_STOP,
-            _format: format,
+            state: 0, // Stopped
             mdl: null_mut(),
             mapping: null_mut(),
-            _is_capture: is_capture,
             start_time: 0,
             byte_rate,
             frequency,
             time_source,
-            device_extension,
+            is_capture,
             owns_mdl: false,
         }
     }
 
-    pub fn set_state(&mut self, state: i32) -> NTSTATUS {
+    /// Transition stream state. state=1 means Run, state=0 means Stop.
+    pub fn set_state(&mut self, state: i32) {
         self.state = state;
-        if state == KSSTATE_STOP {
+        if state == 0 {
             self.start_time = 0;
-        } else if state == KSSTATE_RUN {
+        } else if state == 1 {
             self.start_time = self.time_source.query_time();
         }
-        STATUS_SUCCESS
     }
 
-    /// Retrieve the current play/record position.
-    ///
-    /// # Safety
-    /// The provided position pointer must be a valid pointer to a u64.
-    pub unsafe fn get_position(&mut self, position: *mut u64) -> NTSTATUS {
-        if self.state != KSSTATE_RUN || self.start_time == 0 {
-            if !position.is_null() {
-                *position = 0;
-            }
-            return STATUS_SUCCESS;
+    /// Retrieve the current byte position in the ring buffer.
+    pub fn get_position(&self) -> u64 {
+        if self.state != 1 || self.start_time == 0 {
+            return 0;
         }
 
         let now = self.time_source.query_time();
@@ -186,21 +111,19 @@ impl MiniportWaveRTStream {
             self.frequency,
         );
 
-        if !position.is_null() {
-            if !self.buffer.get_base_address().is_null() {
-                *position = elapsed_bytes % (self.buffer.get_size() as u64);
-            } else {
-                *position = 0;
-            }
+        let buf_size = self.buffer.get_size() as u64;
+        if buf_size > 0 {
+            elapsed_bytes % buf_size
+        } else {
+            0
         }
-        STATUS_SUCCESS
     }
 
-    /// Allocate the audio buffer for WaveRT streaming.
+    /// Allocate an RT packet buffer (MDL-backed).
     ///
     /// # Safety
-    /// The provided out_mdl must be a valid pointer to a PMDL.
-    pub unsafe fn allocate_audio_buffer(&mut self, size: usize, out_mdl: *mut PMDL) -> NTSTATUS {
+    /// Kernel memory allocation. Caller must ensure proper cleanup.
+    pub unsafe fn allocate_buffer(&mut self, size: usize) -> NTSTATUS {
         if !self.mdl.is_null() {
             return STATUS_ALREADY_COMMITTED;
         }
@@ -220,29 +143,12 @@ impl MiniportWaveRTStream {
         );
 
         if mdl.is_null() {
-            // Fallback to device extension loopback if available.
-            if !self.device_extension.is_null() {
-                let device_extension = self.device_extension as *mut DeviceExtension;
-                if !(*device_extension).loopback_mdl.is_null() {
-                    self.mdl = (*device_extension).loopback_mdl;
-                    self.mapping = (*device_extension).loopback_buffer as PVOID;
-                    self.buffer = leyline_shared::buffer::RingBuffer::new(
-                        self.mapping as *mut u8,
-                        (*device_extension).loopback_size,
-                    );
-                    if !out_mdl.is_null() {
-                        *out_mdl = self.mdl;
-                    }
-                    self.owns_mdl = false;
-                    return STATUS_SUCCESS;
-                }
-            }
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
         self.mapping = MmMapLockedPagesSpecifyCache(
             mdl,
-            0, // KernelMode.
+            0, // KernelMode
             _MEMORY_CACHING_TYPE::MmCached,
             null_mut(),
             0,
@@ -257,34 +163,47 @@ impl MiniportWaveRTStream {
         self.mdl = mdl;
         self.buffer = leyline_shared::buffer::RingBuffer::new(self.mapping as *mut u8, size);
         self.owns_mdl = true;
-        if !out_mdl.is_null() {
-            *out_mdl = mdl;
-        }
 
         STATUS_SUCCESS
     }
 
-    /// Retrieve the hardware-specific latency.
+    /// Free the RT packet buffer.
     ///
     /// # Safety
-    /// The provided latency pointer must be a valid pointer to a u32.
-    pub unsafe fn get_hw_latency(&self, latency: *mut u32) {
-        if !latency.is_null() {
-            *latency = 0; // Software-only driver.
+    /// Must only be called if allocate_buffer succeeded.
+    pub unsafe fn free_buffer(&mut self) {
+        if self.owns_mdl && !self.mdl.is_null() {
+            if !self.mapping.is_null() {
+                MmUnmapLockedPages(self.mapping, self.mdl);
+            }
+            MmFreePagesFromMdl(self.mdl);
+            IoFreeMdl(self.mdl);
         }
+        self.mdl = null_mut();
+        self.mapping = null_mut();
+        self.owns_mdl = false;
+    }
+
+    /// Get the raw MDL pointer for sharing with the other stream.
+    pub fn get_mdl(&self) -> PMDL {
+        self.mdl
+    }
+
+    /// Get the raw buffer pointer.
+    pub fn get_buffer_ptr(&self) -> *mut u8 {
+        self.mapping as *mut u8
+    }
+
+    /// Get the buffer size.
+    pub fn get_buffer_size(&self) -> usize {
+        self.buffer.get_size()
     }
 }
 
-impl Drop for MiniportWaveRTStream {
+impl Drop for AcxStreamContext {
     fn drop(&mut self) {
         unsafe {
-            if self.owns_mdl && !self.mdl.is_null() {
-                if !self.mapping.is_null() {
-                    MmUnmapLockedPages(self.mapping, self.mdl);
-                }
-                MmFreePagesFromMdl(self.mdl);
-                IoFreeMdl(self.mdl);
-            }
+            self.free_buffer();
         }
     }
 }

@@ -6,7 +6,9 @@ members = [
 resolver = "3"
 
 [workspace.metadata.wdk.driver-model]
-driver-type = "WDM"
+driver-type = "KMDF"
+kmdf-version-major = 1
+target-kmdf-version-minor = 33
 
 [profile.release]
 panic = "abort"

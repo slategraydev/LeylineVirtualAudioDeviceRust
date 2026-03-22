@@ -3,7 +3,7 @@
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // LEYLINE KERNEL CORE
-// The entry point and global orchestration for the WaveRT audio driver.
+// The entry point and global orchestration for the ACX audio driver.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #![no_std]
@@ -12,12 +12,8 @@ extern crate alloc;
 
 pub mod adapter;
 pub mod constants;
-pub mod descriptors;
 pub mod dispatch;
 pub mod stream;
-pub mod topology;
-pub mod vtables;
-pub mod wavert;
 
 use core::ptr::null_mut;
 
@@ -26,9 +22,6 @@ use wdk_sys::ntddk::*;
 use wdk_sys::*;
 #[cfg(not(test))]
 extern crate wdk_panic;
-
-use crate::constants::*;
-use crate::dispatch::*;
 
 #[allow(clippy::all)]
 #[allow(non_camel_case_types)]
@@ -59,12 +52,6 @@ static GLOBAL: WdkAllocator = WdkAllocator;
 // Persistent objects managed across the driver lifecycle.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#[no_mangle]
-pub static mut CONTROL_DEVICE_OBJECT: *mut DEVICE_OBJECT = null_mut();
-
-#[no_mangle]
-pub static mut FUNCTIONAL_DEVICE_OBJECT: *mut DEVICE_OBJECT = null_mut();
-
 static mut ETW_REG_HANDLE: u64 = 0;
 
 /// ETW Provider GUID: {71549463-5E1E-4B7E-9F93-A65606E50D64}
@@ -76,57 +63,19 @@ const ETW_PROVIDER_GUID: GUID = GUID {
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// PORTCLS EXTERNAL DECLARATIONS
-// Symbols imported from the Windows Port Class library.
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#[link(name = "portcls")]
-extern "C" {
-    pub fn PcInitializeAdapterDriver(
-        DriverObject: PDRIVER_OBJECT,
-        RegistryPath: PUNICODE_STRING,
-        AddDevice: Option<unsafe extern "C" fn(PDRIVER_OBJECT, PDEVICE_OBJECT) -> NTSTATUS>,
-    ) -> NTSTATUS;
-
-    pub fn PcNewPort(OutPort: *mut *mut u8, ClassId: *const GUID) -> NTSTATUS;
-
-    pub fn PcRegisterSubdevice(
-        DeviceObject: PDEVICE_OBJECT,
-        Name: *const u16,
-        Unknown: *mut u8,
-    ) -> NTSTATUS;
-
-    pub fn PcAddAdapterDevice(
-        DriverObject: PDRIVER_OBJECT,
-        PhysicalDeviceObject: PDEVICE_OBJECT,
-        StartDevice: Option<unsafe extern "C" fn(PDEVICE_OBJECT, PIRP, PVOID) -> NTSTATUS>,
-        MaxObjects: u32,
-        DeviceExtensionSize: u32,
-    ) -> NTSTATUS;
-
-    pub fn PcRegisterPhysicalConnection(
-        DeviceObject: PDEVICE_OBJECT,
-        FromUnknown: PVOID,
-        FromPin: u32,
-        ToUnknown: PVOID,
-        ToPin: u32,
-    ) -> NTSTATUS;
-}
-
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // DRIVER ENTRY POINT
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-/// Initialize the driver and register with PortCls.
+/// Initialize the driver and register with KMDF and ACX.
 ///
 /// # Safety
 /// Standard kernel DriverEntry. Parameters must be OS-provided pointers.
 #[unsafe(export_name = "DriverEntry")]
 pub unsafe extern "system" fn driver_entry(
-    driver_object: &mut DRIVER_OBJECT,
+    driver_object: *mut DRIVER_OBJECT,
     registry_path: PCUNICODE_STRING,
 ) -> NTSTATUS {
-    DbgPrint(c"Leyline: DriverEntry v0.1.0 (REBUILT)\n".as_ptr());
+    DbgPrint(c"Leyline: ACX DriverEntry v0.2.0\n".as_ptr());
 
     // Register ETW Provider for diagnostics.
     let _ = EtwRegister(
@@ -136,212 +85,34 @@ pub unsafe extern "system" fn driver_entry(
         &raw mut ETW_REG_HANDLE,
     );
 
-    driver_object.DriverUnload = Some(driver_unload);
+    // ---------------------------------------------------------------
+    // KMDF + ACX Initialization Sequence
+    // ---------------------------------------------------------------
+    // TODO: The following calls require bindgen-generated types from
+    // wdf.h and acx.h. They are stubbed until build.rs successfully
+    // generates those bindings.
+    //
+    // 1. WDF_DRIVER_CONFIG_INIT(&driver_config, evt_driver_device_add)
+    // 2. WdfDriverCreate(driver_object, registry_path, attrs, &config, &driver)
+    // 3. ACX_DRIVER_CONFIG_INIT(&acx_config)
+    // 4. AcxDriverInitialize(driver, &acx_config)
 
-    let status = PcInitializeAdapterDriver(
-        driver_object as *mut DRIVER_OBJECT,
-        registry_path as *mut _,
-        Some(crate::adapter::AddDevice),
-    );
-    if status != STATUS_SUCCESS {
-        return status;
-    }
+    let _ = driver_object;
+    let _ = registry_path;
 
-    DbgPrint(c"Leyline: PcInitializeAdapterDriver Success\n".as_ptr());
-
-    // Hook CDO dispatchers to handle custom IOCTLs.
-    ORIGINAL_DISPATCH_CREATE = driver_object.MajorFunction[IRP_MJ_CREATE as usize];
-    driver_object.MajorFunction[IRP_MJ_CREATE as usize] = Some(dispatch_create);
-
-    ORIGINAL_DISPATCH_CLOSE = driver_object.MajorFunction[IRP_MJ_CLOSE as usize];
-    driver_object.MajorFunction[IRP_MJ_CLOSE as usize] = Some(dispatch_close);
-
-    ORIGINAL_DISPATCH_CONTROL = driver_object.MajorFunction[IRP_MJ_DEVICE_CONTROL as usize];
-    driver_object.MajorFunction[IRP_MJ_DEVICE_CONTROL as usize] = Some(dispatch_device_control);
-
-    status
+    DbgPrint(c"Leyline: ACX DriverEntry stub complete\n".as_ptr());
+    STATUS_SUCCESS
 }
 
-/// Clean up driver resources and unregister from the system.
+/// KMDF EvtDriverUnload callback.
 ///
 /// # Safety
-/// Standard kernel DriverUnload callback.
+/// Standard kernel DriverUnload callback. In KMDF, WDF handles most cleanup.
 pub unsafe extern "C" fn driver_unload(_driver_object: *mut DRIVER_OBJECT) {
     DbgPrint(c"Leyline: DriverUnload\n".as_ptr());
-
-    if !CONTROL_DEVICE_OBJECT.is_null() {
-        let mut link_name_str = [0u16; 25];
-        let link_prefix = r"\DosDevices\LeylineAudio";
-        for (i, c) in link_prefix.encode_utf16().enumerate() {
-            link_name_str[i] = c;
-        }
-        let mut link_name = UNICODE_STRING {
-            Length: (link_prefix.len() * 2) as u16,
-            MaximumLength: (link_name_str.len() * 2) as u16,
-            Buffer: link_name_str.as_mut_ptr(),
-        };
-        let _ = IoDeleteSymbolicLink(&mut link_name);
-        IoDeleteDevice(CONTROL_DEVICE_OBJECT);
-        CONTROL_DEVICE_OBJECT = null_mut();
-        DbgPrint(c"Leyline: CDO and Symbolic Link Cleaned Up\n".as_ptr());
-    }
 
     if ETW_REG_HANDLE != 0 {
         let _ = EtwUnregister(ETW_REG_HANDLE);
         ETW_REG_HANDLE = 0;
     }
-}
-
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// STREAM CALLBACKS
-// Specialized handlers for the WaveRT port driver.
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-/// Expose interfaces for the WaveRT stream object.
-///
-/// # Safety
-/// Standard COM-like QueryInterface. Parameters must be valid pointers.
-pub unsafe extern "system" fn stream_query_interface(
-    this: *mut u8,
-    iid: *const GUID,
-    out: *mut *mut u8,
-) -> NTSTATUS {
-    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
-    if is_equal_guid(iid, &IID_IMiniportWaveRTStream) || is_equal_guid(iid, &IID_IUnknown) {
-        (*com_obj).ref_count += 1;
-        *out = this;
-        return STATUS_SUCCESS;
-    }
-
-    *out = null_mut();
-    STATUS_NOINTERFACE
-}
-
-/// Increment reference count for the stream object.
-///
-/// # Safety
-/// Standard COM-like AddRef. Parameters must be valid pointers.
-pub unsafe extern "system" fn stream_add_ref(this: *mut u8) -> u32 {
-    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
-    (*com_obj).ref_count += 1;
-    (*com_obj).ref_count
-}
-
-/// Decrement reference count and free the stream object if zero.
-///
-/// # Safety
-/// Standard COM-like Release. Parameters must be valid pointers.
-pub unsafe extern "system" fn stream_release(this: *mut u8) -> u32 {
-    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
-    (*com_obj).ref_count -= 1;
-    let count = (*com_obj).ref_count;
-    if count == 0 {
-        // Drop the box to free kernel memory.
-        drop(alloc::boxed::Box::from_raw(com_obj));
-    }
-    count
-}
-
-/// Configure the audio format for the stream.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be OS-provided pointers.
-pub unsafe extern "system" fn stream_set_format(_this: *mut u8, _format: *mut u8) -> NTSTATUS {
-    STATUS_SUCCESS
-}
-
-/// Update the operational state of the stream.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be OS-provided pointers.
-pub unsafe extern "system" fn stream_set_state(this: *mut u8, state: i32) -> NTSTATUS {
-    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
-    (*(*com_obj).stream).set_state(state)
-}
-
-/// Retrieve the current play/record position.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be OS-provided pointers.
-pub unsafe extern "system" fn stream_get_position(this: *mut u8, position: *mut u64) -> NTSTATUS {
-    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
-    (*(*com_obj).stream).get_position(position)
-}
-
-/// Request a new audio buffer allocation.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be OS-provided pointers.
-pub unsafe extern "system" fn stream_allocate_audio_buffer(
-    this: *mut u8,
-    req_size: usize,
-    mdl: *mut *mut u8,
-    act_size: *mut usize,
-    off: *mut u32,
-    cache: *mut i32,
-) -> NTSTATUS {
-    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
-    let status = (*(*com_obj).stream).allocate_audio_buffer(req_size, mdl as *mut PMDL);
-    if status != STATUS_SUCCESS {
-        return status;
-    }
-
-    if !act_size.is_null() {
-        *act_size = req_size;
-    }
-    if !off.is_null() {
-        *off = 0;
-    }
-    if !cache.is_null() {
-        *cache = 1;
-    }
-
-    status
-}
-
-/// Release the previously allocated audio buffer.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be OS-provided pointers.
-pub unsafe extern "system" fn stream_free_audio_buffer(
-    _this: *mut u8,
-    _mdl: *mut u8,
-    _size: usize,
-) {
-}
-
-/// Retrieve hardware-specific latency values.
-///
-/// # Safety
-/// Standard PortCls callback. Parameters must be OS-provided pointers.
-pub unsafe extern "system" fn stream_get_hw_latency(this: *mut u8, latency: *mut u32) {
-    let com_obj = this as *mut crate::adapter::MiniportWaveRTStreamCom;
-    (*(*com_obj).stream).get_hw_latency(latency);
-}
-
-/// Register access for hardware position (unsupported).
-///
-/// # Safety
-/// Standard PortCls callback.
-pub unsafe extern "system" fn stream_get_position_register(
-    _this: *mut u8,
-    _reg: *mut u8,
-) -> NTSTATUS {
-    0xC00000BBu32 as i32
-}
-
-/// Register access for hardware clock (unsupported).
-///
-/// # Safety
-/// Standard PortCls callback.
-pub unsafe extern "system" fn stream_get_clock_register(_this: *mut u8, _reg: *mut u8) -> NTSTATUS {
-    0xC00000BBu32 as i32
-}
-
-/// Compare two GUIDs for bitwise equality.
-///
-/// # Safety
-/// Parameter 'a' must be a valid pointer to a GUID.
-pub unsafe fn is_equal_guid(a: *const GUID, b: &GUID) -> bool {
-    (*a).Data1 == b.Data1 && (*a).Data2 == b.Data2 && (*a).Data3 == b.Data3 && (*a).Data4 == b.Data4
 }
