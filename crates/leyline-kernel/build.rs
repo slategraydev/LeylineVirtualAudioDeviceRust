@@ -92,6 +92,7 @@ fn main() -> Result<(), wdk_build::ConfigError> {
         .allowlist_type(".*WAVEFORMAT.*")
         .allowlist_var(".*WDF.*")
         .allowlist_var(".*ACX.*")
+        .allowlist_var(".*Acx.*")
         .allowlist_function(".*Wdf.*")
         .allowlist_function(".*Acx.*")
         .generate()

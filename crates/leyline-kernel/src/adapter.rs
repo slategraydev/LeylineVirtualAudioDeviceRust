@@ -29,27 +29,108 @@ pub struct DeviceExtension {
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn evt_driver_device_add(
     _driver: WDFDRIVER,
-    _device_init: *mut WDFDEVICE_INIT,
+    device_init: *mut wdk_sys::WDFDEVICE_INIT,
 ) -> NTSTATUS {
     DbgPrint(c"Leyline [ACX]: EvtDriverDeviceAdd\n".as_ptr());
 
     // 1. Initialize the ACX part of the WDFDEVICE_INIT
-    // status = AcxDeviceInitInitialize(device_init);
-    
+    let status = unsafe {
+        let func: crate::audio_bindings::PFN_ACXDEVICEINITINITIALIZE = core::mem::transmute(
+            crate::audio_bindings::AcxFunctions[crate::audio_bindings::_ACXFUNCENUM_AcxDeviceInitInitializeTableIndex as usize]
+        );
+        let mut acx_device_init_config: crate::audio_bindings::ACX_DEVICEINIT_CONFIG = core::mem::zeroed();
+        acx_device_init_config.Size = core::mem::size_of::<crate::audio_bindings::ACX_DEVICEINIT_CONFIG>() as u32;
+
+        func.unwrap()(crate::audio_bindings::AcxDriverGlobals, device_init as *mut _, &mut acx_device_init_config)
+    };
+    if !NT_SUCCESS(status) {
+        DbgPrint(c"Leyline [ACX]: AcxDeviceInitInitialize failed %x\n".as_ptr(), status);
+        return status;
+    }
+
     // 2. Setup WDF_OBJECT_ATTRIBUTES for the FDO
-    // let mut device_attributes: WDF_OBJECT_ATTRIBUTES = core::mem::zeroed();
-    // WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&mut device_attributes, DeviceExtension);
+    let mut device_attributes: wdk_sys::WDF_OBJECT_ATTRIBUTES = unsafe { core::mem::zeroed() };
+    device_attributes.Size = core::mem::size_of::<wdk_sys::WDF_OBJECT_ATTRIBUTES>() as u32;
+
+    // 2.5 Setup PnP/Power callbacks
+    let mut pnp_power_callbacks: wdk_sys::WDF_PNPPOWER_EVENT_CALLBACKS = unsafe { core::mem::zeroed() };
+    pnp_power_callbacks.Size = core::mem::size_of::<wdk_sys::WDF_PNPPOWER_EVENT_CALLBACKS>() as u32;
+    pnp_power_callbacks.EvtDevicePrepareHardware = Some(evt_device_prepare_hardware);
+    pnp_power_callbacks.EvtDeviceReleaseHardware = Some(evt_device_release_hardware);
+
+    unsafe {
+        wdk_sys::call_unsafe_wdf_function_binding!(
+            WdfDeviceInitSetPnpPowerEventCallbacks,
+            device_init,
+            &mut pnp_power_callbacks
+        );
+    }
 
     // 3. Create the WDFDEVICE
-    // let mut device: WDFDEVICE = core::ptr::null_mut();
-    // let status = WdfDeviceCreate(&mut device_init, &mut device_attributes, &mut device);
+    let mut device_handle: wdk_sys::WDFDEVICE = core::ptr::null_mut();
+    let status = unsafe { 
+        wdk_sys::call_unsafe_wdf_function_binding!(
+            WdfDeviceCreate,
+            &mut (device_init as *mut wdk_sys::WDFDEVICE_INIT),
+            &mut device_attributes,
+            &mut device_handle
+        ) 
+    };
+    if !NT_SUCCESS(status) {
+        DbgPrint(c"Leyline [ACX]: WdfDeviceCreate failed %x\n".as_ptr(), status);
+        return status;
+    }
 
     // 4. Initialize the ACX device
-    // let status = AcxDeviceInitialize(device, &mut acx_device_init);
+    let status = unsafe {
+        let func: crate::audio_bindings::PFN_ACXDEVICEINITIALIZE = core::mem::transmute(
+            crate::audio_bindings::AcxFunctions[crate::audio_bindings::_ACXFUNCENUM_AcxDeviceInitializeTableIndex as usize]
+        );
+        let mut acx_device_config: crate::audio_bindings::ACX_DEVICE_CONFIG = core::mem::zeroed();
+        acx_device_config.Size = core::mem::size_of::<crate::audio_bindings::ACX_DEVICE_CONFIG>() as u32;
+
+        func.unwrap()(crate::audio_bindings::AcxDriverGlobals, device_handle as _, &mut acx_device_config)
+    };
+    if !NT_SUCCESS(status) {
+        DbgPrint(c"Leyline [ACX]: AcxDeviceInitialize failed %x\n".as_ptr(), status);
+        return status;
+    }
 
     // 5. Create AcxCircuit mappings 
-    // This replaces all of the old port topology linking you saw previously
+    let status = crate::circuit::create_render_circuit(device_handle);
+    if !NT_SUCCESS(status) {
+        DbgPrint(c"Leyline [ACX]: create_render_circuit failed %x\n".as_ptr(), status);
+        return status;
+    }
 
-    DbgPrint(c"Leyline [ACX]: Device added successfully\n".as_ptr());
-    STATUS_SUCCESS // Temporary stub
+    let status = crate::circuit::create_capture_circuit(device_handle);
+    if !NT_SUCCESS(status) {
+        DbgPrint(c"Leyline [ACX]: create_capture_circuit failed %x\n".as_ptr(), status);
+        return status;
+    }
+
+    DbgPrint(c"Leyline [ACX]: Device and circuits added successfully\n".as_ptr());
+    STATUS_SUCCESS
 }
+
+/// EvtDevicePrepareHardware callback
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn evt_device_prepare_hardware(
+    _device: WDFDEVICE,
+    _resources_raw: WDFCMRESLIST,
+    _resources_translated: WDFCMRESLIST,
+) -> NTSTATUS {
+    DbgPrint(c"Leyline [ACX]: EvtDevicePrepareHardware\n".as_ptr());
+    STATUS_SUCCESS
+}
+
+/// EvtDeviceReleaseHardware callback
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn evt_device_release_hardware(
+    _device: WDFDEVICE,
+    _resources_translated: WDFCMRESLIST,
+) -> NTSTATUS {
+    DbgPrint(c"Leyline [ACX]: EvtDeviceReleaseHardware\n".as_ptr());
+    STATUS_SUCCESS
+}
+

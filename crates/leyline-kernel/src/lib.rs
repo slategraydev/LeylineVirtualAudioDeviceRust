@@ -11,6 +11,7 @@
 extern crate alloc;
 
 pub mod adapter;
+pub mod circuit;
 pub mod constants;
 pub mod dispatch;
 pub mod stream;
@@ -85,20 +86,50 @@ pub unsafe extern "system" fn driver_entry(
         &raw mut ETW_REG_HANDLE,
     );
 
-    // ---------------------------------------------------------------
-    // KMDF + ACX Initialization Sequence
-    // ---------------------------------------------------------------
-    // TODO: The following calls require bindgen-generated types from
-    // wdf.h and acx.h. They are stubbed until build.rs successfully
-    // generates those bindings.
-    //
-    // 1. WDF_DRIVER_CONFIG_INIT(&driver_config, evt_driver_device_add)
-    // 2. WdfDriverCreate(driver_object, registry_path, attrs, &config, &driver)
-    // 3. ACX_DRIVER_CONFIG_INIT(&acx_config)
-    // 4. AcxDriverInitialize(driver, &acx_config)
+    // 1. Initialize WDF_DRIVER_CONFIG
+    let mut driver_config: wdk_sys::WDF_DRIVER_CONFIG = unsafe { core::mem::zeroed() };
+    driver_config.Size = core::mem::size_of::<wdk_sys::WDF_DRIVER_CONFIG>() as u32;
+    driver_config.EvtDriverDeviceAdd = Some(crate::adapter::evt_driver_device_add);
+    driver_config.EvtDriverUnload = Some(driver_unload);
 
-    let _ = driver_object;
-    let _ = registry_path;
+    // 2. Initialize WDF_OBJECT_ATTRIBUTES for the driver
+    let mut driver_attributes: wdk_sys::WDF_OBJECT_ATTRIBUTES = unsafe { core::mem::zeroed() };
+    driver_attributes.Size = core::mem::size_of::<wdk_sys::WDF_OBJECT_ATTRIBUTES>() as u32;
+
+    // 3. Create WDFDRIVER
+    let mut driver_handle: wdk_sys::WDFDRIVER = core::ptr::null_mut();
+    let status = unsafe { 
+        wdk_sys::call_unsafe_wdf_function_binding!(
+            WdfDriverCreate,
+            driver_object,
+            registry_path,
+            &mut driver_attributes,
+            &mut driver_config,
+            &mut driver_handle
+        ) 
+    };
+
+    if !NT_SUCCESS(status) {
+        DbgPrint(c"Leyline: WdfDriverCreate failed 0x%X\n".as_ptr(), status);
+        return status;
+    }
+
+    // 4. Initialize ACX_DRIVER_CONFIG
+    let mut acx_config: crate::audio_bindings::ACX_DRIVER_CONFIG = unsafe { core::mem::zeroed() };
+    acx_config.Size = core::mem::size_of::<crate::audio_bindings::ACX_DRIVER_CONFIG>() as u32;
+
+    // 5. Initialize ACX Driver
+    let status = unsafe { 
+        let func: crate::audio_bindings::PFN_ACXDRIVERINITIALIZE = core::mem::transmute(
+            crate::audio_bindings::AcxFunctions[crate::audio_bindings::_ACXFUNCENUM_AcxDriverInitializeTableIndex as usize]
+        );
+        func.unwrap()(crate::audio_bindings::AcxDriverGlobals, driver_handle as _, &mut acx_config)
+    };
+
+    if !NT_SUCCESS(status) {
+        DbgPrint(c"Leyline: AcxDriverInitialize failed 0x%X\n".as_ptr(), status);
+        return status;
+    }
 
     DbgPrint(c"Leyline: ACX DriverEntry stub complete\n".as_ptr());
     STATUS_SUCCESS
@@ -108,7 +139,7 @@ pub unsafe extern "system" fn driver_entry(
 ///
 /// # Safety
 /// Standard kernel DriverUnload callback. In KMDF, WDF handles most cleanup.
-pub unsafe extern "C" fn driver_unload(_driver_object: *mut DRIVER_OBJECT) {
+pub unsafe extern "C" fn driver_unload(_driver_object: wdk_sys::WDFDRIVER) {
     DbgPrint(c"Leyline: DriverUnload\n".as_ptr());
 
     if ETW_REG_HANDLE != 0 {
